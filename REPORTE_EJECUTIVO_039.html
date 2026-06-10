@@ -611,8 +611,9 @@ function renderTableRows(){
         <td class="mono" style="color:var(--gray)">${r.remision||'—'}</td>
         <td class="r">${r.ton_recibidas.toFixed(2)}</td>
         <td class="r">${r.area.toFixed(1)}</td>
-        ${fmtKm(r.kde)}</td>
-        <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.ka)}
+        <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.kde)}</td>
+        <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.ka)}</td>
+        <td style="font-size:11px;font-weight:600">${r.carril||'—'}</td>
         
         <td class="r" style="font-size:11px">${r.temp_produccion||'—'}°/${r.temp_tendido||'—'}°</td>
         <td><span class="badge ${G?'G':'P'}">${G?'▲ GANANCIA':'▼ PÉRDIDA'}</span></td>
@@ -723,7 +724,9 @@ window.exportPago=function(){
   const h=['FECHA','PLACAS','VIAJE#','№_VALE','№_REMISION','TON_RECIBIDAS','AREA_M2','KM_DESCARGA','KMS_RECORRIDOS','TEMP_PROD','TEMP_TEND','GP','OBSERVACIONES'];
   const rows=filtered.map(r=>{
     const q=s=>`"${String(s||'').replace(/"/g,'""')}"`;
-    return [r.fecha,r.placas,r.num_viaje_dia||'',q(r.vale||''),q(r.remision||''),r.ton_recibidas.toFixed(2),r.area.toFixed(2),fmtKm(r.ka||r.kde),getKmRecorridos(r),r.temp_produccion||'',r.temp_tendido||'',r.gp,q(r.observaciones||'')].join(',');
+   ${fmtKm(r.kde)}</td>
+        <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.ka)}</td>
+        <td style="font-size:11px;font-weight:600;color:var(--txt2)">${r.carril||'—'}
   });
   const tot=filtered.reduce((s,r)=>s+r.ton_recibidas,0);
   rows.push(['TOTAL','','','','',tot.toFixed(2),'','','','','','',''].join(','));
