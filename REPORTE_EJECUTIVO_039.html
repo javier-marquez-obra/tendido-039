@@ -716,14 +716,13 @@ function buildCharts(fechas,labels,acums,byDate){
     </svg>`;
   }
 }
-
 // ── EXPORTS ──
 window.exportPago=function(){
   const ruta=RUTAS[rutaActual];
-  const h=['FECHA','PLACAS','VIAJE#','№_VALE','№_REMISION','TON_RECIBIDAS','AREA_M2','KM_DESCARGA','KMS_RECORRIDOS','TEMP_PROD','TEMP_TEND','GP','OBSERVACIONES'];
+  const h=['FECHA','PLACAS','VIAJE#','№_VALE','№_REMISION','TON_RECIBIDAS','AREA_M2','KM_INICIAL','KMS_RECORRIDOS','TEMP_PROD','TEMP_TEND','GP','OBSERVACIONES'];
   const rows=filtered.map(r=>{
     const q=s=>`"${String(s||'').replace(/"/g,'""')}"`;
-   ${fmtKm(r.kde)}</td>
+   return [r.fecha,r.placas,r.num_viaje_dia||'',q(r.vale||''),q(r.remision||''),r.ton_recibidas.toFixed(2),r.area.toFixed(2),fmtKm(r.kde),fmtKm(r.ka),r.carril||'',r.temp_produccion||'',r.temp_tendido||'',r.gp,q(r.observaciones||'')].join(','); });    
         <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.ka)}</td>
         <td style="font-size:11px;font-weight:600;color:var(--txt2)">${r.carril||'—'}
   });
