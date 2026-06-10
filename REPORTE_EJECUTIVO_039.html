@@ -614,8 +614,7 @@ function renderTableRows(){
         <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.kde)}</td>
         <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.ka)}</td>
         <td style="font-size:11px;font-weight:600">${r.carril||'—'}</td>
-        
-        <td class="r" style="font-size:11px">${r.temp_produccion||'—'}°/${r.temp_tendido||'—'}°</td>
+                <td class="r" style="font-size:11px">${r.temp_produccion||'—'}°/${r.temp_tendido||'—'}°</td>
         <td><span class="badge ${G?'G':'P'}">${G?'▲ GANANCIA':'▼ PÉRDIDA'}</span></td>
         <td style="font-size:11px;color:var(--gray);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.observaciones||''}</td>
       </tr>`;
