@@ -719,7 +719,7 @@ function buildCharts(fechas,labels,acums,byDate){
 // ── EXPORTS ──
 window.exportPago=function(){
   const ruta=RUTAS[rutaActual];
-  const h=['FECHA','PLACAS','VIAJE#','№_VALE','№_REMISION','TON_RECIBIDAS','AREA_M2','KM_INICIAL','KMS_RECORRIDOS','TEMP_PROD','TEMP_TEND','GP','OBSERVACIONES'];
+  const h=['FECHA','PLACAS','VIAJE#','№_VALE','№_REMISION','TON_RECIBIDAS','AREA_M2','KM_INICIAL','KM_FINAL','TEMP_PROD','TEMP_TEND','GP','OBSERVACIONES'];
   const rows=filtered.map(r=>{
     const q=s=>`"${String(s||'').replace(/"/g,'""')}"`;
    return [r.fecha,r.placas,r.num_viaje_dia||'',q(r.vale||''),q(r.remision||''),r.ton_recibidas.toFixed(2),r.area.toFixed(2),fmtKm(r.kde),fmtKm(r.ka),r.carril||'',r.temp_produccion||'',r.temp_tendido||'',r.gp,q(r.observaciones||'')].join(','); });    
