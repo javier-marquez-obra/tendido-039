@@ -589,7 +589,7 @@ function render(){
 }
 
 function renderTableRows(){
-  if(!filtered.length) return `<tr><td colspan="12" style="text-align:center;padding:40px;color:var(--gray)">Sin datos para los filtros seleccionados</td></tr>`;
+  if(!filtered.length) return `<tr><td colspan="13" style="text-align:center;padding:40px;color:var(--gray)">Sin datos para los filtros seleccionados</td></tr>`;
   const bd={};
   filtered.forEach(r=>{if(!bd[r.fecha])bd[r.fecha]=[];bd[r.fecha].push(r);});
   let html='', totTon=0, totArea=0;
