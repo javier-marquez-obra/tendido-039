@@ -567,7 +567,7 @@ function render(){
           <th>FECHA</th><th>PLACAS</th><th class="r">#</th>
           <th>VALE</th><th>REMISIÓN</th>
           <th class="r">TON</th><th class="r">ÁREA m²</th>
-          <th class="r">KM DESC.</th><th class="r admin-only">KM RECOR.</th>
+         <th class="r">KM INICIAL</th><th class="r">KM FINAL</th><th>CARRIL</th>
           <th class="r">°PROD/°TEND</th><th>G/P</th>
           <th>OBSERVACIONES</th>
         </tr></thead>
@@ -601,7 +601,7 @@ function renderTableRows(){
     html+=`<tr style="background:var(--blue4)"><td colspan="12" style="padding:6px 14px;font-size:11px;font-weight:700;color:var(--blue)">📅 ${lb} · ${rs.length} viajes · ${dT.toFixed(1)} ton</td></tr>`;
     rs.forEach(r=>{
       const G=r.gp==='GANANCIA';
-      const kmRec=getKmRecorridos(r);
+      
       totTon+=r.ton_recibidas; totArea+=r.area;
       html+=`<tr>
         <td class="mono" style="white-space:nowrap">${r.fecha}</td>
@@ -611,8 +611,9 @@ function renderTableRows(){
         <td class="mono" style="color:var(--gray)">${r.remision||'—'}</td>
         <td class="r">${r.ton_recibidas.toFixed(2)}</td>
         <td class="r">${r.area.toFixed(1)}</td>
-        <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.ka||r.kde)}</td>
-        <td class="r admin-only" style="color:var(--blue2)">${kmRec} km</td>
+        ${fmtKm(r.kde)}</td>
+        <td class="r" style="color:var(--blue);font-weight:600">${fmtKm(r.ka)}
+        
         <td class="r" style="font-size:11px">${r.temp_produccion||'—'}°/${r.temp_tendido||'—'}°</td>
         <td><span class="badge ${G?'G':'P'}">${G?'▲ GANANCIA':'▼ PÉRDIDA'}</span></td>
         <td style="font-size:11px;color:var(--gray);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.observaciones||''}</td>
