@@ -445,7 +445,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA9fVBF7SvhFh60SwmTY2LOIe32eaKxO1s",
@@ -462,8 +462,21 @@ const DEN        = 2.20;
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
 
+// Service worker: permite abrir la app sin internet
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+window.addEventListener('online',  ()=>toast('📶 Señal recuperada · sincronizando viajes pendientes...'));
+window.addEventListener('offline', ()=>toast('📴 Sin señal · la app sigue funcionando, todo se guarda en el dispositivo','err'));
+
 const fbApp = initializeApp(firebaseConfig);
-const db    = getFirestore(fbApp);
+// Persistencia offline: viajes y fotos se guardan en el dispositivo y se sincronizan solos al volver la señal
+let db;
+try {
+  db = initializeFirestore(fbApp, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) });
+} catch(e) {
+  db = initializeFirestore(fbApp, {});
+}
 const COL   = 'viajes';
 
 let records  = [];
@@ -547,7 +560,8 @@ async function renumerarDia(fecha, cambios) {
     .sort((a, b) => a.ts - b.ts);
   for (let i = 0; i < lista.length; i++) {
     if (lista[i].num !== i + 1) {
-      await updateDoc(doc(db, COL, lista[i]._id), { num_viaje_dia: i + 1 });
+      const p = updateDoc(doc(db, COL, lista[i]._id), { num_viaje_dia: i + 1 });
+      if (navigator.onLine) await p; else p.catch(()=>{});
     }
   }
 }
@@ -836,8 +850,14 @@ window.guardar = async function() {
   btn.disabled=true; btn.textContent='⟳ GUARDANDO...';
   setSyncState('loading');
   try {
-    await addDoc(collection(db,COL),rec);
-    resetForm(); toast('✓ Viaje #'+rec.num_viaje_dia+' guardado');
+    const p = addDoc(collection(db,COL),rec);
+    if (navigator.onLine) {
+      await p;
+      resetForm(); toast('✓ Viaje #'+rec.num_viaje_dia+' guardado');
+    } else {
+      p.catch(()=>{});
+      resetForm(); toast('📴 Viaje #'+rec.num_viaje_dia+' guardado EN EL DISPOSITIVO · se subirá al recuperar señal');
+    }
   } catch(e) { toast('Error: '+e.message,'err'); setSyncState('err'); }
   btn.disabled=false; btn.textContent='✓ GUARDAR EN OBRA';
 };
@@ -975,7 +995,7 @@ window.saveEdit=async function() {
   const er=ton/(area*DEN);                    // espesor real en metros
   const mf=((et/100) - er) * area;            // (teórico - real) × área = m³ a favor
   try {
-    await updateDoc(doc(db,COL,editId),{
+    const _pUpd = updateDoc(doc(db,COL,editId),{
       fecha:document.getElementById('e_f').value,
       placas:normPlacas(document.getElementById('e_p').value),
       ton_recibidas:ton, kde,ka,longitud:lng,ancho:aw,esp_teorico:et,
@@ -994,12 +1014,13 @@ window.saveEdit=async function() {
       ton_reales:+(vol*DEN).toFixed(4), esp_real:+er.toFixed(6),
       gp:mf>=0?'GANANCIA':'PERDIDA', m3_fav:+mf.toFixed(6)
     });
+    if (navigator.onLine) await _pUpd; else _pUpd.catch(()=>{});
     if (fechaNueva !== fechaAnterior) {
       toast('⟳ Recalculando números de viaje...');
       await renumerarDia(fechaNueva, { [editId]: fechaNueva });
       await renumerarDia(fechaAnterior, { [editId]: fechaNueva });
     }
-    closeEdit(); toast('✓ Viaje actualizado');
+    closeEdit(); toast(navigator.onLine ? '✓ Viaje actualizado' : '📴 Cambio guardado en el dispositivo · se subirá al recuperar señal');
   } catch(e) { toast('Error: '+e.message,'err'); }
 };
 window.delRec=async function() {
@@ -1007,7 +1028,8 @@ window.delRec=async function() {
   try {
     const rDel = records.find(x => x._id === editId);
     const fechaDel = rDel ? rDel.fecha : null;
-    await deleteDoc(doc(db,COL,editId));
+    const _pDel = deleteDoc(doc(db,COL,editId));
+    if (navigator.onLine) await _pDel; else _pDel.catch(()=>{});
     if (fechaDel) await renumerarDia(fechaDel, { [editId]: '__eliminado__' });
     closeEdit(); toast('🗑 Eliminado');
   } catch(e) { toast('Error: '+e.message,'err'); }
