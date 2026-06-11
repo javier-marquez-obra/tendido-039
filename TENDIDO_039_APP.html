@@ -301,8 +301,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="fc">
       <h3>📏 Cadenamiento y geometría</h3>
       <div class="fg">
-        <div class="field"><label>De KM</label><input type="number" id="f_kde" placeholder="46200" inputmode="numeric" oninput="calc()"></div>
-        <div class="field"><label>A KM</label><input type="number" id="f_ka" placeholder="46350" inputmode="numeric" oninput="calc()"></div>
+        <div class="field"><label>De KM (cadenamiento)</label><input type="text" id="f_kde" placeholder="46+200.00" autocomplete="off" oninput="calc()"></div>
+        <div class="field"><label>A KM (cadenamiento)</label><input type="text" id="f_ka" placeholder="46+350.00" autocomplete="off" oninput="calc()"></div>
         <div class="field"><label>Ancho (m)</label><input type="number" id="f_aw" placeholder="3.34" step="0.01" inputmode="decimal" oninput="calc()"></div>
         <div class="field"><label>Espesor teórico (cm)</label><input type="number" id="f_et" placeholder="3.5" step="0.1" inputmode="decimal" oninput="calc()"></div>
         <div class="field ff"><label>Carril</label>
@@ -572,7 +572,8 @@ function updateCounter() {
   const nb = document.getElementById('viajeNum');
   const hb = document.getElementById('viajeHoy');
   if (nb) nb.textContent = '#'+(hr.length+1);
-  if (hb) hb.textContent = hr.length+' vj · '+ton.toFixed(1)+' ton';
+  const mlHoy = hr.reduce((s,r) => s+(+r.longitud||0), 0);
+  if (hb) hb.textContent = hr.length+' vj · '+ton.toFixed(1)+' ton · '+mlHoy.toFixed(2)+' m';
 }
 
 // ═══ EMULSIÓN ═══
@@ -624,8 +625,8 @@ window.calcEmulsion = function() {
 
 // ═══ CALC ═══
 window.calc = function() {
-  const de=parseFloat(document.getElementById('f_kde').value);
-  const ka=parseFloat(document.getElementById('f_ka').value);
+  const de=parseCad(document.getElementById('f_kde').value);
+  const ka=parseCad(document.getElementById('f_ka').value);
   const aw=parseFloat(document.getElementById('f_aw').value);
   const et=parseFloat(document.getElementById('f_et').value)/100;
   const tn=parseFloat(document.getElementById('f_ton').value);
@@ -794,6 +795,26 @@ window.usarOCR=function(campo,valor){
 };
 
 // ═══ FECHA LOCAL (corrige bug de zona horaria: toISOString usa UTC y después de las 6PM marcaba el día siguiente) ═══
+// ═══ CADENAMIENTOS ═══
+// Acepta formato de ingeniería "46+853.22" o metros corridos "46853.22" → devuelve metros
+function parseCad(v){
+  v=(v||'').trim().replace(/\s/g,'').replace(',','.');
+  if(!v) return NaN;
+  if(v.includes('+')){
+    const p=v.split('+');
+    const km=parseFloat(p[0]), m=parseFloat(p[1]);
+    if(isNaN(km)||isNaN(m)||m>=1000) return NaN;
+    return km*1000+m;
+  }
+  return parseFloat(v);
+}
+// Formatea metros → "46+853.22"
+function fmtCad(n){
+  n=+n; if(isNaN(n)) return '—';
+  const km=Math.floor(n/1000), m=n-km*1000;
+  return km+'+'+m.toFixed(2).padStart(6,'0');
+}
+
 // Normaliza placas: mayúsculas, sin guiones ni espacios (KH-4666-A → KH4666A)
 function normPlacas(v){ return (v||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
 function actualizarPlacasList(){
@@ -810,13 +831,14 @@ function hoyLocal(){
 window.guardar = async function() {
   const placas=normPlacas(document.getElementById('f_placas').value);
   const ton=parseFloat(document.getElementById('f_ton').value);
-  const kde=parseFloat(document.getElementById('f_kde').value);
-  const ka=parseFloat(document.getElementById('f_ka').value);
+  const kde=parseCad(document.getElementById('f_kde').value);
+  const ka=parseCad(document.getElementById('f_ka').value);
   const aw=parseFloat(document.getElementById('f_aw').value);
   const etcm=parseFloat(document.getElementById('f_et').value);
   const fecha=document.getElementById('f_fecha').value;
   if (!placas||!ton||!kde||!ka||!aw||!etcm||!fecha) { toast('Completa todos los campos obligatorios','err'); return; }
-  if (ka<=kde) { toast('ERROR: KM final ('+ka+') debe ser MAYOR que KM inicial ('+kde+'). Revisa los cadenamientos.','err'); return; }
+  if (isNaN(kde)||isNaN(ka)) { toast('Cadenamiento no válido. Usa formato 46+853.22 o metros corridos 46853.22','err'); return; }
+  if (ka<=kde) { toast('ERROR: KM final ('+fmtCad(ka)+') debe ser MAYOR que KM inicial ('+fmtCad(kde)+'). Revisa los cadenamientos.','err'); return; }
   if ((ka-kde)>2000) { if(!confirm('El tramo mide '+(ka-kde).toFixed(0)+' m (más de 2 km en un viaje). ¿Es correcto?')) return; }
   if (ton<5||ton>45) { if(!confirm('Toneladas capturadas: '+ton+'. Está fuera del rango normal (5-45 ton). ¿Es correcto?')) return; }
   const lng=ka-kde, area=lng*aw, et=etcm/100, vol=area*et, tr=vol*DEN;
@@ -885,8 +907,8 @@ window.openEdit=function(id) {
       <div class="field"><label>Ton recibidas</label><input type="number" id="e_t" value="${r.ton_recibidas}" step="0.01" inputmode="decimal"></div>
       <div class="field"><label>№ Vale</label><input type="text" id="e_v" value="${r.vale||''}"></div>
       <div class="field"><label>№ Remisión</label><input type="text" id="e_r" value="${r.remision||''}"></div>
-      <div class="field"><label>De KM</label><input type="number" id="e_de" value="${r.kde}" inputmode="numeric"></div>
-      <div class="field"><label>A KM</label><input type="number" id="e_ka" value="${r.ka}" inputmode="numeric"></div>
+      <div class="field"><label>De KM (cadenamiento)</label><input type="text" id="e_de" value="${fmtCad(r.kde)}" autocomplete="off"></div>
+      <div class="field"><label>A KM (cadenamiento)</label><input type="text" id="e_ka" value="${fmtCad(r.ka)}" autocomplete="off"></div>
       <div class="field"><label>Ancho (m)</label><input type="number" id="e_aw" value="${r.ancho}" step="0.01" inputmode="decimal"></div>
       <div class="field"><label>Esp. teórico (cm)</label><input type="number" id="e_et" value="${r.esp_teorico}" step="0.1" inputmode="decimal"></div>
       <div class="field"><label>Temp prod °C</label><input type="number" id="e_tp" value="${r.temp_produccion||''}"></div>
@@ -987,8 +1009,8 @@ window.saveEdit=async function() {
   const fechaAnterior = r.fecha;
   const fechaNueva = document.getElementById('e_f').value;
   const ton=parseFloat(document.getElementById('e_t').value);
-  const kde=parseFloat(document.getElementById('e_de').value);
-  const ka=parseFloat(document.getElementById('e_ka').value);
+  const kde=parseCad(document.getElementById('e_de').value);
+  const ka=parseCad(document.getElementById('e_ka').value);
   const aw=parseFloat(document.getElementById('e_aw').value);
   const et=parseFloat(document.getElementById('e_et').value);
   const lng=ka-kde, area=lng*aw, vol=area*(et/100);
@@ -1057,11 +1079,16 @@ function renderList() {
   const bd={};
   records.forEach(r=>{ if(!bd[r.fecha]) bd[r.fecha]=[]; bd[r.fecha].push(r); });
   let html='';
+  // Acumulado de metros lineales hasta cada fecha (incluida)
+  const fechasAsc=Object.keys(bd).sort((a,b)=>a.localeCompare(b));
+  const acumPorFecha={}; let acum=0;
+  fechasAsc.forEach(f=>{ acum+=bd[f].reduce((s,r)=>s+(+r.longitud||0),0); acumPorFecha[f]=acum; });
   Object.keys(bd).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
     const rs=bd[date], tt=rs.reduce((s,r)=>s+r.ton_recibidas,0);
+    const ml=rs.reduce((s,r)=>s+(+r.longitud||0),0);
     const d=new Date(date+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
-    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj</div></div>`;
+    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj · ${ml.toFixed(2)} m<br><span style="font-size:10px;color:var(--muted)">ACUM. OBRA: ${acumPorFecha[date].toFixed(2)} m</span></div></div>`;
     rs.forEach(r=>{
       const G=r.gp==='GANANCIA', ce=session.rol==='admin';
       html+=`<div class="rc${ce?'':' no-edit'}" onclick="${ce?`openEdit('${r._id}')`:''}" >
@@ -1086,7 +1113,7 @@ function renderList() {
           ${r.temp_tendido?`<span style="font-family:var(--mono);font-size:11px;background:#0d1a14;border:1px solid #1a3328;color:var(--green);padding:2px 7px;border-radius:4px">🌡️T ${r.temp_tendido}°C</span>`:''}
           ${r.temp_produccion&&r.temp_tendido&&(r.temp_produccion-r.temp_tendido)>30?`<span style="font-family:var(--mono);font-size:11px;background:#1a0d0d;border:1px solid #3a1a1a;color:var(--red);padding:2px 7px;border-radius:4px">⚠️Δ${r.temp_produccion-r.temp_tendido}°C</span>`:''}
         </div>`:''}
-        <div class="rk">km ${r.kde}→${r.ka} · ${r.longitud}m<span class="cp">${r.carril}</span></div>
+        <div class="rk">km ${fmtCad(r.kde)} → ${fmtCad(r.ka)} · ${(+r.longitud).toFixed(2)} m<span class="cp">${r.carril}</span></div>
         ${r.observaciones?`<div class="obs-tag">📝 ${r.observaciones.substring(0,60)}${r.observaciones.length>60?'...':''}</div>`:''}
         ${r.emulsion_lts?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
           <span style="font-family:var(--mono);font-size:11px;background:#1a0a2e;border:1px solid #3a1a5a;color:var(--purple);padding:2px 8px;border-radius:4px">🛢️ ${r.emulsion_lts} lts ECR-65 · ${r.emulsion_tipo==='impregnacion'?'Impreg.':'Liga'} · ${r.emulsion_temp||70}°C</span>
