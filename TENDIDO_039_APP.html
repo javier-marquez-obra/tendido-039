@@ -216,7 +216,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div><label>Tu nombre</label><input type="text" id="ln" placeholder="Ing. Javier / Operador" autocomplete="off"></div>
     <div><label>Contraseña / Código</label><input type="password" id="lp" placeholder="••••••••" autocomplete="off"></div>
     <button class="btn-enter" onclick="doLogin()">ENTRAR</button>
-    <div class="l-hint">Admin: contraseña personal<br>Operadores: código <b>OBRA039</b></div>
+    <div class="l-hint">Ingresa tu nombre y contraseña de acceso</div>
   </div>
 </div>
 
@@ -471,8 +471,14 @@ const firebaseConfig = {
   appId: "1:251497365328:web:8167a07a5c2557d6ca3655"
 };
 
-const ADMIN_PASS = 'Admin039';
-const OP_CODE    = 'OBRA039';
+// ═══ AUTENTICACIÓN SEGURA ═══
+// Contraseñas validadas por hash SHA-256. El código fuente NO expone las contraseñas.
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+const HASH_ADMIN = '3c175c4523ae887601d750af6eeabd14b249ff3d92679573e86c289edd98846b';
+const HASH_OP    = 'ad06fd7cfccf28a9e03af9174db612c324b26685d645badcdc57380921c1c271';
 const DEN        = 2.20;
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
@@ -538,8 +544,10 @@ window.doLogin = async function() {
   const nombre = document.getElementById('ln').value.trim();
   const pass   = document.getElementById('lp').value.trim();
   if (!nombre) { toast('Escribe tu nombre','err'); return; }
-  if (pass !== ADMIN_PASS && pass !== OP_CODE) { toast('Contraseña incorrecta','err'); return; }
-  const isAdmin = pass === ADMIN_PASS;
+  const hashPass = await sha256(pass);
+  const isAdmin = hashPass === HASH_ADMIN;
+  const isOp    = hashPass === HASH_OP;
+  if (!isAdmin && !isOp) { toast('Contraseña incorrecta','err'); return; }
   session = { nombre, rol: isAdmin ? 'admin' : 'operador' };
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('appShell').style.display    = 'flex';
