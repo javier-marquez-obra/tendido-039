@@ -332,7 +332,7 @@ const RUTAS = {
 };
 
 const DEN=2.20, CONTRATO='2026-14-CB-D-039-W-00-2026', EMPRESA='Grupo Urbanizador Inmobiliario Yenter S.A. de C.V. y Sístole Consultoría y Obras S.A. de C.V.';
-let allRecs=[], filtered=[], charts={}, rutaActual=1, filtros={obra:'all',fecha:'all'};
+let allRecs=[], filtered=[], records=[], charts={}, rutaActual=1, filtros={obra:'all',fecha:'all'};
 
 // Secciones visibles — todas activadas por defecto
 let secciones={
@@ -358,7 +358,7 @@ const _t=setTimeout(()=>{
 onSnapshot(query(collection(db,'viajes'),orderBy('ts','desc')), snap=>{
   clearTimeout(_t);
   allRecs=snap.docs.map(d=>({_id:d.id,...d.data()}));
-  localStorage.setItem('rep039',JSON.stringify(allRecs));
+  try { localStorage.setItem('rep039',JSON.stringify(allRecs.map(r=>({...r,fotos:undefined})))); } catch(e) { console.warn('localStorage lleno'); }
   setSyncOk();
   buildFechaFilter();
   applyFilters();
