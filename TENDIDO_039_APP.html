@@ -268,6 +268,25 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div class="field"><label>PG</label>
           <select id="f_pg"><option>PG 64-22</option><option>PG 70-22</option></select>
         </div>
+        <div class="field ff"><label>Concepto de obra</label>
+          <select id="f_concepto" onchange="onConceptoChange()">
+            <option value="CARPETA 3CM O1">Carpeta asfáltica 3cm - O1</option>
+            <option value="CARPETA 5CM O1">Carpeta asfáltica 5cm - O1</option>
+            <option value="RENIVELACION O1">Renivelación - O1</option>
+            <option value="BACHEO SUP O1">Bacheo superficial - O1</option>
+            <option value="BASE ASFALTICA">Base asfáltica</option>
+            <option value="OTRO">Otro (especificar)</option>
+          </select>
+        </div>
+        <div class="field" id="f_concepto_otro_wrap" style="display:none">
+          <label>Especificar concepto</label>
+          <input type="text" id="f_concepto_otro" placeholder="Describe el concepto">
+        </div>
+        <div class="field">
+          <label>Ton este concepto</label>
+          <input type="number" id="f_ton_concepto" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc()" style="font-size:20px;font-weight:700;color:var(--gold)">
+          <div style="font-size:10px;color:var(--muted);margin-top:3px" id="ton_concepto_hint"></div>
+        </div>
         <div class="field"><label>Tipo mezcla</label>
           <select id="f_tipo">
             <option value='MEZCLA DE 3/4" A FINOS'>3/4" A FINOS</option>
@@ -484,7 +503,7 @@ const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
 
 // ═══ BORRADOR AUTOMÁTICO: lo tecleado se conserva aunque se cierre la app ═══
-const DRAFT_IDS=['f_placas','f_ton','f_kde','f_ml','f_ka','f_aw1','f_aw2','f_et','f_carril','f_sentido','f_tp','f_tt','f_vale','f_remision','f_obs','f_emul_ini','f_emul_fin','f_emul_tipo','f_emul_temp','f_emul_rem','f_emul_prov','f_fecha'];
+const DRAFT_IDS=['f_placas','f_ton','f_ton_concepto','f_concepto','f_kde','f_ml','f_ka','f_aw1','f_aw2','f_et','f_carril','f_sentido','f_tp','f_tt','f_vale','f_remision','f_obs','f_emul_ini','f_emul_fin','f_emul_tipo','f_emul_temp','f_emul_rem','f_emul_prov','f_fecha'];
 function guardarBorrador(){
   const d={};
   DRAFT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) d[id]=el.value; });
@@ -1014,6 +1033,8 @@ window.guardar = async function() {
   const etcm=parseFloat(document.getElementById('f_et').value);
   const fecha=document.getElementById('f_fecha').value;
   if (!placas||!ton||!kde||!ka||!aw||!etcm||!fecha) { toast('Completa todos los campos obligatorios','err'); return; }
+  const concepto=conceptoReal();
+  const tonConc=parseFloat((document.getElementById('f_ton_concepto')||{}).value)||ton;
   if (isNaN(kde)||isNaN(ka)) { toast('Cadenamiento no válido. Usa formato 46+853.22 o metros corridos 46853.22','err'); return; }
   if (ka===kde) { toast('ERROR: KM inicial y final son iguales. Captura los ML avanzados.','err'); return; }
   if (Math.abs(ka-kde)>2000) { if(!confirm('El tramo mide '+Math.abs(ka-kde).toFixed(0)+' m (más de 2 km en un viaje). ¿Es correcto?')) return; }
@@ -1025,6 +1046,8 @@ window.guardar = async function() {
     fecha, placas, ton_recibidas:ton,
     material:document.getElementById('f_mat').value,
     pg:document.getElementById('f_pg').value,
+    concepto:concepto,
+    ton_concepto:+tonConc.toFixed(2),
     tipo:document.getElementById('f_tipo').value,
     vale:document.getElementById('f_vale').value.trim(),
     remision:document.getElementById('f_remision').value.trim(),
@@ -1059,6 +1082,9 @@ window.guardar = async function() {
 };
 
 function resetForm(kaAnterior) {
+  const _fc=document.getElementById('f_ton_concepto'); if(_fc) _fc.value='';
+  const _fo=document.getElementById('f_concepto_otro'); if(_fo) _fo.value='';
+  const _fw=document.getElementById('f_concepto_otro_wrap'); if(_fw) _fw.style.display='none';
   ['f_placas','f_ton','f_kde','f_ka','f_ml','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>document.getElementById(id).value='');
   // Tendido continuo: el final del viaje anterior es el inicio del siguiente
   if (kaAnterior!==undefined && !isNaN(kaAnterior)) document.getElementById('f_kde').value = fmtCad(kaAnterior);
@@ -1078,6 +1104,12 @@ window.openEdit=function(id) {
       <div class="field"><label>Fecha</label><input type="date" id="e_f" value="${r.fecha}"></div>
       <div class="field"><label>Placas</label><input type="text" id="e_p" value="${r.placas}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="field"><label>Ton recibidas</label><input type="number" id="e_t" value="${r.ton_recibidas}" step="0.01" inputmode="decimal"></div>
+      <div class="field ff"><label>Concepto de obra</label>
+        <input type="text" id="e_concepto" value="${r.concepto||'CARPETA 3CM O1'}" style="font-weight:700;color:var(--gold)">
+      </div>
+      <div class="field"><label>Ton este concepto</label>
+        <input type="number" id="e_ton_concepto" value="${r.ton_concepto||r.ton_recibidas}" step="0.01" inputmode="decimal">
+      </div>
       <div class="field"><label>№ Vale</label><input type="text" id="e_v" value="${r.vale||''}"></div>
       <div class="field"><label>№ Remisión</label><input type="text" id="e_r" value="${r.remision||''}"></div>
       <div class="field"><label>De KM (cadenamiento)</label><input type="text" id="e_de" value="${fmtCad(r.kde)}" autocomplete="off"></div>
@@ -1171,6 +1203,8 @@ window.saveEdit=async function() {
       fecha:document.getElementById('e_f').value,
       placas:normPlacas(document.getElementById('e_p').value),
       ton_recibidas:ton, kde,ka,longitud:lng,
+      concepto:(document.getElementById('e_concepto').value||'').trim()||'CARPETA 3CM O1',
+      ton_concepto:parseFloat((document.getElementById('e_ton_concepto')||{}).value)||ton,
       ancho:+aw.toFixed(3), ancho_ini:isNaN(aw1)?null:aw1, ancho_fin:isNaN(aw2)?null:aw2,
       esp_teorico:et,
       vale:document.getElementById('e_v').value.trim(),
@@ -1226,6 +1260,39 @@ function actualizarStatusEmul(){
     st.style.color = 'var(--muted)';
   }
   calcEmulsion();
+}
+window.onConceptoChange=function(){
+  const v=document.getElementById('f_concepto').value;
+  const ow=document.getElementById('f_concepto_otro_wrap');
+  if(ow) ow.style.display=v==='OTRO'?'':'none';
+  prellenarKdePorConcepto();
+  actualizarHintTon();
+};
+function conceptoReal(){
+  const sel=document.getElementById('f_concepto');
+  if(!sel) return 'CARPETA 3CM O1';
+  const v=sel.value;
+  if(v==='OTRO'){
+    const o=(document.getElementById('f_concepto_otro').value||'').trim();
+    return o||'OTRO';
+  }
+  return v;
+}
+function actualizarHintTon(){
+  const tonTotal=parseFloat((document.getElementById('f_ton')||{}).value)||0;
+  const hint=document.getElementById('ton_concepto_hint');
+  if(!hint) return;
+  hint.textContent=tonTotal>0?'Ton totales del camion: '+tonTotal.toFixed(2)+' - Captura las que van a este concepto':'';
+}
+function prellenarKdePorConcepto(){
+  const el=document.getElementById('f_kde');
+  if(!el) return;
+  const hoy=fechaJornada();
+  const conc=conceptoReal();
+  const mismoConcepto=records
+    .filter(r=>r.fecha===hoy && (r.concepto||'CARPETA 3CM O1')===conc)
+    .sort((a,b)=>(b.ts||0)-(a.ts||0));
+  el.value=mismoConcepto.length ? fmtCad(mismoConcepto[0].ka) : '';
 }
 function prellenarKde(){
   refrescarFechaJornada();
@@ -1294,7 +1361,8 @@ function renderList() {
           ${r.temp_tendido?`<span style="font-family:var(--mono);font-size:11px;background:#0d1a14;border:1px solid #1a3328;color:var(--green);padding:2px 7px;border-radius:4px">🌡️T ${r.temp_tendido}°C</span>`:''}
           ${r.temp_produccion&&r.temp_tendido&&(r.temp_produccion-r.temp_tendido)>30?`<span style="font-family:var(--mono);font-size:11px;background:#1a0d0d;border:1px solid #3a1a1a;color:var(--red);padding:2px 7px;border-radius:4px">⚠️Δ${r.temp_produccion-r.temp_tendido}°C</span>`:''}
         </div>`:''}
-        <div class="rk">km ${fmtCad(r.kde)} → ${fmtCad(r.ka)} · ${(+r.longitud).toFixed(2)} m<span class="cp">${r.carril}</span></div>
+        <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:2px">${r.concepto||'CARPETA 3CM O1'}${r.ton_concepto&&r.ton_concepto!==r.ton_recibidas?' &middot; '+r.ton_concepto.toFixed(2)+' ton':''}</div>
+      <div class="rk">km ${fmtCad(r.kde)} → ${fmtCad(r.ka)} · ${(+r.longitud).toFixed(2)} m<span class="cp">${r.carril}</span></div>
         ${r.observaciones?`<div class="obs-tag">📝 ${r.observaciones.substring(0,60)}${r.observaciones.length>60?'...':''}</div>`:''}
         ${r.emulsion_lts?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
           <span style="font-family:var(--mono);font-size:11px;background:#1a0a2e;border:1px solid #3a1a5a;color:var(--purple);padding:2px 8px;border-radius:4px">🛢️ ${r.emulsion_lts} lts ECR-65 · ${r.emulsion_tipo==='impregnacion'?'Impreg.':'Liga'} · ${Math.round(r.emulsion_temp||70)}°C</span>
