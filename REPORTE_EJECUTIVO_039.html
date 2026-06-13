@@ -430,6 +430,7 @@ window.setMode=function(m,el){
 };
 
 function applyFilters(){
+  records=allRecs; // sincronizar para fechaJornada()
   filtered=allRecs.filter(r=>{
     if(filtros.obra==='obra1' && !(r.kde>=46000&&r.kde<=59000)) return false;
     if(filtros.obra==='obra2' && !(r.kde>=247000&&r.kde<=252000)) return false;
