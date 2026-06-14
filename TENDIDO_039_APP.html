@@ -1520,7 +1520,7 @@ function renderRepVolumen() {
   const totFav=records.reduce((s,r)=>s+r.m3_fav,0);
 
   // Por actividad (agrupado)
-  let acumVol=0, acumLts=0;
+  let acumVol=0, acumLts=0, totMlReales=0;
   let diasHtml='';
   Object.keys(bd).sort().forEach(fecha=>{
     const rs=bd[fecha];
@@ -1537,15 +1537,23 @@ function renderRepVolumen() {
     const ltm2Color=!emulLts?'var(--muted)':parseFloat(ltm2)<0.8||parseFloat(ltm2)>1.2?'var(--red)':'var(--green)';
     const d=new Date(fecha+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
-    const kmMin=Math.min(...rs.map(r=>r.kde));
-    const kmMax=Math.max(...rs.map(r=>r.ka));
+    // Rango real de cadenamiento recorrido en el día: del menor "De KM" al mayor "A KM"
+    // de TODOS los conceptos juntos. Así no se duplica al tender renivelación + carpeta
+    // sobre el mismo tramo: los ML de avance se cuentan UNA sola vez por tramo.
+    const kmMin=Math.min(...rs.map(r=>Math.min(r.kde,r.ka)));
+    const kmMax=Math.max(...rs.map(r=>Math.max(r.kde,r.ka)));
+    const mlReales=Math.abs(kmMax-kmMin);
+    totMlReales+=mlReales;
+    // Ancho: promedio CAPTURADO en los viajes del día (no derivado de área/longitud,
+    // porque si hay renivelación + carpeta sobre el mismo tramo, área/longitud sale inflado)
+    const anchoProm=rs.reduce((s,r)=>s+(r.ancho||0),0)/rs.length;
     diasHtml+=`<tr>
       <td>${lb}</td>
       <td>${rs.length}</td>
-      <td>${kmMin}+000</td>
-      <td>${kmMax}+000</td>
-      <td>${dLong.toFixed(0)}</td>
-      <td>${(dArea/dLong||0).toFixed(2)}</td>
+      <td>${fmtCad(kmMin)}</td>
+      <td>${fmtCad(kmMax)}</td>
+      <td>${mlReales.toFixed(2)}</td>
+      <td>${anchoProm.toFixed(2)}</td>
       <td>${dVol.toFixed(3)}</td>
       <td class="G">${acumVol.toFixed(3)}</td>
       <td>${dTon.toFixed(2)}</td>
@@ -1561,7 +1569,8 @@ function renderRepVolumen() {
       <div class="kc ac"><div class="kl">Vol acumulado m³</div><div class="kv">${totVol.toFixed(2)}</div><div class="ks">cat: 400 m³</div></div>
       <div class="kc gr"><div class="kl">m³ a favor</div><div class="kv">${totFav>=0?'+':''}${totFav.toFixed(2)}</div><div class="ks">&nbsp;</div></div>
       <div class="kc"><div class="kl">Área total m²</div><div class="kv">${(totArea/1000).toFixed(1)}k</div><div class="ks">&nbsp;</div></div>
-      <div class="kc"><div class="kl">Metros lineales</div><div class="kv">${totLong.toFixed(0)}</div><div class="ks">metros tendidos</div></div>
+      <div class="kc"><div class="kl">Metros lineales</div><div class="kv">${totMlReales.toFixed(0)}</div><div class="ks">avance real de carretera</div></div>
+      <div class="kc"><div class="kl">Metros tendidos</div><div class="kv">${totLong.toFixed(0)}</div><div class="ks">suma de todos los conceptos</div></div>
       <div class="kc" style="border-left:3px solid var(--purple)"><div class="kl">Emulsión acumulada</div><div class="kv" style="color:var(--purple)">${acumLts>0?acumLts.toFixed(0):'—'}</div><div class="ks">lts ECR-65</div></div>
       <div class="kc" style="border-left:3px solid var(--purple)"><div class="kl">Lts/m² promedio</div><div class="kv" style="color:var(--purple)">${acumLts>0&&totArea>0?(acumLts/totArea).toFixed(3):'—'}</div><div class="ks">norma: 0.8–1.2</div></div>
     </div>
@@ -1585,7 +1594,7 @@ function renderRepVolumen() {
           <tbody>${diasHtml}
           <tr class="tot-row">
             <td>TOTAL</td><td>${records.length}</td><td>—</td><td>—</td>
-            <td>${totLong.toFixed(0)}</td><td>—</td>
+            <td>${totMlReales.toFixed(2)}</td><td>—</td>
             <td>${totVol.toFixed(3)}</td><td class="G">${totVol.toFixed(3)}</td><td>${totTon.toFixed(2)}</td>
             <td style="color:var(--purple);font-weight:700">${acumLts>0?acumLts.toFixed(0):'—'}</td>
             <td style="color:var(--purple)">${acumLts>0&&totArea>0?(acumLts/totArea).toFixed(3):'—'}</td>
