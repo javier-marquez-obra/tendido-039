@@ -201,6 +201,14 @@ body.ppt-mode .ppt-watermark{display:block}
   .main{padding:10px}
   body{background:#fff}
   .card{box-shadow:none;border:1px solid #ddd}
+  /* El header es "sticky" en pantalla; al imprimir eso lo repite fijo sobre el
+     contenido (tapa la primera gráfica). Lo volvemos un bloque normal. */
+  .header{position:static!important;box-shadow:none;page-break-after:avoid}
+  .header-inner{padding:8px 16px}
+  .header-title{font-size:15px}
+  /* Evitar que una tarjeta quede cortada entre dos hojas */
+  .card{break-inside:avoid;page-break-inside:avoid}
+  svg{break-inside:avoid;page-break-inside:avoid}
 }
 </style>
 </head>
