@@ -489,6 +489,20 @@ const DRAFT_IDS=['f_placas','f_ton','f_sentido','f_tp','f_tt','f_vale','f_remisi
 function guardarBorrador(){
   const d={};
   DRAFT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) d[id]=el.value; });
+  // Guardar el estado actual de los conceptos (incluyendo lo que el usuario ya capturó en el DOM)
+  const conceptosSnap=conceptosViaje.map((cv,i)=>({
+    ...cv,
+    // Leer valores actuales del DOM para no perder lo no guardado en el array
+    id:(document.getElementById('concepto_card_'+i)?.querySelector('select')?.value)||cv.id,
+    ton:parseFloat(document.getElementById('concepto_card_'+i)?.querySelectorAll('input[type=number]')[0]?.value)||cv.ton||0,
+    kde:parseCad(document.getElementById('f_kde_'+i)?.value)||cv.kde,
+    ml:parseFloat(document.getElementById('f_ml_'+i)?.value)||cv.ml||0,
+    aw1:parseFloat(document.getElementById('f_aw1_'+i)?.value)||cv.aw1||0,
+    aw2:parseFloat(document.getElementById('f_aw2_'+i)?.value)||cv.aw2||0,
+    et:parseFloat(document.getElementById('f_et_'+i)?.value)||cv.et||3,
+    carril:document.getElementById('concepto_card_'+i)?.querySelectorAll('select')[1]?.value||cv.carril||'L. DER.'
+  }));
+  if(conceptosSnap.length>0) d['_conceptos']=JSON.stringify(conceptosSnap);
   try{ localStorage.setItem('t039_draft', JSON.stringify(d)); }catch(e){}
 }
 function restaurarBorrador(){
@@ -496,6 +510,17 @@ function restaurarBorrador(){
     const d=JSON.parse(localStorage.getItem('t039_draft')||'{}');
     let hubo=false;
     DRAFT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&d[id]&&!el.value){ el.value=d[id]; hubo=true; } });
+    // Restaurar conceptos del borrador
+    if(d['_conceptos']){
+      try{
+        const saved=JSON.parse(d['_conceptos']);
+        if(saved&&saved.length>0){
+          conceptosViaje=saved;
+          renderConceptosContainer();
+          hubo=true;
+        }
+      }catch(e){}
+    }
     if(hubo){ toast('📝 Se recuperó lo que tenías capturado'); if(typeof calc==='function')calc(); if(typeof calcEmulsion==='function')calcEmulsion(); }
   }catch(e){}
 }
@@ -503,6 +528,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   restaurarBorrador();
   const s=localStorage.getItem('t039_sentido'); if(s){ const el=document.getElementById('f_sentido'); if(el) el.value=s; }
   DRAFT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el){ el.addEventListener('input',guardarBorrador); el.addEventListener('change',guardarBorrador); } });
+  // Event delegation para guardar borrador cuando cambia cualquier campo dentro de los conceptos
+  const cont=document.getElementById('conceptosContainer');
+  if(cont){
+    cont.addEventListener('input', guardarBorrador);
+    cont.addEventListener('change', guardarBorrador);
+  }
 });
 
 // Service worker: permite abrir la app sin internet
@@ -1396,7 +1427,10 @@ function renderConceptosContainer(){
   }).join('');
   calcResumenViaje();
   // Mostrar consecutivos después de renderizar
-  setTimeout(()=>conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i)),100);
+  // Actualizar consecutivos de todos los conceptos después del render
+  requestAnimationFrame(()=>{
+    conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i));
+  });
 }
 
 function actualizarHintDist(){
