@@ -1440,15 +1440,20 @@ function autoAsignarTon(){
 
 // Calcular Ka de un concepto basado en kde y ml
 function calcKaConcepto(i){
-  const kde=parseCad((document.getElementById('f_kde_'+i)||{}).value);
-  const ml=parseFloat((document.getElementById('f_ml_'+i)||{}).value)||0;
-  const sentido=(document.getElementById('f_sentido')||{}).value||'sube';
+  const kdeEl=document.getElementById('f_kde_'+i);
+  const mlEl=document.getElementById('f_ml_'+i);
+  const sentidoEl=document.getElementById('f_sentido');
+  const kdeRaw=kdeEl?kdeEl.value:'';
+  const mlRaw=mlEl?mlEl.value:'';
+  const sentido=sentidoEl?sentidoEl.value:'sube';
+  const kde=parseCad(kdeRaw);
+  const ml=parseFloat(mlRaw)||0;
+  // Debug toast — quitar después
+  toast('KDE='+kdeRaw+'→'+kde+' ML='+ml+' S='+sentido,'');
   if(!isNaN(kde)&&ml>0){
-    const ka=sentido==='sube'?kde+ml:kde-ml;
+    const ka=(sentido==='sube'||!sentido)?kde+ml:kde-ml;
     const el=document.getElementById('f_ka_'+i);
-    if(el){
-      el.textContent=fmtCad(ka);
-    }
+    if(el) el.textContent=fmtCad(ka);
     if(conceptosViaje[i]){
       conceptosViaje[i].ka=ka;
       conceptosViaje[i].kde=kde;
