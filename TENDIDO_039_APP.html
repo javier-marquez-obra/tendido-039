@@ -1112,11 +1112,113 @@ function resetForm(kaAnterior) {
   fotosActuales=[]; renderFotos(); clearCalc(); updateCounter();
 }
 
+// ═══ GESTIÓN DE CONCEPTOS EN EDICIÓN ═══
+let editConceptos=[];
+
+function renderEditConceptos(){
+  const wrap=document.getElementById('editConceptosWrap');
+  if(!wrap) return;
+  const tonTotal=parseFloat((document.getElementById('e_t')||{}).value)||0;
+  const asigPrev=editConceptos.slice(0,-1).reduce((s,cv)=>s+(cv.ton||0),0);
+  const faltante=Math.max(0,+(tonTotal-asigPrev).toFixed(2));
+  wrap.innerHTML=editConceptos.map((cv,i)=>{
+    const esUltimo=i===editConceptos.length-1&&editConceptos.length>1;
+    const tonVal=esUltimo&&faltante>0?faltante:(cv.ton||'');
+    if(esUltimo&&faltante>0) editConceptos[i].ton=faltante;
+    return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-bottom:6px">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <select id="e_conc_id_${i}" onchange="editConceptos[${i}].id=this.value"
+          style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
+          ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
+        </select>
+        <input type="number" id="e_conc_ton_${i}" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
+          oninput="editConceptos[${i}].ton=parseFloat(this.value)||0;actualizarEditTonHint()"
+          style="width:85px;font-size:16px;font-weight:700;color:${esUltimo?'var(--blue)':'var(--gold)'};background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;text-align:center">
+        <span style="font-size:10px;color:var(--muted)">ton${esUltimo?' ←':''}</span>
+        ${editConceptos.length>1?`<button type="button" onclick="editQuitarConcepto(${i})"
+          style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer">✕</button>`:''}
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px">
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">De KM</div>
+          <input type="text" id="e_conc_kde_${i}" value="${cv.kde?fmtCad(cv.kde):''}" placeholder="46+200.00"
+            oninput="editConceptos[${i}].kde=parseCad(this.value)"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:11px;font-weight:700">
+        </div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">ML</div>
+          <input type="number" id="e_conc_ml_${i}" value="${cv.ml||cv.longitud||''}" placeholder="110.50" step="0.01"
+            oninput="editConceptos[${i}].ml=parseFloat(this.value)||0;calcEditKa(${i})"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:14px;font-weight:700;color:var(--green)">
+        </div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">A KM</div>
+          <input type="text" id="e_conc_ka_${i}" value="${cv.ka?fmtCad(cv.ka):''}" readonly
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:11px;font-weight:700;color:var(--blue)">
+        </div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Carril</div>
+          <select id="e_conc_carril_${i}" onchange="editConceptos[${i}].carril=this.value"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:11px">
+            ${['L. DER.','L. IZQ.','CENT.','CARR. DER.','CARR. IZQ.'].map(o=>`<option ${(cv.carril||'L. DER.')===o?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  actualizarEditTonHint();
+}
+
+function calcEditKa(i){
+  const kde=parseCad((document.getElementById('e_conc_kde_'+i)||{}).value);
+  const ml=parseFloat((document.getElementById('e_conc_ml_'+i)||{}).value)||0;
+  const sent=(document.getElementById('f_sentido')||{}).value||'sube';
+  if(!isNaN(kde)&&ml>0){
+    const ka=sent==='sube'?kde+ml:kde-ml;
+    const el=document.getElementById('e_conc_ka_'+i);
+    if(el) el.value=fmtCad(ka);
+    editConceptos[i].ka=ka;
+  }
+}
+
+function actualizarEditTonHint(){
+  const ton=parseFloat((document.getElementById('e_t')||{}).value)||0;
+  const asig=editConceptos.reduce((s,cv)=>s+(cv.ton||0),0);
+  const hint=document.getElementById('editTonHint');
+  if(!hint||!ton){if(hint)hint.textContent='';return;}
+  const diff=ton-asig;
+  if(Math.abs(diff)<0.01){hint.style.color='var(--green)';hint.textContent='✓ '+ton.toFixed(2)+' ton distribuidas';}
+  else if(diff>0){hint.style.color='var(--gold)';hint.textContent='Faltan '+diff.toFixed(2)+' ton';}
+  else{hint.style.color='var(--red)';hint.textContent='Excede '+Math.abs(diff).toFixed(2)+' ton';}
+}
+
+window.editAgregarConcepto=function(){
+  editConceptos.forEach((cv,i)=>{
+    const sel=document.getElementById('e_conc_id_'+i);
+    if(sel) cv.id=sel.value;
+    const t=parseFloat((document.getElementById('e_conc_ton_'+i)||{}).value)||0;
+    if(t) cv.ton=t;
+    cv.kde=parseCad((document.getElementById('e_conc_kde_'+i)||{}).value)||cv.kde;
+    cv.ml=parseFloat((document.getElementById('e_conc_ml_'+i)||{}).value)||cv.ml||0;
+    cv.carril=(document.getElementById('e_conc_carril_'+i)||{value:'L. DER.'}).value;
+  });
+  editConceptos.push({id:'CARPETA3-O1',label:'CARPETA 3CM · O1',ton:0,kde:null,ka:null,ml:0,carril:'L. DER.'});
+  renderEditConceptos();
+};
+
+window.editQuitarConcepto=function(i){
+  editConceptos.splice(i,1);
+  renderEditConceptos();
+};
+
 // ═══ EDIT ═══
 window.openEdit=function(id) {
   if (session.rol!=='admin') return;
   const r=records.find(x=>x._id===id); if (!r) return;
   editId=id;
+  editConceptos=r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.length>0
+    ? r.conceptos.map(cv=>({...cv,ml:cv.longitud||cv.ml||0}))
+    : (()=>{
+        const cat=catalogoActivo.find(x=>x.label===(r.concepto||'')||x.id===(r.concepto||''));
+        return [{id:cat?cat.id:'CARPETA3-O1',label:cat?cat.label:(r.concepto||'CARPETA 3CM · O1'),
+                 ton:r.ton_concepto||r.ton_recibidas,kde:r.kde,ka:r.ka,ml:r.longitud||0,carril:r.carril||'L. DER.'}];
+      })();
   document.getElementById('editFlds').innerHTML=`
     <div class="fg">
       <div class="field"><label>Fecha</label><input type="date" id="e_f" value="${r.fecha}"></div>
@@ -1167,6 +1269,7 @@ window.openEdit=function(id) {
   editFotos = (r.fotos||[]).map(b=>({b64:b, esNueva:false}));
   renderEditFotos();
   document.getElementById('editOv').className='ov open';
+  setTimeout(()=>renderEditConceptos(),80);
 };
 window.closeEdit=function(){
   editId=null;
@@ -1230,16 +1333,23 @@ window.saveEdit=async function() {
       fecha:document.getElementById('e_f').value,
       placas:normPlacas(document.getElementById('e_p').value),
       ton_recibidas:ton, kde,ka,longitud:lng,
-      concepto:(document.getElementById('e_conc_label_0')||{value:r.concepto}).value||'CARPETA 3CM O1',
-      ton_concepto:parseFloat((document.getElementById('e_conc_ton_0')||{value:ton}).value)||ton,
-      conceptos:(()=>{ const res=[]; let i=0;
-        while(document.getElementById('e_conc_label_'+i)){
-          const l=(document.getElementById('e_conc_label_'+i).value||'').trim();
+      concepto:editConceptos[0]?.label||r.concepto||'CARPETA 3CM · O1',
+      ton_concepto:editConceptos[0]?.ton||ton,
+      conceptos:(()=>{
+        editConceptos.forEach((cv,i)=>{
+          const sel=document.getElementById('e_conc_id_'+i);
+          if(sel){cv.id=sel.value;const cat=getCatItem(sel.value)||{};cv.label=cat.label||sel.value;cv.codigo=cat.codigo||'';cv.pu=cat.pu||0;}
           const t=parseFloat((document.getElementById('e_conc_ton_'+i)||{}).value)||0;
-          if(l) res.push({label:l,ton:t});
-          i++;
-        }
-        return res.length?res:null;
+          if(t) cv.ton=t;
+          cv.kde=parseCad((document.getElementById('e_conc_kde_'+i)||{}).value)||cv.kde;
+          cv.ml=parseFloat((document.getElementById('e_conc_ml_'+i)||{}).value)||cv.ml||0;
+          const sent=(document.getElementById('f_sentido')||{}).value||'sube';
+          if(cv.kde&&cv.ml) cv.ka=sent==='sube'?cv.kde+cv.ml:cv.kde-cv.ml;
+          cv.longitud=cv.ml||0;
+          cv.carril=(document.getElementById('e_conc_carril_'+i)||{value:cv.carril||'L. DER.'}).value;
+          cv.importe=+((cv.pu||0)*cv.ton).toFixed(2);
+        });
+        return editConceptos.length>0?[...editConceptos]:null;
       })(),
       ancho:+aw.toFixed(3), ancho_ini:isNaN(aw1)?null:aw1, ancho_fin:isNaN(aw2)?null:aw2,
       esp_teorico:et,
