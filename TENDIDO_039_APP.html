@@ -1480,11 +1480,18 @@ function proximoConsecutivo(concId, indexActual){
   const cat=getCatItem(concId);
   if(!cat||!cat.consecutivo) return null;
   // 1. Contar en Firebase (registros ya guardados)
+  // Solo contar si el registro tiene el nuevo sistema de conceptos con id,
+  // o si el concepto texto coincide EXACTAMENTE con el label del catálogo.
+  // Los registros viejos con texto libre se ignoran para no contaminar el conteo.
   let count=0;
   records.forEach(r=>{
     if(r.conceptos&&Array.isArray(r.conceptos)){
+      // Nuevo sistema: contar por id exacto
       r.conceptos.forEach(cv=>{ if(cv.id===concId) count++; });
-    } else if(r.concepto&&(getCatItem(r.concepto)?.id===concId||r.concepto===cat.label)){
+    } else if(r.concepto&&r.concepto===cat.label){
+      // Viejo sistema: solo si el texto es IDÉNTICO al label del catálogo
+      // (ej. "RENIVELACIÓN · O1" === "RENIVELACIÓN · O1")
+      // Textos como "RENIVELACION O1" o "RENIVELACIÓN O1" NO coinciden → no cuentan
       count++;
     }
   });
