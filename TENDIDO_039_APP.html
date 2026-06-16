@@ -268,12 +268,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div class="field"><label>PG</label>
           <select id="f_pg"><option>PG 64-22</option><option>PG 70-22</option></select>
         </div>
-        <!-- DISTRIBUCIÓN DE CONCEPTOS POR CAMIÓN -->
+        <!-- CONCEPTOS DEL CAMIÓN (cada uno con su cadenamiento propio) -->
         <div class="field ff" style="grid-column:1/-1">
-          <label>Distribución de toneladas por concepto</label>
-          <div id="conceptosContainer" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
-          <button type="button" onclick="agregarConcepto()" style="margin-top:8px;padding:6px 14px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer">+ Agregar otro concepto</button>
-          <div id="ton_dist_hint" style="font-size:10px;margin-top:4px"></div>
+          <label style="font-size:13px;font-weight:700;color:var(--gold)">📦 Conceptos del camión</label>
+          <div id="conceptosContainer" style="display:flex;flex-direction:column;gap:12px;margin-top:8px"></div>
+          <button type="button" onclick="agregarConcepto()" style="margin-top:10px;padding:8px 16px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer">+ Agregar otro concepto</button>
+          <div id="ton_dist_hint" style="font-size:10px;margin-top:6px"></div>
         </div>
         <div class="field"><label>Tipo mezcla</label>
           <select id="f_tipo">
@@ -304,33 +304,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="font-size:11px;color:var(--muted);margin-top:6px">SCT: prod ≥ 150°C · tend ≥ 130°C · Δ máx 30°C</div>
     </div>
 
-    <!-- CADENAMIENTO -->
-    <div class="fc">
-      <h3>📏 Cadenamiento y geometría</h3>
-      <div class="fg">
-        <div class="field"><label>De KM (cadenamiento)</label><input type="text" id="f_kde" placeholder="46+200.00" autocomplete="off" oninput="calcKa()"></div>
-        <div class="field"><label>Sentido del tendido</label>
-          <select id="f_sentido" onchange="calcKa();localStorage.setItem('t039_sentido',this.value)" style="font-weight:700">
-            <option value="sube">▲ SUBE (cad. aumenta)</option>
-            <option value="baja">▼ BAJA (cad. disminuye)</option>
-          </select>
-        </div>
-        <div class="field"><label>ML avanzados (m)</label><input type="number" id="f_ml" placeholder="110.50" step="0.01" inputmode="decimal" oninput="calcKa()" style="font-size:22px;font-weight:700;color:var(--green)"></div>
-        <div class="field"><label>A KM (auto)</label><input type="text" id="f_ka" placeholder="46+350.00" autocomplete="off" oninput="calc()" style="color:var(--blue);font-weight:700"></div>
-        <div class="field"><label>Ancho INICIAL (m)</label><input type="number" id="f_aw1" placeholder="3.34" step="0.01" inputmode="decimal" oninput="calc()"></div>
-        <div class="field"><label>Ancho FINAL (m)</label><input type="number" id="f_aw2" placeholder="3.40" step="0.01" inputmode="decimal" oninput="calc()"></div>
-        <div class="field"><label>Espesor teórico (cm)</label><input type="number" id="f_et" placeholder="3.5" step="0.1" inputmode="decimal" oninput="calc()"></div>
-        <div class="field ff"><label>Carril</label>
-          <select id="f_carril">
-            <option>L. DER.</option><option>L. IZQ.</option><option>CENT.</option>
-            <option>CARR. DER.</option><option>CARR. IZQ.</option>
-          </select>
-        </div>
-      </div>
+    <!-- Resumen totales del camión -->
+    <div class="fc" id="resumenViaje" style="display:none">
+      <h3>📊 Resumen del camión</h3>
       <div class="cr">
-        <div class="cb"><div class="cl">Long (m)</div><div class="cv" id="c_l">—</div></div>
-        <div class="cb"><div class="cl">Área m²</div><div class="cv" id="c_a">—</div></div>
-        <div class="cb"><div class="cl">Vol m³</div><div class="cv" id="c_v">—</div></div>
+        <div class="cb"><div class="cl">Long total (m)</div><div class="cv" id="c_l">—</div></div>
+        <div class="cb"><div class="cl">Área total m²</div><div class="cv" id="c_a">—</div></div>
+        <div class="cb"><div class="cl">Vol total m³</div><div class="cv" id="c_v">—</div></div>
         <div class="cb"><div class="cl">Ton reales</div><div class="cv" id="c_tr">—</div></div>
         <div class="cb" id="cb_er"><div class="cl">Esp. real cm</div><div class="cv" id="c_er">—</div></div>
         <div class="cb" id="cb_mf"><div class="cl">m³ fav/contra</div><div class="cv" id="c_mf">—</div></div>
@@ -481,12 +461,12 @@ const firebaseConfig = {
 
 // ═══ CATÁLOGO E-7 · CONTRATO N-27-2026 ═══
 const CATALOGO_E7 = [
-  { id:'BACHEO-O1',    obra:'O1', codigo:'N-CSV-CAR-2-02-003/16', label:'BACHEO SUP · O1',   unidad:'M3', cantidad:68,   pu:3874.26 },
-  { id:'RENIV-O1',    obra:'O1', codigo:'N-CSV-CAR-3-02-001/15', label:'RENIVELACIÓN · O1', unidad:'M3', cantidad:280,  pu:3939.70 },
-  { id:'CARPETA3-O1', obra:'O1', codigo:'N-CSV-CAR-3-02-005/20', label:'CARPETA 3CM · O1',  unidad:'M3', cantidad:4500, pu:3646.84 },
-  { id:'BACHEO-O2',   obra:'O2', codigo:'N-CSV-CAR-2-02-003/16', label:'BACHEO SUP · O2',   unidad:'M3', cantidad:98,   pu:3874.26 },
-  { id:'CARPETA5-O2', obra:'O2', codigo:'(pendiente)',            label:'CARPETA 5CM · O2', unidad:'M3', cantidad:1500, pu:3646.84 },
-  { id:'OTRO',        obra:'',   codigo:'',                       label:'Otro',              unidad:'M3', cantidad:0,    pu:0 }
+  { id:'BACHEO-O1',    obra:'O1', codigo:'N-CSV-CAR-2-02-003/16', label:'BACHEO SUP · O1',   unidad:'M3', cantidad:68,   pu:3874.26, consecutivo:true },
+  { id:'RENIV-O1',    obra:'O1', codigo:'N-CSV-CAR-3-02-001/15', label:'RENIVELACIÓN · O1', unidad:'M3', cantidad:280,  pu:3939.70, consecutivo:true },
+  { id:'CARPETA3-O1', obra:'O1', codigo:'N-CSV-CAR-3-02-005/20', label:'CARPETA 3CM · O1',  unidad:'M3', cantidad:4500, pu:3646.84, consecutivo:false },
+  { id:'BACHEO-O2',   obra:'O2', codigo:'N-CSV-CAR-2-02-003/16', label:'BACHEO SUP · O2',   unidad:'M3', cantidad:98,   pu:3874.26, consecutivo:true },
+  { id:'CARPETA5-O2', obra:'O2', codigo:'(pendiente)',            label:'CARPETA 5CM · O2', unidad:'M3', cantidad:1500, pu:3646.84, consecutivo:false },
+  { id:'OTRO',        obra:'',   codigo:'',                       label:'Otro',              unidad:'M3', cantidad:0,    pu:0,       consecutivo:false }
 ];
 let catalogoActivo = [...CATALOGO_E7];
 function getCatItem(id){ return catalogoActivo.find(x=>x.id===id)||null; }
@@ -505,7 +485,7 @@ const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
 
 // ═══ BORRADOR AUTOMÁTICO: lo tecleado se conserva aunque se cierre la app ═══
-const DRAFT_IDS=['f_placas','f_ton','f_kde','f_ml','f_ka','f_aw1','f_aw2','f_et','f_carril','f_sentido','f_tp','f_tt','f_vale','f_remision','f_obs','f_emul_ini','f_emul_fin','f_emul_tipo','f_emul_temp','f_emul_rem','f_emul_prov','f_fecha'];
+const DRAFT_IDS=['f_placas','f_ton','f_sentido','f_tp','f_tt','f_vale','f_remision','f_obs','f_emul_ini','f_emul_fin','f_emul_tipo','f_emul_temp','f_emul_rem','f_emul_prov','f_fecha'];
 function guardarBorrador(){
   const d={};
   DRAFT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) d[id]=el.value; });
@@ -694,14 +674,8 @@ window.calcEmulsion = function() {
 
 // Calcula A KM = De KM ± ML según el sentido del tendido, y dispara el cálculo general
 window.calcKa = function() {
-  const kde = parseCad(document.getElementById('f_kde').value);
-  const ml  = parseFloat(document.getElementById('f_ml').value);
-  if (!isNaN(kde) && !isNaN(ml) && ml > 0) {
-    const sent = document.getElementById('f_sentido').value;
-    const ka = sent === 'baja' ? kde - ml : kde + ml;
-    document.getElementById('f_ka').value = fmtCad(ka);
-  }
-  calc();
+  // Recalcular KA de todos los conceptos al cambiar el sentido del tendido
+  conceptosViaje.forEach((_,i)=>calcKaConcepto(i));
 };
 
 // ═══ CALC ═══
@@ -715,31 +689,9 @@ function anchoProm(id1,id2){
   return NaN;
 }
 window.calc = function() {
-  const de=parseCad(document.getElementById('f_kde').value);
-  const ka=parseCad(document.getElementById('f_ka').value);
-  const aw=anchoProm('f_aw1','f_aw2');
-  const et=parseFloat(document.getElementById('f_et').value)/100;
-  const tn=parseFloat(document.getElementById('f_ton').value);
-  if (!de||!ka||!aw) { clearCalc(); return; }
-  const lng=Math.abs(ka-de), area=lng*aw, vol=area*(et||0.035), tr=vol*DEN;
-  const er=tn&&area?(tn/(area*DEN)):null;          // espesor real en metros
-  const mf=tn&&area&&et?((et)-(tn/(area*DEN)))*area:null; // (teórico-real)×área = m³ a favor
-  document.getElementById('c_l').textContent  = lng.toFixed(0);
-  document.getElementById('c_a').textContent  = area.toFixed(1);
-  document.getElementById('c_v').textContent  = vol.toFixed(3);
-  document.getElementById('c_tr').textContent = tr.toFixed(2);
-  if (er!==null) {
-    const erCm = er*100;
-    document.getElementById('c_er').textContent=erCm.toFixed(2);
-    document.getElementById('cb_er').className='cb'+(erCm<(et*100)?' warn':''); // warn si real < teórico (poniendo menos)
-  }
-  if (mf!==null) {
-    document.getElementById('c_mf').textContent=(mf>=0?'+':'')+mf.toFixed(3);
-    document.getElementById('cb_mf').className='cb'+(mf<0?' bad':'');
-    const rb=document.getElementById('resBar');
-    rb.className='rb '+(mf>=0?'G':'P');
-    rb.innerHTML=(mf>=0?'▲ GANANCIA':'▼ PÉRDIDA')+'<span>'+Math.abs(mf).toFixed(4)+' m³</span>';
-  }
+  // El resumen ahora lo calcula calcResumenViaje (suma de todos los conceptos)
+  calcResumenViaje();
+  actualizarHintDist();
 };
 function clearCalc() {
   ['c_l','c_a','c_v','c_tr','c_er','c_mf'].forEach(id=>document.getElementById(id).textContent='—');
@@ -1027,32 +979,50 @@ function hoyLocal(){
 window.guardar = async function() {
   const placas=normPlacas(document.getElementById('f_placas').value);
   const ton=parseFloat(document.getElementById('f_ton').value);
-  const kde=parseCad(document.getElementById('f_kde').value);
-  const ka=parseCad(document.getElementById('f_ka').value);
-  const aw1=parseFloat(document.getElementById('f_aw1').value);
-  const aw2=parseFloat(document.getElementById('f_aw2').value);
-  const aw=anchoProm('f_aw1','f_aw2');
-  const etcm=parseFloat(document.getElementById('f_et').value);
   const fecha=document.getElementById('f_fecha').value;
-  if (!placas||!ton||!kde||!ka||!aw||!etcm||!fecha) { toast('Completa todos los campos obligatorios','err'); return; }
+  if (!placas||!ton||!fecha) { toast('Captura placas, toneladas y fecha','err'); return; }
   // Validar distribución de conceptos
   const vd=validarDistribucion(ton);
   if(!vd.ok){ toast(vd.msg,'err'); return; }
-  const conceptosGuardar=conceptosViaje.map(cv=>({
-    id:cv.id, label:getCatItem(cv.id)?.label||cv.id,
-    codigo:getCatItem(cv.id)?.codigo||'',
-    ton:+(cv.ton||0).toFixed(2),
-    pu:getCatItem(cv.id)?.pu||0,
-    importe:+((getCatItem(cv.id)?.pu||0)*(cv.ton||0)).toFixed(2)
-  }));
+  // Leer cadenamientos y geometría de cada concepto desde el DOM
+  const DEN_=2.35;
+  const conceptosGuardar=conceptosViaje.map((cv,i)=>{
+    const kde_=parseCad((document.getElementById('f_kde_'+i)||{}).value);
+    const ka_=parseCad((document.getElementById('f_ka_'+i)||{}).value);
+    const ml_=parseFloat((document.getElementById('f_ml_'+i)||{}).value)||0;
+    const aw1_=parseFloat((document.getElementById('f_aw1_'+i)||{}).value)||0;
+    const aw2_=parseFloat((document.getElementById('f_aw2_'+i)||{}).value)||0;
+    const aw_=aw1_&&aw2_?(aw1_+aw2_)/2:(aw1_||aw2_||0);
+    const et_=parseFloat((document.getElementById('f_et_'+i)||{}).value)||3;
+    const carril_=(document.getElementById('f_concepto_carril_'+i)||{value:cv.carril||'L. DER.'}).value||cv.carril||'L. DER.';
+    const area_=ml_*aw_;
+    const vol_=area_*(et_/100);
+    const cat=getCatItem(cv.id)||{};
+    return {
+      id:cv.id, label:cat.label||cv.id, codigo:cat.codigo||'',
+      ton:+(cv.ton||0).toFixed(2), pu:cat.pu||0,
+      importe:+((cat.pu||0)*(cv.ton||0)).toFixed(2),
+      kde:isNaN(kde_)?null:kde_, ka:isNaN(ka_)?null:ka_,
+      longitud:+ml_.toFixed(2), ancho:+aw_.toFixed(3),
+      ancho_ini:aw1_||null, ancho_fin:aw2_||null,
+      esp_teorico:et_, carril:carril_,
+      area:+area_.toFixed(4), volumen:+vol_.toFixed(4),
+      num_consec:cv.num_consec||null
+    };
+  });
   const concPpal=conceptosGuardar.reduce((a,b)=>a.ton>=b.ton?a:b);
-  if (isNaN(kde)||isNaN(ka)) { toast('Cadenamiento no válido. Usa formato 46+853.22 o metros corridos 46853.22','err'); return; }
-  if (ka===kde) { toast('ERROR: KM inicial y final son iguales. Captura los ML avanzados.','err'); return; }
-  if (Math.abs(ka-kde)>2000) { if(!confirm('El tramo mide '+Math.abs(ka-kde).toFixed(0)+' m (más de 2 km en un viaje). ¿Es correcto?')) return; }
-  if (ton<5||ton>45) { if(!confirm('Toneladas capturadas: '+ton+'. Está fuera del rango normal (5-45 ton). ¿Es correcto?')) return; }
-  const lng=Math.abs(ka-kde), area=lng*aw, et=etcm/100, vol=area*et, tr=vol*DEN;
-  const er=ton/(area*DEN);                    // espesor real en metros
-  const mf=(et - er) * area;                  // (teórico - real) × área = m³ a favor
+  // Validar que al menos el concepto principal tenga cadenamiento
+  if(!concPpal.kde||!concPpal.longitud){
+    toast('Captura el cadenamiento y los ML del concepto principal','err'); return;
+  }
+  // Usar los datos del concepto principal para los campos de resumen del rec
+  const kde=concPpal.kde, ka=concPpal.ka||concPpal.kde;
+  const lng=concPpal.longitud, aw=concPpal.ancho;
+  const et=concPpal.esp_teorico/100;
+  const area=lng*aw, vol=area*et, tr=vol*DEN;
+  const er=ton&&area?(ton/(area*DEN)):0;
+  const mf=ton&&area&&et?((et)-(ton/(area*DEN)))*area:0;
+  if (ton<5||ton>45) { if(!confirm('Toneladas: '+ton+'. Fuera del rango normal (5-45 ton). ¿Es correcto?')) return; }
   const rec={
     fecha, placas, ton_recibidas:ton,
     material:document.getElementById('f_mat').value,
@@ -1060,6 +1030,10 @@ window.guardar = async function() {
     concepto:concPpal.label, ton_concepto:concPpal.ton,
     conceptos:conceptosGuardar,
     importe_viaje:+conceptosGuardar.reduce((s,cv)=>s+cv.importe,0).toFixed(2),
+    // Totales del camión (suma de todos los conceptos)
+    area_total:+conceptosGuardar.reduce((s,cv)=>s+cv.area,0).toFixed(4),
+    vol_total:+conceptosGuardar.reduce((s,cv)=>s+cv.volumen,0).toFixed(4),
+    long_total:+conceptosGuardar.reduce((s,cv)=>s+cv.longitud,0).toFixed(2),
     tipo:document.getElementById('f_tipo').value,
     vale:document.getElementById('f_vale').value.trim(),
     remision:document.getElementById('f_remision').value.trim(),
@@ -1094,7 +1068,7 @@ window.guardar = async function() {
 };
 
 function resetForm(kaAnterior) {
-  conceptosViaje=[{id:'CARPETA3-O1',ton:0}];
+  conceptosViaje=[{id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
   renderConceptosContainer();
   ['f_placas','f_ton','f_kde','f_ka','f_ml','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>document.getElementById(id).value='');
   // Tendido continuo: el final del viaje anterior es el inicio del siguiente
@@ -1293,20 +1267,137 @@ function actualizarStatusEmul(){
 // ═══ GESTIÓN DE CONCEPTOS MÚLTIPLES POR CAMIÓN ═══
 let conceptosViaje = [];
 
+// Calcular Ka de un concepto basado en kde y ml
+function calcKaConcepto(i){
+  const kde=parseCad((document.getElementById('f_kde_'+i)||{}).value);
+  const ml=parseFloat((document.getElementById('f_ml_'+i)||{}).value)||0;
+  const sentido=(document.getElementById('f_sentido')||{}).value||'sube';
+  if(!isNaN(kde)&&ml>0){
+    const ka=sentido==='sube'?kde+ml:kde-ml;
+    const el=document.getElementById('f_ka_'+i);
+    if(el) el.value=fmtCad(ka);
+    conceptosViaje[i].ka=ka;
+    conceptosViaje[i].kde=kde;
+    conceptosViaje[i].ml=ml;
+  }
+  calcResumenViaje();
+}
+
+// Calcular resumen total del camión sumando todos los conceptos
+function calcResumenViaje(){
+  const ton=parseFloat((document.getElementById('f_ton')||{}).value)||0;
+  let totLng=0, totArea=0, totVol=0;
+  conceptosViaje.forEach(cv=>{
+    const lng=cv.ml||0;
+    const aw1=cv.aw1||0, aw2=cv.aw2||0;
+    const aw=aw1&&aw2?(aw1+aw2)/2:(aw1||aw2||0);
+    const et=(cv.et||3)/100;
+    const area=lng*aw;
+    const vol=area*et;
+    cv._area=area; cv._vol=vol; cv._lng=lng;
+    totLng+=lng; totArea+=area; totVol+=vol;
+  });
+  const DEN=2.35;
+  const tr=totVol*DEN;
+  const erCm=totArea>0?(ton/(totArea*DEN))*100:0;
+  const mf=totArea>0?((totVol)-(ton/DEN)):0;
+  // Actualizar cards de resumen
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('c_l', totLng.toFixed(2)+' m');
+  set('c_a', totArea.toFixed(2)+' m²');
+  set('c_v', totVol.toFixed(4)+' m³');
+  set('c_tr', tr.toFixed(2)+' ton');
+  set('c_er', erCm.toFixed(2)+' cm');
+  set('c_mf', (mf>=0?'+':'')+mf.toFixed(4)+' m³');
+  const res=document.getElementById('resumenViaje');
+  if(res) res.style.display=conceptosViaje.length>0?'block':'none';
+  actualizarHintDist();
+}
+
 function renderConceptosContainer(){
   const cont = document.getElementById('conceptosContainer');
   if(!cont) return;
-  cont.innerHTML = conceptosViaje.map((cv,i)=>`
-    <div style="display:flex;gap:8px;align-items:center;background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:8px">
-      <select onchange="conceptosViaje[${i}].id=this.value;actualizarHintDist()" style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px">
-        ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
-      </select>
-      <input type="number" value="${cv.ton||''}" placeholder="Ton" step="0.01" inputmode="decimal"
-        oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calc()"
-        style="width:90px;font-size:18px;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;text-align:center">
-      ${conceptosViaje.length>1?`<button type="button" onclick="quitarConcepto(${i})" style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer">✕</button>`:''}
-    </div>`).join('');
-  actualizarHintDist();
+  const sentido=(document.getElementById('f_sentido')||{}).value||'sube';
+  const tonTotal=parseFloat((document.getElementById('f_ton')||{}).value)||0;
+  // Calcular toneladas ya asignadas en todos menos el último
+  const asigPrev=conceptosViaje.slice(0,-1).reduce((s,cv)=>s+(cv.ton||0),0);
+  const faltante=Math.max(0,+(tonTotal-asigPrev).toFixed(2));
+
+  cont.innerHTML = conceptosViaje.map((cv,i)=>{
+    const esUltimo=i===conceptosViaje.length-1&&conceptosViaje.length>1;
+    const tonVal=esUltimo&&faltante>0?faltante:(cv.ton||'');
+    if(esUltimo&&faltante>0) conceptosViaje[i].ton=faltante;
+    return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px" id="concepto_card_${i}">
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer()" 
+          style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
+          ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
+        </select>
+        <span id="consec_${i}" style="display:none;padding:3px 10px;background:var(--navy);border:1px solid var(--blue);border-radius:99px;font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap"></span>
+        <div style="display:flex;align-items:center;gap:4px">
+          <input type="number" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
+            oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;${esUltimo?'':'renderConceptosContainer();'}actualizarHintDist();calcResumenViaje()"
+            style="width:85px;font-size:18px;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;text-align:center"
+            ${esUltimo?'readonly':''}>
+          <span style="font-size:10px;color:var(--muted)">ton${esUltimo?' (auto)':''}</span>
+        </div>
+        ${conceptosViaje.length>1?`<button type="button" onclick="quitarConcepto(${i})" 
+          style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer;font-size:12px">✕</button>`:''}
+      </div>
+      <!-- Cadenamiento propio de este concepto -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">De KM</div>
+          <input type="text" id="f_kde_${i}" value="${cv.kde?fmtCad(cv.kde):''}" placeholder="46+200.00" autocomplete="off"
+            oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">ML avanzados</div>
+          <input type="number" id="f_ml_${i}" value="${cv.ml||''}" placeholder="110.50" step="0.01" inputmode="decimal"
+            oninput="conceptosViaje[${i}].ml=parseFloat(this.value)||0;calcKaConcepto(${i})"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:16px;font-weight:700;color:var(--green)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">A KM (auto)</div>
+          <input type="text" id="f_ka_${i}" value="${cv.ka?fmtCad(cv.ka):''}" placeholder="46+310.00" autocomplete="off" readonly
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--blue)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Carril</div>
+          <select onchange="conceptosViaje[${i}].carril=this.value"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
+            ${['L. DER.','L. IZQ.','CENT.','CARR. DER.','CARR. IZQ.'].map(o=>`<option ${(cv.carril||'L. DER.')===o?'selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Ancho ini (m)</div>
+          <input type="number" id="f_aw1_${i}" value="${cv.aw1||''}" placeholder="3.34" step="0.01" inputmode="decimal"
+            oninput="conceptosViaje[${i}].aw1=parseFloat(this.value)||0;calcResumenViaje()"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Ancho fin (m)</div>
+          <input type="number" id="f_aw2_${i}" value="${cv.aw2||''}" placeholder="3.40" step="0.01" inputmode="decimal"
+            oninput="conceptosViaje[${i}].aw2=parseFloat(this.value)||0;calcResumenViaje()"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Esp. teórico (cm)</div>
+          <input type="number" id="f_et_${i}" value="${cv.et||3}" placeholder="3.0" step="0.1" inputmode="decimal"
+            oninput="conceptosViaje[${i}].et=parseFloat(this.value)||3;calcResumenViaje()"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:flex-end">
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._area?cv._area.toFixed(1)+' m²':''}</div>
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._vol?cv._vol.toFixed(3)+' m³':''}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  calcResumenViaje();
+  // Mostrar consecutivos después de renderizar
+  setTimeout(()=>conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i)),0);
 }
 
 function actualizarHintDist(){
@@ -1321,7 +1412,7 @@ function actualizarHintDist(){
 }
 
 window.agregarConcepto=function(){
-  conceptosViaje.push({id:'CARPETA3-O1',ton:0});
+  conceptosViaje.push({id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'});
   renderConceptosContainer();
 };
 window.quitarConcepto=function(i){
@@ -1330,8 +1421,41 @@ window.quitarConcepto=function(i){
 };
 
 function initConceptosViaje(){
-  conceptosViaje=[{id:'CARPETA3-O1',ton:0}];
+  conceptosViaje=[{id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
   renderConceptosContainer();
+}
+
+// Calcular el próximo número consecutivo de un concepto en toda la obra
+function proximoConsecutivo(concId){
+  const cat=getCatItem(concId);
+  if(!cat||!cat.consecutivo) return null;
+  // Contar todos los registros de este concepto en toda la obra (sin filtro de fecha)
+  let count=0;
+  records.forEach(r=>{
+    if(r.conceptos&&Array.isArray(r.conceptos)){
+      r.conceptos.forEach(cv=>{ if(cv.id===concId) count++; });
+    } else if(r.concepto&&(getCatItem(r.concepto)?.id===concId||r.concepto===cat.label)){
+      count++;
+    }
+  });
+  return count+1;
+}
+
+// Mostrar el consecutivo en la tarjeta del concepto
+function actualizarConsecutivo(i){
+  const cv=conceptosViaje[i];
+  const cat=getCatItem(cv.id);
+  const el=document.getElementById('consec_'+i);
+  if(!el) return;
+  if(cat&&cat.consecutivo){
+    // Si ya tiene consecutivo asignado (editando), mostrarlo; si no, calcular el próximo
+    const num=cv.num_consec||proximoConsecutivo(cv.id);
+    el.textContent='#'+num;
+    el.style.display='inline-block';
+    conceptosViaje[i].num_consec=num;
+  } else {
+    el.style.display='none';
+  }
 }
 
 function validarDistribucion(ton){
@@ -1362,7 +1486,7 @@ function actualizarHintTon(){
   hint.textContent=tonTotal>0?'Ton totales del camion: '+tonTotal.toFixed(2)+' - Captura las que van a este concepto':'';
 }
 function prellenarKdePorConcepto(){
-  const el=document.getElementById('f_kde');
+  const el=document.getElementById('f_kde_0');
   if(!el||el.value) return;
   const hoy=fechaJornada();
   const concId=conceptosViaje.length>0?conceptosViaje[0].id:'CARPETA3-O1';
@@ -1373,7 +1497,15 @@ function prellenarKdePorConcepto(){
       (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(cv=>cv.id===concId))
     ))
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
-  el.value=mismoConcepto.length ? fmtCad(mismoConcepto[0].ka) : '';
+  if(!mismoConcepto.length) return;
+  const ult=mismoConcepto[0];
+  // Buscar el KA del concepto del mismo tipo en el último viaje
+  let kaUlt=ult.ka;
+  if(ult.conceptos&&Array.isArray(ult.conceptos)){
+    const cv=ult.conceptos.find(cv=>cv.id===concId);
+    if(cv&&cv.ka) kaUlt=cv.ka;
+  }
+  if(kaUlt){ el.value=fmtCad(kaUlt); conceptosViaje[0].kde=kaUlt; }
 }
 function prellenarKde(){
   refrescarFechaJornada();
@@ -1445,9 +1577,14 @@ function renderList() {
           ${r.temp_produccion&&r.temp_tendido&&(r.temp_produccion-r.temp_tendido)>30?`<span style="font-family:var(--mono);font-size:11px;background:#1a0d0d;border:1px solid #3a1a1a;color:var(--red);padding:2px 7px;border-radius:4px">⚠️Δ${r.temp_produccion-r.temp_tendido}°C</span>`:''}
         </div>`:''}
         <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:2px">${
-        r.conceptos&&r.conceptos.length>1
-          ? r.conceptos.map(cv=>(cv.label.split('·')[0]||cv.label).trim()+' '+cv.ton.toFixed(1)+'t').join(' + ')
+        (r.conceptos&&r.conceptos.length>1
+          ? r.conceptos.map(cv=>{
+              const cat=getCatItem(cv.id);
+              const tag=cat&&cat.consecutivo&&cv.num_consec?' #'+cv.num_consec:'';
+              return (cv.label.split('·')[0]||cv.label).trim()+tag+' '+cv.ton.toFixed(1)+'t';
+            }).join(' + ')
           : (r.concepto||'CARPETA 3CM O1')+(r.ton_concepto&&r.ton_concepto!==r.ton_recibidas?' · '+r.ton_concepto.toFixed(2)+' ton':'')
+        )
       }</div>
       <div class="rk">km ${fmtCad(r.kde)} → ${fmtCad(r.ka)} · ${(+r.longitud).toFixed(2)} m<span class="cp">${r.carril}</span></div>
         ${r.observaciones?`<div class="obs-tag">📝 ${r.observaciones.substring(0,60)}${r.observaciones.length>60?'...':''}</div>`:''}
