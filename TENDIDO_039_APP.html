@@ -1427,9 +1427,11 @@ function renderConceptosContainer(){
   }).join('');
   calcResumenViaje();
   // Mostrar consecutivos después de renderizar
-  // Actualizar consecutivos de todos los conceptos después del render
+  // Actualizar consecutivos en dos pasadas para garantizar que el DOM esté listo
   requestAnimationFrame(()=>{
     conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i));
+    // Segunda pasada para el último elemento (puede no estar listo en el primer frame)
+    setTimeout(()=>conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i)), 80);
   });
 }
 
