@@ -1438,10 +1438,11 @@ function initConceptosViaje(){
 }
 
 // Calcular el próximo número consecutivo de un concepto en toda la obra
-function proximoConsecutivo(concId){
+// incluyendo los ya capturados en el formulario actual (antes de guardar)
+function proximoConsecutivo(concId, indexActual){
   const cat=getCatItem(concId);
   if(!cat||!cat.consecutivo) return null;
-  // Contar todos los registros de este concepto en toda la obra (sin filtro de fecha)
+  // 1. Contar en Firebase (registros ya guardados)
   let count=0;
   records.forEach(r=>{
     if(r.conceptos&&Array.isArray(r.conceptos)){
@@ -1449,6 +1450,11 @@ function proximoConsecutivo(concId){
     } else if(r.concepto&&(getCatItem(r.concepto)?.id===concId||r.concepto===cat.label)){
       count++;
     }
+  });
+  // 2. Contar los conceptos del MISMO TIPO ya agregados en el formulario actual
+  //    (los que van ANTES del índice actual — los que ya tienen consecutivo asignado)
+  conceptosViaje.forEach((cv,j)=>{
+    if(j<indexActual && cv.id===concId) count++;
   });
   return count+1;
 }
@@ -1460,8 +1466,7 @@ function actualizarConsecutivo(i){
   const el=document.getElementById('consec_'+i);
   if(!el) return;
   if(cat&&cat.consecutivo){
-    // Si ya tiene consecutivo asignado (editando), mostrarlo; si no, calcular el próximo
-    const num=cv.num_consec||proximoConsecutivo(cv.id);
+    const num=proximoConsecutivo(cv.id, i);
     el.textContent='#'+num;
     el.style.display='inline-block';
     conceptosViaje[i].num_consec=num;
