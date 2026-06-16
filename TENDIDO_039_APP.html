@@ -261,31 +261,19 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div class="fg">
         <div class="field"><label>Fecha</label><input type="date" id="f_fecha"></div>
         <div class="field"><label>Placas</label><input type="text" id="f_placas" list="placasList" placeholder="HW9792A" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" autocomplete="off"><datalist id="placasList"></datalist></div>
-        <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc()"></div>
+        <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist()"></div>
         <div class="field"><label>Material</label>
           <select id="f_mat"><option>MEZCLA</option><option>BASE HIDRÁULICA</option><option>SELLO 3A</option></select>
         </div>
         <div class="field"><label>PG</label>
           <select id="f_pg"><option>PG 64-22</option><option>PG 70-22</option></select>
         </div>
-        <div class="field ff"><label>Concepto de obra</label>
-          <select id="f_concepto" onchange="onConceptoChange()">
-            <option value="CARPETA 3CM O1">Carpeta asfáltica 3cm - O1</option>
-            <option value="CARPETA 5CM O1">Carpeta asfáltica 5cm - O1</option>
-            <option value="RENIVELACION O1">Renivelación - O1</option>
-            <option value="BACHEO SUP O1">Bacheo superficial - O1</option>
-            <option value="BASE ASFALTICA">Base asfáltica</option>
-            <option value="OTRO">Otro (especificar)</option>
-          </select>
-        </div>
-        <div class="field" id="f_concepto_otro_wrap" style="display:none">
-          <label>Especificar concepto</label>
-          <input type="text" id="f_concepto_otro" placeholder="Describe el concepto">
-        </div>
-        <div class="field">
-          <label>Ton este concepto</label>
-          <input type="number" id="f_ton_concepto" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc()" style="font-size:20px;font-weight:700;color:var(--gold)">
-          <div style="font-size:10px;color:var(--muted);margin-top:3px" id="ton_concepto_hint"></div>
+        <!-- DISTRIBUCIÓN DE CONCEPTOS POR CAMIÓN -->
+        <div class="field ff" style="grid-column:1/-1">
+          <label>Distribución de toneladas por concepto</label>
+          <div id="conceptosContainer" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
+          <button type="button" onclick="agregarConcepto()" style="margin-top:8px;padding:6px 14px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer">+ Agregar otro concepto</button>
+          <div id="ton_dist_hint" style="font-size:10px;margin-top:4px"></div>
         </div>
         <div class="field"><label>Tipo mezcla</label>
           <select id="f_tipo">
@@ -490,6 +478,20 @@ const firebaseConfig = {
   appId: "1:251497365328:web:8167a07a5c2557d6ca3655"
 };
 
+
+// ═══ CATÁLOGO E-7 · CONTRATO N-27-2026 ═══
+const CATALOGO_E7 = [
+  { id:'BACHEO-O1',    obra:'O1', codigo:'N-CSV-CAR-2-02-003/16', label:'BACHEO SUP · O1',   unidad:'M3', cantidad:68,   pu:3874.26 },
+  { id:'RENIV-O1',    obra:'O1', codigo:'N-CSV-CAR-3-02-001/15', label:'RENIVELACIÓN · O1', unidad:'M3', cantidad:280,  pu:3939.70 },
+  { id:'CARPETA3-O1', obra:'O1', codigo:'N-CSV-CAR-3-02-005/20', label:'CARPETA 3CM · O1',  unidad:'M3', cantidad:4500, pu:3646.84 },
+  { id:'BACHEO-O2',   obra:'O2', codigo:'N-CSV-CAR-2-02-003/16', label:'BACHEO SUP · O2',   unidad:'M3', cantidad:98,   pu:3874.26 },
+  { id:'CARPETA5-O2', obra:'O2', codigo:'(pendiente)',            label:'CARPETA 5CM · O2', unidad:'M3', cantidad:1500, pu:3646.84 },
+  { id:'OTRO',        obra:'',   codigo:'',                       label:'Otro',              unidad:'M3', cantidad:0,    pu:0 }
+];
+let catalogoActivo = [...CATALOGO_E7];
+function getCatItem(id){ return catalogoActivo.find(x=>x.id===id)||null; }
+function importe(id, m3){ const ci=getCatItem(id); return ci ? ci.pu*m3 : 0; }
+
 // ═══ AUTENTICACIÓN SEGURA ═══
 // Contraseñas validadas por hash SHA-256. El código fuente NO expone las contraseñas.
 async function sha256(str) {
@@ -503,7 +505,7 @@ const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
 
 // ═══ BORRADOR AUTOMÁTICO: lo tecleado se conserva aunque se cierre la app ═══
-const DRAFT_IDS=['f_placas','f_ton','f_ton_concepto','f_concepto','f_kde','f_ml','f_ka','f_aw1','f_aw2','f_et','f_carril','f_sentido','f_tp','f_tt','f_vale','f_remision','f_obs','f_emul_ini','f_emul_fin','f_emul_tipo','f_emul_temp','f_emul_rem','f_emul_prov','f_fecha'];
+const DRAFT_IDS=['f_placas','f_ton','f_kde','f_ml','f_ka','f_aw1','f_aw2','f_et','f_carril','f_sentido','f_tp','f_tt','f_vale','f_remision','f_obs','f_emul_ini','f_emul_fin','f_emul_tipo','f_emul_temp','f_emul_rem','f_emul_prov','f_fecha'];
 function guardarBorrador(){
   const d={};
   DRAFT_IDS.forEach(id=>{ const el=document.getElementById(id); if(el&&el.value) d[id]=el.value; });
@@ -1033,8 +1035,17 @@ window.guardar = async function() {
   const etcm=parseFloat(document.getElementById('f_et').value);
   const fecha=document.getElementById('f_fecha').value;
   if (!placas||!ton||!kde||!ka||!aw||!etcm||!fecha) { toast('Completa todos los campos obligatorios','err'); return; }
-  const concepto=conceptoReal();
-  const tonConc=parseFloat((document.getElementById('f_ton_concepto')||{}).value)||ton;
+  // Validar distribución de conceptos
+  const vd=validarDistribucion(ton);
+  if(!vd.ok){ toast(vd.msg,'err'); return; }
+  const conceptosGuardar=conceptosViaje.map(cv=>({
+    id:cv.id, label:getCatItem(cv.id)?.label||cv.id,
+    codigo:getCatItem(cv.id)?.codigo||'',
+    ton:+(cv.ton||0).toFixed(2),
+    pu:getCatItem(cv.id)?.pu||0,
+    importe:+((getCatItem(cv.id)?.pu||0)*(cv.ton||0)).toFixed(2)
+  }));
+  const concPpal=conceptosGuardar.reduce((a,b)=>a.ton>=b.ton?a:b);
   if (isNaN(kde)||isNaN(ka)) { toast('Cadenamiento no válido. Usa formato 46+853.22 o metros corridos 46853.22','err'); return; }
   if (ka===kde) { toast('ERROR: KM inicial y final son iguales. Captura los ML avanzados.','err'); return; }
   if (Math.abs(ka-kde)>2000) { if(!confirm('El tramo mide '+Math.abs(ka-kde).toFixed(0)+' m (más de 2 km en un viaje). ¿Es correcto?')) return; }
@@ -1046,8 +1057,9 @@ window.guardar = async function() {
     fecha, placas, ton_recibidas:ton,
     material:document.getElementById('f_mat').value,
     pg:document.getElementById('f_pg').value,
-    concepto:concepto,
-    ton_concepto:+tonConc.toFixed(2),
+    concepto:concPpal.label, ton_concepto:concPpal.ton,
+    conceptos:conceptosGuardar,
+    importe_viaje:+conceptosGuardar.reduce((s,cv)=>s+cv.importe,0).toFixed(2),
     tipo:document.getElementById('f_tipo').value,
     vale:document.getElementById('f_vale').value.trim(),
     remision:document.getElementById('f_remision').value.trim(),
@@ -1082,9 +1094,8 @@ window.guardar = async function() {
 };
 
 function resetForm(kaAnterior) {
-  const _fc=document.getElementById('f_ton_concepto'); if(_fc) _fc.value='';
-  const _fo=document.getElementById('f_concepto_otro'); if(_fo) _fo.value='';
-  const _fw=document.getElementById('f_concepto_otro_wrap'); if(_fw) _fw.style.display='none';
+  conceptosViaje=[{id:'CARPETA3-O1',ton:0}];
+  renderConceptosContainer();
   ['f_placas','f_ton','f_kde','f_ka','f_ml','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>document.getElementById(id).value='');
   // Tendido continuo: el final del viaje anterior es el inicio del siguiente
   if (kaAnterior!==undefined && !isNaN(kaAnterior)) document.getElementById('f_kde').value = fmtCad(kaAnterior);
@@ -1104,11 +1115,20 @@ window.openEdit=function(id) {
       <div class="field"><label>Fecha</label><input type="date" id="e_f" value="${r.fecha}"></div>
       <div class="field"><label>Placas</label><input type="text" id="e_p" value="${r.placas}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="field"><label>Ton recibidas</label><input type="number" id="e_t" value="${r.ton_recibidas}" step="0.01" inputmode="decimal"></div>
-      <div class="field ff"><label>Concepto de obra</label>
-        <input type="text" id="e_concepto" value="${r.concepto||'CARPETA 3CM O1'}" style="font-weight:700;color:var(--gold)">
-      </div>
-      <div class="field"><label>Ton este concepto</label>
-        <input type="number" id="e_ton_concepto" value="${r.ton_concepto||r.ton_recibidas}" step="0.01" inputmode="decimal">
+      <div class="field ff" style="grid-column:1/-1"><label>Conceptos del viaje</label>
+        <div style="margin-top:6px">
+          ${(r.conceptos&&r.conceptos.length>1
+            ? r.conceptos
+            : [{label:r.concepto||'CARPETA 3CM O1', ton:r.ton_concepto||r.ton_recibidas}]
+          ).map((cv,i)=>`
+            <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+              <input type="text" id="e_conc_label_${i}" value="${cv.label}"
+                style="flex:2;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;color:var(--gold);font-weight:700;font-size:11px">
+              <input type="number" id="e_conc_ton_${i}" value="${cv.ton}" step="0.01" inputmode="decimal"
+                style="width:80px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;text-align:center;font-weight:700;color:var(--gold)">
+              <span style="font-size:10px;color:var(--muted)">ton</span>
+            </div>`).join('')}
+        </div>
       </div>
       <div class="field"><label>№ Vale</label><input type="text" id="e_v" value="${r.vale||''}"></div>
       <div class="field"><label>№ Remisión</label><input type="text" id="e_r" value="${r.remision||''}"></div>
@@ -1203,8 +1223,17 @@ window.saveEdit=async function() {
       fecha:document.getElementById('e_f').value,
       placas:normPlacas(document.getElementById('e_p').value),
       ton_recibidas:ton, kde,ka,longitud:lng,
-      concepto:(document.getElementById('e_concepto').value||'').trim()||'CARPETA 3CM O1',
-      ton_concepto:parseFloat((document.getElementById('e_ton_concepto')||{}).value)||ton,
+      concepto:(document.getElementById('e_conc_label_0')||{value:r.concepto}).value||'CARPETA 3CM O1',
+      ton_concepto:parseFloat((document.getElementById('e_conc_ton_0')||{value:ton}).value)||ton,
+      conceptos:(()=>{ const res=[]; let i=0;
+        while(document.getElementById('e_conc_label_'+i)){
+          const l=(document.getElementById('e_conc_label_'+i).value||'').trim();
+          const t=parseFloat((document.getElementById('e_conc_ton_'+i)||{}).value)||0;
+          if(l) res.push({label:l,ton:t});
+          i++;
+        }
+        return res.length?res:null;
+      })(),
       ancho:+aw.toFixed(3), ancho_ini:isNaN(aw1)?null:aw1, ancho_fin:isNaN(aw2)?null:aw2,
       esp_teorico:et,
       vale:document.getElementById('e_v').value.trim(),
@@ -1261,6 +1290,64 @@ function actualizarStatusEmul(){
   }
   calcEmulsion();
 }
+// ═══ GESTIÓN DE CONCEPTOS MÚLTIPLES POR CAMIÓN ═══
+let conceptosViaje = [];
+
+function renderConceptosContainer(){
+  const cont = document.getElementById('conceptosContainer');
+  if(!cont) return;
+  cont.innerHTML = conceptosViaje.map((cv,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:8px">
+      <select onchange="conceptosViaje[${i}].id=this.value;actualizarHintDist()" style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px">
+        ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
+      </select>
+      <input type="number" value="${cv.ton||''}" placeholder="Ton" step="0.01" inputmode="decimal"
+        oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calc()"
+        style="width:90px;font-size:18px;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;text-align:center">
+      ${conceptosViaje.length>1?`<button type="button" onclick="quitarConcepto(${i})" style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer">✕</button>`:''}
+    </div>`).join('');
+  actualizarHintDist();
+}
+
+function actualizarHintDist(){
+  const ton = parseFloat((document.getElementById('f_ton')||{}).value)||0;
+  const asig = conceptosViaje.reduce((s,cv)=>s+(cv.ton||0),0);
+  const hint = document.getElementById('ton_dist_hint');
+  if(!hint||!ton){ if(hint) hint.textContent=''; return; }
+  const diff = ton - asig;
+  if(Math.abs(diff)<0.01){ hint.style.color='var(--green)'; hint.textContent='✓ '+ton.toFixed(2)+' ton distribuidas'; }
+  else if(diff>0){ hint.style.color='var(--gold)'; hint.textContent='Faltan '+diff.toFixed(2)+' ton ('+asig.toFixed(2)+'/'+ton.toFixed(2)+')'; }
+  else{ hint.style.color='var(--red)'; hint.textContent='Excede '+Math.abs(diff).toFixed(2)+' ton ('+asig.toFixed(2)+'/'+ton.toFixed(2)+')'; }
+}
+
+window.agregarConcepto=function(){
+  conceptosViaje.push({id:'CARPETA3-O1',ton:0});
+  renderConceptosContainer();
+};
+window.quitarConcepto=function(i){
+  conceptosViaje.splice(i,1);
+  renderConceptosContainer();
+};
+
+function initConceptosViaje(){
+  conceptosViaje=[{id:'CARPETA3-O1',ton:0}];
+  renderConceptosContainer();
+}
+
+function validarDistribucion(ton){
+  const asig=conceptosViaje.reduce((s,cv)=>s+(cv.ton||0),0);
+  if(asig<0.01) return {ok:false,msg:'Asigna las toneladas a al menos un concepto'};
+  if(asig>ton+0.01) return {ok:false,msg:'La distribución ('+asig.toFixed(2)+' ton) supera las del camión ('+ton.toFixed(2)+')'};
+  if(ton-asig>0.5) return {ok:false,msg:'Faltan '+(ton-asig).toFixed(2)+' ton por asignar'};
+  return {ok:true};
+}
+
+function conceptoReal(){
+  if(!conceptosViaje.length) return 'CARPETA 3CM · O1';
+  if(conceptosViaje.length===1) return getCatItem(conceptosViaje[0].id)?.label||conceptosViaje[0].id;
+  return conceptosViaje.map(cv=>getCatItem(cv.id)?.label||cv.id).join(' + ');
+}
+
 window.onConceptoChange=function(){
   const v=document.getElementById('f_concepto').value;
   const ow=document.getElementById('f_concepto_otro_wrap');
@@ -1268,16 +1355,6 @@ window.onConceptoChange=function(){
   prellenarKdePorConcepto();
   actualizarHintTon();
 };
-function conceptoReal(){
-  const sel=document.getElementById('f_concepto');
-  if(!sel) return 'CARPETA 3CM O1';
-  const v=sel.value;
-  if(v==='OTRO'){
-    const o=(document.getElementById('f_concepto_otro').value||'').trim();
-    return o||'OTRO';
-  }
-  return v;
-}
 function actualizarHintTon(){
   const tonTotal=parseFloat((document.getElementById('f_ton')||{}).value)||0;
   const hint=document.getElementById('ton_concepto_hint');
@@ -1286,11 +1363,15 @@ function actualizarHintTon(){
 }
 function prellenarKdePorConcepto(){
   const el=document.getElementById('f_kde');
-  if(!el) return;
+  if(!el||el.value) return;
   const hoy=fechaJornada();
-  const conc=conceptoReal();
+  const concId=conceptosViaje.length>0?conceptosViaje[0].id:'CARPETA3-O1';
+  const concLabel=getCatItem(concId)?.label||concId;
   const mismoConcepto=records
-    .filter(r=>r.fecha===hoy && (r.concepto||'CARPETA 3CM O1')===conc)
+    .filter(r=>r.fecha===hoy && (
+      r.concepto===concLabel ||
+      (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(cv=>cv.id===concId))
+    ))
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
   el.value=mismoConcepto.length ? fmtCad(mismoConcepto[0].ka) : '';
 }
@@ -1308,6 +1389,8 @@ function renderAll() {
   actualizarPlacasList();
   actualizarStatusEmul();
   prellenarKde();
+  if(conceptosViaje.length===0) initConceptosViaje();
+  else renderConceptosContainer();
   const activeView = document.querySelector('.view.active');
   if (!activeView) return;
   const id = activeView.id.replace('view-','');
@@ -1361,7 +1444,11 @@ function renderList() {
           ${r.temp_tendido?`<span style="font-family:var(--mono);font-size:11px;background:#0d1a14;border:1px solid #1a3328;color:var(--green);padding:2px 7px;border-radius:4px">🌡️T ${r.temp_tendido}°C</span>`:''}
           ${r.temp_produccion&&r.temp_tendido&&(r.temp_produccion-r.temp_tendido)>30?`<span style="font-family:var(--mono);font-size:11px;background:#1a0d0d;border:1px solid #3a1a1a;color:var(--red);padding:2px 7px;border-radius:4px">⚠️Δ${r.temp_produccion-r.temp_tendido}°C</span>`:''}
         </div>`:''}
-        <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:2px">${r.concepto||'CARPETA 3CM O1'}${r.ton_concepto&&r.ton_concepto!==r.ton_recibidas?' &middot; '+r.ton_concepto.toFixed(2)+' ton':''}</div>
+        <div style="font-size:10px;font-weight:700;color:var(--gold);margin-bottom:2px">${
+        r.conceptos&&r.conceptos.length>1
+          ? r.conceptos.map(cv=>(cv.label.split('·')[0]||cv.label).trim()+' '+cv.ton.toFixed(1)+'t').join(' + ')
+          : (r.concepto||'CARPETA 3CM O1')+(r.ton_concepto&&r.ton_concepto!==r.ton_recibidas?' · '+r.ton_concepto.toFixed(2)+' ton':'')
+      }</div>
       <div class="rk">km ${fmtCad(r.kde)} → ${fmtCad(r.ka)} · ${(+r.longitud).toFixed(2)} m<span class="cp">${r.carril}</span></div>
         ${r.observaciones?`<div class="obs-tag">📝 ${r.observaciones.substring(0,60)}${r.observaciones.length>60?'...':''}</div>`:''}
         ${r.emulsion_lts?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
