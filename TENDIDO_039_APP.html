@@ -2008,6 +2008,125 @@ function renderRepVolumen() {
 }
 
 // ═══ REPORTE GENERAL ═══
+// ═══ FÍSICO-FINANCIERO · helpers ═══
+function _ff_volPorConcepto() {
+  // Acumula m³ reales ejecutados por concepto_id desde todos los registros
+  const acc = {};
+  CATALOGO_E7.forEach(c => { if(c.id!=='OTRO') acc[c.id] = 0; });
+  records.forEach(r => {
+    const arr = (r.conceptos && Array.isArray(r.conceptos) && r.conceptos.length)
+      ? r.conceptos
+      : [{ id: r.concepto_id || 'CARPETA3-O1', volumen: r.volumen || 0 }];
+    arr.forEach(cv => {
+      const cid = cv.id || cv.concepto_id;
+      if (cid && acc[cid] !== undefined) {
+        acc[cid] += (cv.volumen != null ? cv.volumen : (cv.vol != null ? cv.vol : 0));
+      }
+    });
+  });
+  return acc;
+}
+
+function _ff_renderBarras(pct, color) {
+  const w = Math.min(pct, 100).toFixed(1);
+  return `<div style="background:var(--surf2);border-radius:4px;height:8px;width:100%;margin-top:4px">
+    <div style="background:${color};height:8px;border-radius:4px;width:${w}%;transition:width .4s"></div>
+  </div>`;
+}
+
+function renderFisicoFinanciero() {
+  if (session.rol !== 'admin') return '';
+  const volEjec = _ff_volPorConcepto();
+  // Importe contrato total y ejecutado por concepto
+  const conceptos = CATALOGO_E7.filter(c => c.id !== 'OTRO');
+  const montoContrato = conceptos.reduce((s, c) => s + c.pu * c.cantidad, 0);
+  const montoEjec = conceptos.reduce((s, c) => s + c.pu * (volEjec[c.id] || 0), 0);
+  const pctGlobal = montoContrato > 0 ? (montoEjec / montoContrato * 100) : 0;
+  const fmtMXN = v => '$' + v.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  // Tabla por concepto
+  let filas = '';
+  conceptos.forEach(c => {
+    const ejec = volEjec[c.id] || 0;
+    const pct = c.cantidad > 0 ? (ejec / c.cantidad * 100) : 0;
+    const imp = c.pu * ejec;
+    const impCont = c.pu * c.cantidad;
+    const color = pct >= 80 ? '#22c55e' : pct >= 40 ? '#f59e0b' : 'var(--blue)';
+    filas += `<tr>
+      <td style="font-size:11px;line-height:1.3">${c.label}</td>
+      <td style="text-align:right">${c.cantidad.toLocaleString('es-MX')}</td>
+      <td style="text-align:right;font-weight:700;color:${color}">${ejec.toFixed(2)}</td>
+      <td style="text-align:right;font-size:10px;color:var(--muted)">${fmtMXN(impCont)}</td>
+      <td style="text-align:right;font-weight:700;color:${color}">${fmtMXN(imp)}</td>
+      <td style="min-width:70px">
+        <span style="font-size:11px;font-weight:700;color:${color}">${pct.toFixed(1)}%</span>
+        ${_ff_renderBarras(pct, color)}
+      </td>
+    </tr>`;
+  });
+
+  // Gráfica SVG de avance global (donut simple)
+  const r = 36, circ = 2 * Math.PI * r;
+  const dash = (pctGlobal / 100 * circ).toFixed(2);
+  const gap = (circ - dash).toFixed(2);
+  const colorGlobal = pctGlobal >= 80 ? '#22c55e' : pctGlobal >= 40 ? '#f59e0b' : 'var(--blue)';
+
+  return `
+  <div style="margin:16px 0 8px;padding:12px;background:var(--surf2);border-radius:10px;border:1px solid var(--bord)">
+    <div style="font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--gold);margin-bottom:10px">📊 FÍSICO-FINANCIERO · E-7</div>
+
+    <!-- KPIs globales -->
+    <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px;background:var(--surf1);border-radius:8px;padding:10px;border:1px solid var(--bord)">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:2px">MONTO CONTRATO</div>
+        <div style="font-size:14px;font-weight:700;color:var(--fg)">${fmtMXN(montoContrato)}</div>
+      </div>
+      <div style="flex:1;min-width:120px;background:var(--surf1);border-radius:8px;padding:10px;border:1px solid ${colorGlobal}">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:2px">EJECUTADO</div>
+        <div style="font-size:14px;font-weight:700;color:${colorGlobal}">${fmtMXN(montoEjec)}</div>
+      </div>
+      <div style="flex:0;display:flex;align-items:center;justify-content:center;padding:0 4px">
+        <svg width="90" height="90" viewBox="0 0 90 90">
+          <circle cx="45" cy="45" r="${r}" fill="none" stroke="var(--surf2)" stroke-width="10"/>
+          <circle cx="45" cy="45" r="${r}" fill="none" stroke="${colorGlobal}" stroke-width="10"
+            stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${(circ/4).toFixed(2)}"
+            stroke-linecap="round" style="transition:stroke-dasharray .5s"/>
+          <text x="45" y="49" text-anchor="middle" font-size="13" font-weight="700" fill="${colorGlobal}" font-family="monospace">${pctGlobal.toFixed(1)}%</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Tabla por concepto -->
+    <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--gold)">
+            <th style="text-align:left;padding:4px 4px;color:var(--gold);font-size:10px">CONCEPTO</th>
+            <th style="text-align:right;color:var(--gold);font-size:10px">CAT m³</th>
+            <th style="text-align:right;color:var(--gold);font-size:10px">EJEC m³</th>
+            <th style="text-align:right;color:var(--gold);font-size:10px">IMP. CONT.</th>
+            <th style="text-align:right;color:var(--gold);font-size:10px">IMP. EJEC.</th>
+            <th style="color:var(--gold);font-size:10px">AVANCE</th>
+          </tr>
+        </thead>
+        <tbody style="color:var(--fg)">
+          ${filas}
+        </tbody>
+        <tfoot>
+          <tr style="border-top:1px solid var(--bord);font-weight:700">
+            <td style="padding:6px 4px;font-size:11px;color:var(--gold)">TOTAL</td>
+            <td style="text-align:right;font-size:11px">${conceptos.reduce((s,c)=>s+c.cantidad,0).toLocaleString('es-MX')}</td>
+            <td style="text-align:right;font-size:11px;color:${colorGlobal}">${Object.values(volEjec).reduce((a,b)=>a+b,0).toFixed(2)}</td>
+            <td style="text-align:right;font-size:11px">${fmtMXN(montoContrato)}</td>
+            <td style="text-align:right;font-size:11px;color:${colorGlobal}">${fmtMXN(montoEjec)}</td>
+            <td style="font-size:11px;color:${colorGlobal};font-weight:700">${pctGlobal.toFixed(1)}%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>`;
+}
+
 function renderReporte() {
   const dc=document.getElementById('dashContent');
   const lm=document.getElementById('lockMsg');
@@ -2058,8 +2177,9 @@ function renderReporte() {
       <div class="kc ac"><div class="kl">Ton totales</div><div class="kv">${tt.toFixed(1)}</div><div class="ks">${records.length} viajes</div></div>
       <div class="kc gr"><div class="kl">m³ a favor</div><div class="kv">${tf>=0?'+':''}${tf.toFixed(2)}</div><div class="ks">${(ng/records.length*100).toFixed(0)}% ganancia</div></div>
       <div class="kc"><div class="kl">Área m²</div><div class="kv">${(ta/1000).toFixed(1)}k</div><div class="ks">${(ta/8000*100).toFixed(1)}% meta</div></div>
-      <div class="kc"><div class="kl">Volumen m³</div><div class="kv">${tv.toFixed(1)}</div><div class="ks">cat: 400 m³</div></div>
+      <div class="kc"><div class="kl">Volumen m³</div><div class="kv">${tv.toFixed(1)}</div><div class="ks">cat: ${CATALOGO_E7.filter(c=>c.id!=='OTRO').reduce((s,c)=>s+c.cantidad,0)} m³</div></div>
     </div>
+    ${renderFisicoFinanciero()}
     ${sh}
     <div class="er">
       <button class="be" onclick="exportCSV()">📥 CSV completo</button>
