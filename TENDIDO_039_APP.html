@@ -514,7 +514,9 @@ function restaurarBorrador(){
     if(d['_conceptos']){
       try{
         const saved=JSON.parse(d['_conceptos']);
-        if(saved&&saved.length>0){
+        // Solo restaurar si al menos un concepto tiene datos reales capturados
+        const tienenDatos=saved&&saved.some(cv=>(cv.ton>0||cv.kde||cv.ml>0));
+        if(saved&&saved.length>0&&tienenDatos){
           conceptosViaje=saved;
           renderConceptosContainer();
           hubo=true;
@@ -1360,7 +1362,7 @@ function renderConceptosContainer(){
     if(esUltimo&&faltante>0) conceptosViaje[i].ton=faltante;
     return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px" id="concepto_card_${i}">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;actualizarConsecutivo(${i})" 
+        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;setTimeout(()=>actualizarConsecutivo(${i}),50)" 
           style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
           ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
@@ -1430,8 +1432,7 @@ function renderConceptosContainer(){
   // Actualizar consecutivos en dos pasadas para garantizar que el DOM esté listo
   requestAnimationFrame(()=>{
     conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i));
-    // Segunda pasada para el último elemento (puede no estar listo en el primer frame)
-    setTimeout(()=>conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i)), 80);
+    setTimeout(()=>conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i)), 150);
   });
 }
 
