@@ -1528,13 +1528,13 @@ function renderConceptosContainer(){
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">De KM</div>
           <input type="text" id="f_kde_${i}" value="${cv.kde?fmtCad(cv.kde):''}" placeholder="46+200.00" autocomplete="off"
-            oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
+            oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})" onchange="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})" onkeyup="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">ML avanzados</div>
           <input type="number" id="f_ml_${i}" value="${cv.ml||''}" placeholder="110.50" step="0.01" inputmode="decimal"
-            oninput="conceptosViaje[${i}].ml=parseFloat(this.value)||0;calcKaConcepto(${i})"
+            oninput="conceptosViaje[${i}].ml=parseFloat(this.value)||0;calcKaConcepto(${i})" onchange="conceptosViaje[${i}].ml=parseFloat(this.value)||0;calcKaConcepto(${i})" onkeyup="conceptosViaje[${i}].ml=parseFloat(this.value)||0;calcKaConcepto(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:16px;font-weight:700;color:var(--green)">
         </div>
         <div>
