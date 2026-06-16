@@ -261,7 +261,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div class="fg">
         <div class="field"><label>Fecha</label><input type="date" id="f_fecha"></div>
         <div class="field"><label>Placas</label><input type="text" id="f_placas" list="placasList" placeholder="HW9792A" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" autocomplete="off"><datalist id="placasList"></datalist></div>
-        <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist()"></div>
+        <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist();autoAsignarTon()"></div>
         <div class="field"><label>Material</label>
           <select id="f_mat"><option>MEZCLA</option><option>BASE HIDRÁULICA</option><option>SELLO 3A</option></select>
         </div>
@@ -1427,6 +1427,17 @@ function actualizarStatusEmul(){
 // ═══ GESTIÓN DE CONCEPTOS MÚLTIPLES POR CAMIÓN ═══
 let conceptosViaje = [];
 
+// Si solo hay 1 concepto, asigna automáticamente todas las ton del camión
+function autoAsignarTon(){
+  if(conceptosViaje.length===1){
+    const ton=parseFloat(document.getElementById('f_ton').value)||0;
+    conceptosViaje[0].ton=ton;
+    const inp=document.getElementById('f_concepto_ton_0');
+    if(inp) inp.value=ton||'';
+    renderConceptosContainer();
+  }
+}
+
 // Calcular Ka de un concepto basado en kde y ml
 function calcKaConcepto(i){
   const kde=parseCad((document.getElementById('f_kde_'+i)||{}).value);
@@ -1435,10 +1446,16 @@ function calcKaConcepto(i){
   if(!isNaN(kde)&&ml>0){
     const ka=sentido==='sube'?kde+ml:kde-ml;
     const el=document.getElementById('f_ka_'+i);
-    if(el) el.value=fmtCad(ka);
-    conceptosViaje[i].ka=ka;
-    conceptosViaje[i].kde=kde;
-    conceptosViaje[i].ml=ml;
+    if(el){
+      el.removeAttribute('readonly');
+      el.value=fmtCad(ka);
+      el.setAttribute('readonly','');
+    }
+    if(conceptosViaje[i]){
+      conceptosViaje[i].ka=ka;
+      conceptosViaje[i].kde=kde;
+      conceptosViaje[i].ml=ml;
+    }
   }
   calcResumenViaje();
 }
