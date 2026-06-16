@@ -1329,17 +1329,16 @@ function renderConceptosContainer(){
     if(esUltimo&&faltante>0) conceptosViaje[i].ton=faltante;
     return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px" id="concepto_card_${i}">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer()" 
+        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer();setTimeout(()=>actualizarConsecutivo(${i}),50)" 
           style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
           ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
         <span id="consec_${i}" style="display:none;padding:3px 10px;background:var(--navy);border:1px solid var(--blue);border-radius:99px;font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap"></span>
         <div style="display:flex;align-items:center;gap:4px">
           <input type="number" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
-            oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;${esUltimo?'':'renderConceptosContainer();'}actualizarHintDist();calcResumenViaje()"
-            style="width:85px;font-size:18px;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;text-align:center"
-            ${esUltimo?'readonly':''}>
-          <span style="font-size:10px;color:var(--muted)">ton${esUltimo?' (auto)':''}</span>
+            oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calcResumenViaje()"
+            style="width:85px;font-size:18px;font-weight:700;color:${esUltimo?'var(--blue)':'var(--gold)'};background:var(--bg);border:1px solid ${esUltimo?'var(--blue)':'var(--bord)'};border-radius:6px;padding:6px;text-align:center">
+          <span style="font-size:10px;color:var(--muted)">ton${esUltimo?' ←auto':''}</span>
         </div>
         ${conceptosViaje.length>1?`<button type="button" onclick="quitarConcepto(${i})" 
           style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer;font-size:12px">✕</button>`:''}
@@ -1397,7 +1396,7 @@ function renderConceptosContainer(){
   }).join('');
   calcResumenViaje();
   // Mostrar consecutivos después de renderizar
-  setTimeout(()=>conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i)),0);
+  setTimeout(()=>conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i)),100);
 }
 
 function actualizarHintDist(){
@@ -1523,6 +1522,8 @@ function renderAll() {
   prellenarKde();
   if(conceptosViaje.length===0) initConceptosViaje();
   else renderConceptosContainer();
+  // Actualizar consecutivos cuando llegan nuevos datos de Firebase
+  conceptosViaje.forEach((_,i)=>actualizarConsecutivo(i));
   const activeView = document.querySelector('.view.active');
   if (!activeView) return;
   const id = activeView.id.replace('view-','');
