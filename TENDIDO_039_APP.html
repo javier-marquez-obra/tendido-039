@@ -1329,7 +1329,7 @@ function renderConceptosContainer(){
     if(esUltimo&&faltante>0) conceptosViaje[i].ton=faltante;
     return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px" id="concepto_card_${i}">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer();setTimeout(()=>actualizarConsecutivo(${i}),50)" 
+        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;actualizarConsecutivo(${i})" 
           style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
           ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
@@ -1411,10 +1411,23 @@ function actualizarHintDist(){
 }
 
 window.agregarConcepto=function(){
+  // Guardar valores actuales del DOM antes de agregar (por si el usuario ya cambió algo)
+  conceptosViaje.forEach((cv,i)=>{
+    const sel=document.getElementById('concepto_card_'+i)?.querySelector('select');
+    if(sel) cv.id=sel.value;
+    const tonEl=document.getElementById('concepto_card_'+i)?.querySelectorAll('input[type=number]')[0];
+    if(tonEl) cv.ton=parseFloat(tonEl.value)||cv.ton||0;
+  });
   conceptosViaje.push({id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'});
   renderConceptosContainer();
 };
 window.quitarConcepto=function(i){
+  // Guardar valores actuales antes de quitar
+  conceptosViaje.forEach((cv,j)=>{
+    if(j===i) return;
+    const sel=document.getElementById('concepto_card_'+j)?.querySelector('select');
+    if(sel) cv.id=sel.value;
+  });
   conceptosViaje.splice(i,1);
   renderConceptosContainer();
 };
