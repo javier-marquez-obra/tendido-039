@@ -1038,7 +1038,7 @@ window.guardar = async function() {
   const DEN_=2.35;
   const conceptosGuardar=conceptosViaje.map((cv,i)=>{
     const kde_=parseCad((document.getElementById('f_kde_'+i)||{}).value);
-    const ka_=parseCad((document.getElementById('f_ka_'+i)||{}).value);
+    const ka_=parseCad((document.getElementById('f_ka_'+i)||{}).textContent||(document.getElementById('f_ka_'+i)||{}).value||'');
     const ml_=parseFloat((document.getElementById('f_ml_'+i)||{}).value)||0;
     const aw1_=parseFloat((document.getElementById('f_aw1_'+i)||{}).value)||0;
     const aw2_=parseFloat((document.getElementById('f_aw2_'+i)||{}).value)||0;
@@ -1447,9 +1447,7 @@ function calcKaConcepto(i){
     const ka=sentido==='sube'?kde+ml:kde-ml;
     const el=document.getElementById('f_ka_'+i);
     if(el){
-      el.removeAttribute('readonly');
-      el.value=fmtCad(ka);
-      el.setAttribute('readonly','');
+      el.textContent=fmtCad(ka);
     }
     if(conceptosViaje[i]){
       conceptosViaje[i].ka=ka;
@@ -1536,8 +1534,7 @@ function renderConceptosContainer(){
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">A KM (auto)</div>
-          <input type="text" id="f_ka_${i}" value="${cv.ka?fmtCad(cv.ka):''}" placeholder="46+310.00" autocomplete="off" readonly
-            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--blue)">
+          <div id="f_ka_${i}" style="width:100%;background:var(--bg);border:1px solid var(--blue);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--blue);min-height:32px;line-height:20px">${cv.ka?fmtCad(cv.ka):'—'}</div>
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Carril</div>
