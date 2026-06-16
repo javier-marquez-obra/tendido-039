@@ -268,6 +268,15 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div class="field"><label>PG</label>
           <select id="f_pg"><option>PG 64-22</option><option>PG 70-22</option></select>
         </div>
+        <!-- SENTIDO DEL TENDIDO -->
+        <div class="field" style="grid-column:1/-1">
+          <label style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)">SENTIDO DEL TENDIDO</label>
+          <select id="f_sentido" onchange="localStorage.setItem('t039_sentido',this.value);conceptosViaje.forEach((_,i)=>calcKaConcepto(i))"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:10px;font-size:14px;font-weight:700;color:var(--gold)">
+            <option value="sube">&#11014;&#65039; Sube KM (De menor &#8594; A mayor)</option>
+            <option value="baja">&#11015;&#65039; Baja KM (De mayor &#8594; A menor)</option>
+          </select>
+        </div>
         <!-- CONCEPTOS DEL CAMIÓN (cada uno con su cadenamiento propio) -->
         <div class="field ff" style="grid-column:1/-1">
           <label style="font-size:13px;font-weight:700;color:var(--gold)">📦 Conceptos del camión</label>
@@ -1013,7 +1022,15 @@ window.guardar = async function() {
   const placas=normPlacas(document.getElementById('f_placas').value);
   const ton=parseFloat(document.getElementById('f_ton').value);
   const fecha=document.getElementById('f_fecha').value;
-  if (!placas||!ton||!fecha) { toast('Captura placas, toneladas y fecha','err'); return; }
+  if (!placas) { toast('Captura las placas del camión','err'); return; }
+  if (!ton||isNaN(ton)) { toast('Captura las toneladas recibidas','err'); return; }
+  if (!fecha) {
+    // Intentar asignar fecha automática antes de bloquear
+    const ff=document.getElementById('f_fecha');
+    const hoy=fechaJornada();
+    if(hoy){ ff.value=hoy; }
+    else { toast('Captura la fecha del viaje','err'); return; }
+  }
   // Validar distribución de conceptos
   const vd=validarDistribucion(ton);
   if(!vd.ok){ toast(vd.msg,'err'); return; }
