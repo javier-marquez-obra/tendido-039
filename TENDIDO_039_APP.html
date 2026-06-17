@@ -68,6 +68,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .fg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .ff{grid-column:1/-1}
 .field label{display:block;font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted);margin-bottom:4px;text-transform:uppercase}
+.jlock{display:inline-block;margin-left:6px;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;background:var(--bord);color:var(--muted);letter-spacing:.04em;vertical-align:middle}
+.jlock.on{background:var(--gold);color:#000}
+.jhoy{flex:0 0 auto;padding:9px 12px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;color:var(--txt);font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.04em;white-space:nowrap}
+.jhoy:active{transform:scale(.96)}
 .field input,.field select,.field textarea{width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:9px 10px;color:var(--txt);font-family:var(--mono);font-size:15px;font-weight:600;outline:none;transition:border-color .15s;-webkit-appearance:none;appearance:none}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--gold)}
 .field input::placeholder,.field textarea::placeholder{color:var(--muted);font-weight:400;font-size:13px}
@@ -261,7 +265,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="fc">
       <h3>🚛 Datos del viaje</h3>
       <div class="fg">
-        <div class="field"><label>Fecha</label><input type="date" id="f_fecha"></div>
+        <div class="field"><label>📅 Día de tiro <span id="jornadaLock" class="jlock"></span></label>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="date" id="f_fecha" style="flex:1" onchange="fijarJornada(this.value)">
+            <button type="button" class="jhoy" onclick="resetJornadaHoy()" title="Capturar con la fecha de hoy">Hoy</button>
+          </div>
+        </div>
         <div class="field"><label>Placas</label><input type="text" id="f_placas" list="placasList" placeholder="HW9792A" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" autocomplete="off"><datalist id="placasList"></datalist></div>
         <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist();autoAsignarTon()"></div>
         <div class="field"><label>Material</label>
@@ -580,8 +589,11 @@ window.addEventListener('DOMContentLoaded', () => {
     document.getElementById('splash').style.display = 'none';
     document.getElementById('loginScreen').style.display = 'flex';
   }, 1200);
-  const _ff=document.getElementById('f_fecha'); _ff.value = fechaJornada(); _ff.dataset.auto='1';
-  _ff.addEventListener('change',()=>{ _ff.dataset.auto=''; });
+  const _ff=document.getElementById('f_fecha');
+  const _ja=localStorage.getItem('t039_jornada');
+  _ff.value = _ja || fechaJornada();
+  _ff.dataset.auto = _ja ? '' : '1';
+  actualizarLockJornada();
 });
 
 // ═══ LOGIN ═══
@@ -1019,6 +1031,33 @@ function hoyLocal(){
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
 
+// ── DÍA DE TIRO (jornada fijable y persistente) ──
+// Sin fijar = modo automático (agrupa tiros de la misma jornada por ventana de 8h).
+// Fijada = captura todo en la fecha elegida hasta que se resetee (sirve para cargar
+//          tiros un día después). Se guarda en localStorage y sobrevive recargas.
+function getJornadaActiva(){
+  const j=localStorage.getItem('t039_jornada');
+  return j || fechaJornada();
+}
+function actualizarLockJornada(){
+  const el=document.getElementById('jornadaLock'); if(!el) return;
+  const j=localStorage.getItem('t039_jornada');
+  if(j){ el.textContent='🔒 fijado'; el.classList.add('on'); }
+  else { el.textContent='🔄 auto'; el.classList.remove('on'); }
+}
+window.fijarJornada = function(v){
+  const f=document.getElementById('f_fecha');
+  if(v){ localStorage.setItem('t039_jornada', v); if(f) f.dataset.auto=''; toast('📅 Capturando tiros del '+v.split('-').reverse().join('/')+' (fijado)'); }
+  actualizarLockJornada();
+};
+window.resetJornadaHoy = function(){
+  localStorage.removeItem('t039_jornada');
+  const f=document.getElementById('f_fecha');
+  if(f){ f.value=hoyLocal(); f.dataset.auto='1'; }
+  actualizarLockJornada();
+  toast('📅 Día de tiro: HOY ('+hoyLocal().split('-').reverse().join('/')+')');
+};
+
 // ═══ GUARDAR ═══
 window.guardar = async function() {
   const placas=normPlacas(document.getElementById('f_placas').value);
@@ -1127,7 +1166,8 @@ function resetForm(kaAnterior) {
   // Solo limpiar campos globales que SÍ existen (los de cadenamiento/ML viven por concepto)
   ['f_placas','f_ton','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   localStorage.removeItem('t039_draft');
-  const _ff2=document.getElementById('f_fecha'); if(_ff2){ _ff2.value=fechaJornada(); _ff2.dataset.auto='1'; }
+  const _ff2=document.getElementById('f_fecha'); if(_ff2){ const _ja=localStorage.getItem('t039_jornada'); _ff2.value=_ja||fechaJornada(); _ff2.dataset.auto=_ja?'':'1'; }
+  actualizarLockJornada();
   const _ta=document.getElementById('tempAlert'); if(_ta) _ta.style.display='none';
   fotosActuales=[]; renderFotos(); clearCalc(); updateCounter();
 }
