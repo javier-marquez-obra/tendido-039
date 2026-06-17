@@ -101,6 +101,13 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .fin-kpi-l{font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .fin-kpi-v{font-size:18px;font-weight:800;color:var(--navy);font-family:'JetBrains Mono',monospace;line-height:1.1}
 .fin-kpi-s{font-size:10px;color:var(--gray);font-family:'JetBrains Mono',monospace;margin-top:2px}
+.s-leyenda{display:flex;gap:16px;justify-content:center;margin-top:6px;font-size:10px;color:var(--gray)}
+.s-leyenda span{display:flex;align-items:center;gap:5px}
+.s-leyenda .li{width:16px;height:0;border-top:2px solid}
+.s-leyenda .li.prog{border-top-style:dashed;border-color:#94a3b8}
+.s-leyenda .li.real{border-color:#1d4ed8}
+.cmp-tbl th,.cmp-tbl td{padding:6px 9px}
+.cmp-tbl td.r{font-size:11px}
 
 /* ── FALTANTE ── */
 .falt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
@@ -263,6 +270,7 @@ body.ppt-mode .ppt-watermark{display:block}
     <button id="sec-kpis"     onclick="toggleSec('kpis')"     class="sec-btn">📈 Producción del día</button>
     <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
     <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
+    <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
     <button id="sec-camiones" onclick="toggleSec('camiones')" class="sec-btn">🚛 Metros por camión</button>
     <button id="sec-graficas" onclick="toggleSec('graficas')" class="sec-btn">📊 Gráficas</button>
     <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
@@ -302,6 +310,26 @@ const CAT = {
   bach2:  {vol:98,   pu:3874.26, label:'Bacheo Sup. O2',      color:'red',    obra:'O2'},
 };
 const TOT_VOL = Object.values(CAT).reduce((s,c)=>s+c.vol,0); // 6446
+
+// ── PROGRAMA DE OBRA N-27 (Programa de Erogaciones, plazo 16/04→14/07/2026) ──
+// Volumen (m³) programado por concepto, por mes calendario: [Abr, May, Jun, Jul]
+const PROGRAMA = {
+  reniv: [15,      155,      110,       0],
+  carp3: [0,       764.1509, 2547.1698, 1188.6793],
+  bach1: [27.5676, 40.4324,  0,         0],
+  carp5: [0,       529.4118, 661.7647,  308.8235],
+  bach2: [49,      49,       0,         0],
+};
+// Meses del programa RECORRIDO. Inicio original 16/04; recorrido a 11/05/2026 (+25 días).
+const PROG_INICIO='2026-05-11';            // inicio de trabajos (recorrido)
+const _origInicio='2026-04-16';
+const _shiftDays=Math.round((new Date(PROG_INICIO+'T00:00:00')-new Date(_origInicio+'T00:00:00'))/86400000);
+const _origCut=['2026-04-30','2026-05-31','2026-06-30','2026-07-14']; // cortes originales (fin de cada mes)
+const _mesCorto=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+const _addDays=(iso,d)=>{const x=new Date(iso+'T00:00:00');x.setDate(x.getDate()+d);return x;};
+const PROG_MESES=_origCut.map(c=>{const dt=_addDays(c,_shiftDays);return {label:String(dt.getDate()).padStart(2,'0')+' '+_mesCorto[dt.getMonth()], fin:dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')};});
+const TOT_FIN = Object.keys(CAT).reduce((s,k)=>s+CAT[k].pu*CAT[k].vol,0); // 23,627,283 (pavimentos)
+let _sdata = null; // datos para las curvas S (se llenan en buildAvanceProgramado)
 
 // ── RUTAS ──
 // Planta: km 10 MEX-80 San Patricio (19.225°N, 104.701°W)
@@ -352,6 +380,7 @@ let secciones={
   kpis:true,
   avance:true,
   financiero:true,
+  programa:true,
   camiones:true,
   graficas:true,
   faltante:true,
@@ -536,8 +565,159 @@ function buildFinanciero(exec){
   </div>`;
 }
 
+// ── AVANCE: PROGRAMA vs REAL (curvas S financiera y volumen + barras por período) ──
+function _realPorMes(recs){
+  // Bucketea ejecución real por los cortes del programa recorrido → {vol,fin}
+  const bk=[0,1,2,3].map(()=>({vol:0,fin:0}));
+  const cut=PROG_MESES.map(m=>new Date(m.fin+'T23:59:59'));
+  recs.forEach(r=>{
+    const f=new Date(String(r.fecha||'2026-01-01')+'T12:00:00');
+    let idx=cut.findIndex(c=>f<=c); if(idx<0)idx=3;
+    const isO2=r.kde>=247000&&r.kde<=252000, et=r.esp_teorico||3.5;
+    let key; if(isO2){key=et>=4.5?'carp5':'bach2';} else {key=et<=3.5?'carp3':(et>=4.8?'bach1':'reniv');}
+    bk[idx].vol+=r.volumen||0; bk[idx].fin+=(r.volumen||0)*CAT[key].pu;
+  });
+  return bk;
+}
+function buildAvanceProgramado(recs){
+  const cum=arr=>{let a=0;return arr.map(x=>+(a+=x).toFixed(2));};
+  // Programado por mes
+  const progM=[0,1,2,3].map(i=>{let v=0,f=0;for(const k in PROGRAMA){v+=PROGRAMA[k][i];f+=PROGRAMA[k][i]*CAT[k].pu;}return{vol:v,fin:f};});
+  const realM=_realPorMes(recs);
+  const progVol=cum(progM.map(m=>m.vol)), progFin=cum(progM.map(m=>m.fin));
+  const realVol=cum(realM.map(m=>m.vol)), realFin=cum(realM.map(m=>m.fin));
+  // Periodo actual (hoy) según cortes del programa recorrido
+  const hoy=new Date();
+  let cur=PROG_MESES.findIndex(m=>hoy<=new Date(m.fin+'T23:59:59')); if(cur<0)cur=3;
+  // Delta al mes actual
+  const dFin=realFin[cur]-progFin[cur], dVol=realVol[cur]-progVol[cur];
+  const pctProgFin=progFin[cur]>0?(realFin[cur]/progFin[cur]*100):0;
+  const atraso=dFin<0;
+  const colDelta=atraso?'var(--red)':'var(--green)';
+  const labelDelta=atraso?'ATRASO':'ADELANTO';
 
-// ── FECHA DE JORNADA (misma lógica que la app de captura) ──
+  // Guardar para dibujar las curvas tras insertar el DOM
+  _sdata={labels:PROG_MESES.map(m=>m.label),progVol,realVol,progFin,realFin,cur,TOT_VOL,TOT_FIN,progM,realM};
+
+  return `
+  <div class="section-hdr">📅 Avance vs programa de obra — programado contra real · <span style="font-weight:400;color:var(--gray)">recorrido al ${PROG_INICIO.split('-').reverse().join('/')}</span></div>
+  <div class="card">
+    <div class="card-hdr"><h4>🎯 Posición al ${PROG_MESES[cur].label} (periodo ${cur+1} de 4)</h4><div class="meta">${pctProgFin.toFixed(1)}% de lo programado</div></div>
+    <div class="card-body">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+        <div class="fin-kpi"><div class="fin-kpi-l">Programado al ${PROG_MESES[cur].label}</div><div class="fin-kpi-v">${_fmtMXNc(progFin[cur])}</div><div class="fin-kpi-s">${progVol[cur].toFixed(0)} m³</div></div>
+        <div class="fin-kpi"><div class="fin-kpi-l">Real ejecutado</div><div class="fin-kpi-v">${_fmtMXNc(realFin[cur])}</div><div class="fin-kpi-s">${realVol[cur].toFixed(0)} m³</div></div>
+        <div class="fin-kpi" style="border-color:${colDelta}"><div class="fin-kpi-l">${labelDelta}</div><div class="fin-kpi-v" style="color:${colDelta}">${_fmtMXNc(Math.abs(dFin))}</div><div class="fin-kpi-s" style="color:${colDelta}">${dVol>=0?'+':''}${dVol.toFixed(0)} m³ vs prog.</div></div>
+      </div>
+      <div class="tbl-wrap" style="margin-top:10px">
+        <table class="cmp-tbl">
+          <thead><tr>
+            <th>PERIODO</th>
+            <th class="r">PROG $</th><th class="r">REAL $</th><th class="r">Δ $</th>
+            <th class="r">PROG m³</th><th class="r">REAL m³</th><th class="r">Δ m³</th>
+            <th class="r">% PROG</th><th class="r">% REAL</th><th class="r">AVANCE</th>
+          </tr></thead>
+          <tbody>
+          ${PROG_MESES.map((m,i)=>{
+            const hasReal=i<=cur;
+            const dF=realFin[i]-progFin[i], dV=realVol[i]-progVol[i];
+            const pctP=progFin[i]/TOT_FIN*100, pctR=realFin[i]/TOT_FIN*100;
+            const av=progFin[i]>0?(realFin[i]/progFin[i]*100):0;
+            const cD=dF<0?'var(--red)':'var(--green)';
+            const cAv=av>=100?'var(--green)':av>=80?'var(--gold)':'var(--red)';
+            return `<tr ${i===cur?'style="background:var(--blue4)"':''}>
+              <td><b>${m.label}</b>${i===cur?' ◄hoy':''}</td>
+              <td class="r">${_fmtMXNc(progFin[i])}</td>
+              <td class="r">${hasReal?_fmtMXNc(realFin[i]):'—'}</td>
+              <td class="r" style="color:${hasReal?cD:'var(--gray)'}">${hasReal?(dF>=0?'+':'')+_fmtMXNc(dF):'—'}</td>
+              <td class="r">${progVol[i].toFixed(0)}</td>
+              <td class="r">${hasReal?realVol[i].toFixed(0):'—'}</td>
+              <td class="r" style="color:${hasReal?cD:'var(--gray)'}">${hasReal?(dV>=0?'+':'')+dV.toFixed(0):'—'}</td>
+              <td class="r">${pctP.toFixed(1)}%</td>
+              <td class="r">${hasReal?pctR.toFixed(1)+'%':'—'}</td>
+              <td class="r" style="color:${hasReal?cAv:'var(--gray)'};font-weight:700">${hasReal?av.toFixed(1)+'%':'—'}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+        </table>
+      </div>
+      <div style="font-size:10px;color:var(--gray);margin-top:6px">Δ = real − programado · % PROG/REAL = del contrato total ($${(TOT_FIN/1e6).toFixed(1)}M / ${TOT_VOL} m³) · AVANCE = real ÷ programado del mes</div>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-hdr"><h4>💵 Curva S financiera · programado vs real</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartSFin" style="width:100%;height:200px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
+    <div class="card"><div class="card-hdr"><h4>📦 Curva S volumen (m³) · programado vs real</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartSVol" style="width:100%;height:200px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><h4>📊 Avance financiero por período · programado vs real</h4></div>
+    <div class="card-body" style="padding:12px 8px"><div id="chartBarras" style="width:100%;height:200px"></div></div>
+  </div>`;
+}
+
+// Dibuja una curva S de dos líneas (programado punteado + real sólido)
+function _sCurva(elId, labels, prog, real, maxVal, cur, fmt, color){
+  const el=document.getElementById(elId); if(!el) return;
+  const W=el.offsetWidth||400, H=200, PAD=44;
+  const X=i=>PAD+(i/Math.max(labels.length-1,1))*(W-PAD*1.4);
+  const Y=v=>H-PAD-(v/maxVal)*(H-PAD*1.6);
+  let yl='';
+  for(let i=0;i<=4;i++){const val=maxVal*i/4,y=H-PAD-(H-PAD*1.6)*i/4;
+    yl+=`<text x="${PAD-5}" y="${y+3}" text-anchor="end" font-size="8" fill="#94a3b8">${fmt(val,true)}</text><line x1="${PAD}" y1="${y}" x2="${W-6}" y2="${y}" stroke="#f1f5f9"/>`;}
+  // Programado (todas)
+  let pp='M'+prog.map((v,i)=>`${X(i)},${Y(v)}`).join(' L');
+  let progCir=prog.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#94a3b8"/><text x="${X(i)}" y="${Y(v)+14}" text-anchor="middle" font-size="8" fill="#94a3b8">${fmt(v)}</text>`).join('');
+  // Real (solo hasta mes actual)
+  const realPts=real.slice(0,cur+1);
+  let rp='M'+realPts.map((v,i)=>`${X(i)},${Y(v)}`).join(' L');
+  let realCir=realPts.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="4" fill="${color}" stroke="#fff" stroke-width="1.5"/><text x="${X(i)}" y="${Y(v)-8}" text-anchor="middle" font-size="8" fill="#334155" font-weight="700">${fmt(v)}</text>`).join('');
+  let xl=labels.map((l,i)=>`<text x="${X(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}${i===cur?' ◄hoy':''}</text>`).join('');
+  el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${yl}
+    <path d="${pp}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4" stroke-linejoin="round"/>
+    ${progCir}
+    <path d="${rp}" fill="none" stroke="${color}" stroke-width="2.8" stroke-linejoin="round"/>
+    ${realCir}${xl}
+    <line x1="${PAD}" y1="${PAD/2}" x2="${PAD}" y2="${H-PAD}" stroke="#e2e8f0"/>
+  </svg>`;
+}
+// Barras agrupadas programado vs real por período (financiero del periodo, no acumulado)
+function _sBarras(elId, labels, progM, realM, cur){
+  const el=document.getElementById(elId); if(!el) return;
+  const W=el.offsetWidth||400, H=200, PAD=44;
+  const prog=progM.map(m=>m.fin), real=realM.map(m=>m.fin);
+  const maxV=Math.max(...prog,...real)*1.15||1;
+  const groupW=(W-PAD*1.4)/labels.length, bw=Math.min(28,groupW/2.6);
+  const Y=v=>H-PAD-(v/maxV)*(H-PAD*1.6);
+  let yl='';
+  for(let i=0;i<=4;i++){const val=maxV*i/4,y=H-PAD-(H-PAD*1.6)*i/4;
+    yl+=`<text x="${PAD-5}" y="${y+3}" text-anchor="end" font-size="8" fill="#94a3b8">${_fmtMXNc(val)}</text><line x1="${PAD}" y1="${y}" x2="${W-6}" y2="${y}" stroke="#f1f5f9"/>`;}
+  let bars='',xl='';
+  labels.forEach((l,i)=>{
+    const cx=PAD+groupW*(i+0.5);
+    const yp=Y(prog[i]), yr=Y(real[i]);
+    bars+=`<rect x="${cx-bw-2}" y="${yp}" width="${bw}" height="${H-PAD-yp}" rx="3" fill="#94a3b8" opacity="0.85"/>`;
+    bars+=`<rect x="${cx+2}" y="${yr}" width="${bw}" height="${H-PAD-yr}" rx="3" fill="#1d4ed8"/>`;
+    if(prog[i]>0)bars+=`<text x="${cx-bw/2-2}" y="${yp-3}" text-anchor="middle" font-size="7" fill="#64748b">${_fmtMXNc(prog[i])}</text>`;
+    if(real[i]>0)bars+=`<text x="${cx+bw/2+2}" y="${yr-3}" text-anchor="middle" font-size="7" fill="#1d4ed8" font-weight="700">${_fmtMXNc(real[i])}</text>`;
+    xl+=`<text x="${cx}" y="${H-6}" text-anchor="middle" font-size="9" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}</text>`;
+  });
+  el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${yl}${bars}${xl}
+    <line x1="${PAD}" y1="${PAD/2}" x2="${PAD}" y2="${H-PAD}" stroke="#e2e8f0"/>
+    <g transform="translate(${W-150},6)"><rect width="10" height="10" rx="2" fill="#94a3b8" opacity="0.85"/><text x="14" y="9" font-size="9" fill="#64748b">Programado</text><rect x="74" width="10" height="10" rx="2" fill="#1d4ed8"/><text x="88" y="9" font-size="9" fill="#64748b">Real</text></g>
+  </svg>`;
+}
+function buildSCharts(){
+  if(!_sdata) return;
+  const d=_sdata;
+  const fMXN=(v,axis)=>_fmtMXNc(v);
+  const fM3=(v,axis)=>axis?(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0)):v.toFixed(0);
+  _sCurva('chartSFin', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8');
+  _sCurva('chartSVol', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669');
+  _sBarras('chartBarras', d.labels, d.progM, d.realM, d.cur);
+}
+
+
 // Si el último viaje fue hace menos de 8 horas, la jornada sigue siendo la de ese viaje.
 function fechaJornada(recs){
   if(recs && recs.length){
@@ -641,6 +821,9 @@ function render(){
   <!-- FÍSICO-FINANCIERO -->
   ${secciones.financiero ? buildFinanciero(exec) : ''}
 
+  <!-- AVANCE vs PROGRAMA -->
+  ${secciones.programa ? buildAvanceProgramado(filtered) : ''}
+
   <!-- FALTANTE -->
   ${secciones.faltante ? `
   <div class="section-hdr">⏳ Volumen faltante — cuánto queda por colocar</div>
@@ -688,7 +871,7 @@ function render(){
   </div>`;
 
   // Charts
-  setTimeout(()=>{ buildCharts(fechas,fLabels,acums,byDate); }, 200);
+  setTimeout(()=>{ buildCharts(fechas,fLabels,acums,byDate); buildSCharts(); }, 200);
 }
 
 function renderTableRows(){
