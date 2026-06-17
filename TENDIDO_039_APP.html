@@ -256,7 +256,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div style="font-family:var(--mono);font-size:28px;font-weight:700;color:var(--gold);line-height:1" id="viajeNum">#—</div>
       </div>
       <div style="text-align:right">
-        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em">Hoy</div>
+        <div style="font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.08em" id="viajeFechaLbl">Hoy</div>
         <div style="font-family:var(--mono);font-size:13px;font-weight:700" id="viajeHoy">0 vj · 0.0 ton</div>
       </div>
     </div>
@@ -669,14 +669,18 @@ async function renumerarDia(fecha, cambios) {
   }
 }
 function updateCounter() {
-  const hoy = fechaJornada();
-  const hr = records.filter(r => r.fecha === hoy);
+  const f = document.getElementById('f_fecha');
+  const dia = (f && f.value) || getJornadaActiva();   // sigue el DÍA DE TIRO seleccionado
+  const hr = records.filter(r => r.fecha === dia);
   const ton = hr.reduce((s,r) => s+r.ton_recibidas, 0);
   const nb = document.getElementById('viajeNum');
   const hb = document.getElementById('viajeHoy');
+  const lb = document.getElementById('viajeFechaLbl');
   if (nb) nb.textContent = '#'+(hr.length+1);
   const mlHoy = hr.reduce((s,r) => s+(+r.longitud||0), 0);
   if (hb) hb.textContent = hr.length+' vj · '+ton.toFixed(1)+' ton · '+mlHoy.toFixed(2)+' m';
+  // La etiqueta muestra HOY si el día de tiro es hoy; si está fijado a otro día, la fecha
+  if (lb) lb.textContent = (dia===hoyLocal()) ? 'Hoy' : dia.split('-').reverse().join('/');
 }
 
 // ═══ EMULSIÓN ═══
@@ -1049,12 +1053,14 @@ window.fijarJornada = function(v){
   const f=document.getElementById('f_fecha');
   if(v){ localStorage.setItem('t039_jornada', v); if(f) f.dataset.auto=''; toast('📅 Capturando tiros del '+v.split('-').reverse().join('/')+' (fijado)'); }
   actualizarLockJornada();
+  if(typeof updateCounter==='function') updateCounter();
 };
 window.resetJornadaHoy = function(){
   localStorage.removeItem('t039_jornada');
   const f=document.getElementById('f_fecha');
   if(f){ f.value=hoyLocal(); f.dataset.auto='1'; }
   actualizarLockJornada();
+  if(typeof updateCounter==='function') updateCounter();
   toast('📅 Día de tiro: HOY ('+hoyLocal().split('-').reverse().join('/')+')');
 };
 
