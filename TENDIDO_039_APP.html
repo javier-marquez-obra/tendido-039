@@ -1824,14 +1824,14 @@ function renderRepCamiones() {
   recDia.forEach(r=>{
     if (!byCam[r.placas]) byCam[r.placas]={viajes:0,ton:0,area:0,long:0};
     byCam[r.placas].viajes++;
-    byCam[r.placas].ton+=r.ton_recibidas;
-    byCam[r.placas].area+=r.area;
-    byCam[r.placas].long+=r.longitud;
+    byCam[r.placas].ton+=(r.ton_recibidas||0);
+    byCam[r.placas].area+=(r.area||0);
+    byCam[r.placas].long+=(r.longitud||0);
   });
 
-  const totalTon=recDia.reduce((s,r)=>s+r.ton_recibidas,0);
-  const totalArea=recDia.reduce((s,r)=>s+r.area,0);
-  const totalLong=recDia.reduce((s,r)=>s+r.longitud,0);
+  const totalTon=recDia.reduce((s,r)=>s+(r.ton_recibidas||0),0);
+  const totalArea=recDia.reduce((s,r)=>s+(r.area||0),0);
+  const totalLong=recDia.reduce((s,r)=>s+(r.longitud||0),0);
   const maxLong=Math.max(...Object.values(byCam).map(c=>c.long));
 
   const d=new Date(fechaSel+'T12:00:00');
@@ -1862,9 +1862,9 @@ function renderRepCamiones() {
     tablaHtml+=`<tr>
       <td>${r.placas}</td>
       <td style="text-align:center">${r.num_viaje_dia||'—'}</td>
-      <td>${r.ton_recibidas.toFixed(2)}</td>
-      <td>${r.area.toFixed(1)}</td>
-      <td>${r.longitud.toFixed(0)}</td>
+      <td>${(r.ton_recibidas||0).toFixed(2)}</td>
+      <td>${(r.area||0).toFixed(1)}</td>
+      <td>${(r.longitud||0).toFixed(0)}</td>
       <td style="font-size:10px;color:var(--muted)">${r.vale||'—'} / ${r.remision||'—'}</td>
     </tr>`;
   });
@@ -1908,12 +1908,12 @@ function renderRepCamionesConFecha(fechaSel) {
   const byCam={};
   recDia.forEach(r=>{
     if (!byCam[r.placas]) byCam[r.placas]={viajes:0,ton:0,area:0,long:0};
-    byCam[r.placas].viajes++; byCam[r.placas].ton+=r.ton_recibidas;
-    byCam[r.placas].area+=r.area; byCam[r.placas].long+=r.longitud;
+    byCam[r.placas].viajes++; byCam[r.placas].ton+=(r.ton_recibidas||0);
+    byCam[r.placas].area+=(r.area||0); byCam[r.placas].long+=(r.longitud||0);
   });
-  const totalTon=recDia.reduce((s,r)=>s+r.ton_recibidas,0);
-  const totalArea=recDia.reduce((s,r)=>s+r.area,0);
-  const totalLong=recDia.reduce((s,r)=>s+r.longitud,0);
+  const totalTon=recDia.reduce((s,r)=>s+(r.ton_recibidas||0),0);
+  const totalArea=recDia.reduce((s,r)=>s+(r.area||0),0);
+  const totalLong=recDia.reduce((s,r)=>s+(r.longitud||0),0);
   const maxLong=Math.max(...Object.values(byCam).map(c=>c.long),1);
   const d=new Date(fechaSel+'T12:00:00');
   const lblF=d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}).toUpperCase();
@@ -1923,7 +1923,7 @@ function renderRepCamionesConFecha(fechaSel) {
     barras+=`<div class="cam-bar-row"><div class="cam-placa">${pl}</div><div class="cam-bar-wrap"><div class="cam-bar-fill" style="width:${pct}%"></div></div><div class="cam-meta">${c.long.toFixed(0)}m · ${c.viajes}vj</div></div>`;
   });
   let tabla=`<table class="dtbl"><thead><tr><th>PLACAS</th><th>VJ</th><th>TON</th><th>ÁREA m²</th><th>METROS L</th><th>VALE/REM</th></tr></thead><tbody>`;
-  recDia.forEach(r=>{ tabla+=`<tr><td>${r.placas}</td><td style="text-align:center">${r.num_viaje_dia||'—'}</td><td>${r.ton_recibidas.toFixed(2)}</td><td>${r.area.toFixed(1)}</td><td>${r.longitud.toFixed(0)}</td><td style="font-size:10px;color:var(--muted)">${r.vale||'—'} / ${r.remision||'—'}</td></tr>`; });
+  recDia.forEach(r=>{ tabla+=`<tr><td>${r.placas}</td><td style="text-align:center">${r.num_viaje_dia||'—'}</td><td>${(r.ton_recibidas||0).toFixed(2)}</td><td>${(r.area||0).toFixed(1)}</td><td>${(r.longitud||0).toFixed(0)}</td><td style="font-size:10px;color:var(--muted)">${r.vale||'—'} / ${r.remision||'—'}</td></tr>`; });
   tabla+=`<tr class="tot-row"><td>TOTAL</td><td style="text-align:center">${recDia.length}</td><td>${totalTon.toFixed(2)}</td><td>${totalArea.toFixed(1)}</td><td>${totalLong.toFixed(0)}</td><td>—</td></tr></tbody></table>`;
   // Actualizar solo las secciones
   const el=document.getElementById('repCamionesContent');
