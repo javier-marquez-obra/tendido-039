@@ -97,6 +97,10 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .prog-fill.purple{background:linear-gradient(90deg,#7c3aed,#a78bfa)}
 .prog-pct{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;text-align:right}
 .prog-vol{font-size:10px;color:var(--gray);text-align:right;font-family:'JetBrains Mono',monospace;line-height:1.4}
+.fin-kpi{flex:1;min-width:110px;background:var(--surf);border:1px solid var(--gray2);border-radius:var(--rad2);padding:10px 12px}
+.fin-kpi-l{font-size:10px;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.fin-kpi-v{font-size:18px;font-weight:800;color:var(--navy);font-family:'JetBrains Mono',monospace;line-height:1.1}
+.fin-kpi-s{font-size:10px;color:var(--gray);font-family:'JetBrains Mono',monospace;margin-top:2px}
 
 /* ── FALTANTE ── */
 .falt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
@@ -258,6 +262,7 @@ body.ppt-mode .ppt-watermark{display:block}
   <div style="display:flex;flex-wrap:wrap;gap:8px">
     <button id="sec-kpis"     onclick="toggleSec('kpis')"     class="sec-btn">📈 Producción del día</button>
     <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
+    <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
     <button id="sec-camiones" onclick="toggleSec('camiones')" class="sec-btn">🚛 Metros por camión</button>
     <button id="sec-graficas" onclick="toggleSec('graficas')" class="sec-btn">📊 Gráficas</button>
     <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
@@ -290,11 +295,11 @@ const FB = {
 
 // ── CATÁLOGO E-7 OFICIAL ──
 const CAT = {
-  reniv:  {vol:280,  label:'Renivelaciones',    color:'blue',   obra:'O1'},
-  carp3:  {vol:4500, label:'Carpeta 3cm',        color:'green',  obra:'O1'},
-  bach1:  {vol:68,   label:'Bacheo Sup. O1',     color:'gold',   obra:'O1'},
-  carp5:  {vol:1500, label:'Carpeta 5cm',         color:'purple', obra:'O2'},
-  bach2:  {vol:98,   label:'Bacheo Sup. O2',      color:'red',    obra:'O2'},
+  reniv:  {vol:280,  pu:3939.70, label:'Renivelaciones',    color:'blue',   obra:'O1'},
+  carp3:  {vol:4500, pu:3646.84, label:'Carpeta 3cm',        color:'green',  obra:'O1'},
+  bach1:  {vol:68,   pu:3874.26, label:'Bacheo Sup. O1',     color:'gold',   obra:'O1'},
+  carp5:  {vol:1500, pu:3646.84, label:'Carpeta 5cm',         color:'purple', obra:'O2'},
+  bach2:  {vol:98,   pu:3874.26, label:'Bacheo Sup. O2',      color:'red',    obra:'O2'},
 };
 const TOT_VOL = Object.values(CAT).reduce((s,c)=>s+c.vol,0); // 6446
 
@@ -346,6 +351,7 @@ let allRecs=[], filtered=[], records=[], charts={}, rutaActual=1, filtros={obra:
 let secciones={
   kpis:true,
   avance:true,
+  financiero:true,
   camiones:true,
   graficas:true,
   faltante:true,
@@ -469,6 +475,68 @@ function calcExec(recs){
   return e;
 }
 
+// ── FÍSICO-FINANCIERO: avance económico por concepto ──
+const _fmtMXN = v => '$'+Math.round(v).toLocaleString('es-MX');
+const _fmtMXNc = v => { // compacto: $23.6M / $263K / $850
+  const a=Math.abs(v);
+  if(a>=1e6) return '$'+(v/1e6).toFixed(2)+'M';
+  if(a>=1e3) return '$'+(v/1e3).toFixed(0)+'K';
+  return '$'+Math.round(v);
+};
+function buildFinanciero(exec){
+  const keys=['reniv','carp3','bach1','carp5','bach2'];
+  const rows=keys.map(k=>{
+    const c=CAT[k]; const ex=exec[k]||0;
+    const impCont=c.pu*c.vol, impEjec=c.pu*ex;
+    const pct=impCont>0?Math.min(impEjec/impCont*100,100):0;
+    return {k,c,ex,impCont,impEjec,pct};
+  });
+  const montoContrato=rows.reduce((s,r)=>s+r.impCont,0);
+  const montoEjec=rows.reduce((s,r)=>s+r.impEjec,0);
+  const porEjecutar=montoContrato-montoEjec;
+  const pctGlobal=montoContrato>0?(montoEjec/montoContrato*100):0;
+
+  // Donut global
+  const r=42, circ=2*Math.PI*r;
+  const dash=(pctGlobal/100*circ).toFixed(2), gap=(circ-dash).toFixed(2);
+  const colG=pctGlobal>=80?'var(--green)':pctGlobal>=40?'var(--gold)':'var(--blue)';
+
+  const barras=rows.map(r=>{
+    const colorPct=r.pct>=100?'var(--green)':r.pct>=50?'var(--blue)':'var(--gray)';
+    return `<div class="prog-row">
+      <div class="prog-label">${r.c.label}<br><span style="font-size:10px;color:var(--gray)">${r.c.obra} · ${_fmtMXNc(r.impCont)} contrato</span></div>
+      <div class="prog-track"><div class="prog-fill ${r.c.color}" style="width:${r.pct.toFixed(1)}%"></div></div>
+      <div class="prog-pct" style="color:${colorPct}">${r.pct.toFixed(1)}%</div>
+      <div class="prog-vol">${_fmtMXNc(r.impEjec)}<br><span style="color:var(--gray)">ejecutado</span></div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="section-hdr">💰 Físico-financiero — avance económico por concepto</div>
+  <div class="card">
+    <div class="card-hdr"><h4>💵 Avance financiero global</h4><div class="meta">${pctGlobal.toFixed(1)}% del contrato</div></div>
+    <div class="card-body">
+      <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
+        <svg width="110" height="110" viewBox="0 0 110 110" style="flex:0 0 auto">
+          <circle cx="55" cy="55" r="${r}" fill="none" stroke="var(--blue4)" stroke-width="12"/>
+          <circle cx="55" cy="55" r="${r}" fill="none" stroke="${colG}" stroke-width="12"
+            stroke-dasharray="${dash} ${gap}" stroke-dashoffset="${(circ/4).toFixed(2)}"
+            stroke-linecap="round" transform="rotate(-90 55 55)"/>
+          <text x="55" y="52" text-anchor="middle" font-size="20" font-weight="800" fill="${colG}">${pctGlobal.toFixed(1)}%</text>
+          <text x="55" y="68" text-anchor="middle" font-size="9" fill="var(--gray)">avance</text>
+        </svg>
+        <div style="display:flex;gap:10px;flex:1;flex-wrap:wrap;min-width:240px">
+          <div class="fin-kpi"><div class="fin-kpi-l">Monto contrato</div><div class="fin-kpi-v">${_fmtMXNc(montoContrato)}</div><div class="fin-kpi-s">${_fmtMXN(montoContrato)}</div></div>
+          <div class="fin-kpi" style="border-color:${colG}"><div class="fin-kpi-l">Ejecutado</div><div class="fin-kpi-v" style="color:${colG}">${_fmtMXNc(montoEjec)}</div><div class="fin-kpi-s">${_fmtMXN(montoEjec)}</div></div>
+          <div class="fin-kpi"><div class="fin-kpi-l">Por ejecutar</div><div class="fin-kpi-v">${_fmtMXNc(porEjecutar)}</div><div class="fin-kpi-s">${_fmtMXN(porEjecutar)}</div></div>
+        </div>
+      </div>
+      ${barras}
+    </div>
+  </div>`;
+}
+
+
 // ── FECHA DE JORNADA (misma lógica que la app de captura) ──
 // Si el último viaje fue hace menos de 8 horas, la jornada sigue siendo la de ese viaje.
 function fechaJornada(recs){
@@ -569,6 +637,9 @@ function render(){
     <div class="card"><div class="card-hdr"><h4>📅 Toneladas por día</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartDia" style="width:100%;height:180px"></div></div></div>
     <div class="card"><div class="card-hdr"><h4>📈 Volumen acumulado vs catálogo</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartAcum" style="width:100%;height:180px"></div></div></div>
   </div>` : ''}
+
+  <!-- FÍSICO-FINANCIERO -->
+  ${secciones.financiero ? buildFinanciero(exec) : ''}
 
   <!-- FALTANTE -->
   ${secciones.faltante ? `
