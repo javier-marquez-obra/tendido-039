@@ -106,6 +106,22 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .s-leyenda .li{width:16px;height:0;border-top:2px solid}
 .s-leyenda .li.prog{border-top-style:dashed;border-color:#94a3b8}
 .s-leyenda .li.real{border-color:#1d4ed8}
+.gran-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-4px 0 12px}
+.gran-lbl{font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;margin-right:2px}
+.gran-btn{background:var(--surf);border:1px solid var(--gray2);color:var(--gray);border-radius:8px;padding:6px 14px;font-size:13px;font-weight:700;cursor:pointer;transition:all .12s}
+.gran-btn:active{transform:scale(.96)}
+.gran-btn.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.zoom-btn{background:var(--blue4);border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+.zoom-btn:active{transform:scale(.96)}
+.zoom-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.78);z-index:9999;align-items:center;justify-content:center;padding:12px}
+.zoom-box{background:#fff;border-radius:14px;width:100%;max-width:1100px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.zoom-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--gray2);font-weight:700;font-size:14px;color:var(--navy)}
+.zoom-ctrls{display:flex;gap:6px}
+.zoom-ctrls button{width:34px;height:34px;border:1px solid var(--gray2);background:var(--surf);border-radius:8px;font-size:17px;font-weight:700;cursor:pointer;color:var(--navy);display:flex;align-items:center;justify-content:center}
+.zoom-ctrls button:active{transform:scale(.94)}
+.zoom-ctrls .zclose{background:var(--red);color:#fff;border-color:var(--red)}
+.zoom-scroll{flex:1;overflow:auto;padding:14px;background:#fff;-webkit-overflow-scrolling:touch}
+.zoom-foot{padding:8px 16px;border-top:1px solid var(--gray2);font-size:11px;color:var(--gray);text-align:center}
 .cmp-tbl th,.cmp-tbl td{padding:6px 9px}
 .cmp-tbl td.r{font-size:11px}
 
@@ -288,6 +304,24 @@ body.ppt-mode .ppt-watermark{display:block}
 
 <div class="ppt-watermark">GRUPO YENTER · SÍSTOLE · CONFIDENCIAL</div>
 
+<!-- MODAL ZOOM GRÁFICAS -->
+<div id="zoomModal" class="zoom-modal" onclick="if(event.target===this)cerrarZoom()">
+  <div class="zoom-box">
+    <div class="zoom-hdr">
+      <span id="zoomTitle"></span>
+      <div class="zoom-ctrls">
+        <button onclick="zoomStep(-1)" title="Alejar">−</button>
+        <button onclick="zoomStep(1)" title="Acercar">+</button>
+        <button onclick="zoomReset()" title="Restablecer">⟲</button>
+        <button onclick="cerrarZoom()" title="Cerrar" class="zclose">✕</button>
+      </div>
+    </div>
+    <div class="zoom-scroll" id="zoomScroll"><div id="zoomChart"></div></div>
+    <div class="zoom-foot">Desliza para moverte · usa + / − para acercar · línea punteada = programado, sólida = real</div>
+  </div>
+</div>
+
+
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { initializeFirestore, persistentLocalCache, collection, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -320,14 +354,31 @@ const PROGRAMA = {
   carp5: [0,       529.4118, 661.7647,  308.8235],
   bach2: [49,      49,       0,         0],
 };
-// Meses del programa RECORRIDO. Inicio original 16/04; recorrido a 11/05/2026 (+25 días).
+// ── RECORRIDO + QUINCENAS (avance cada 15 días) ──
 const PROG_INICIO='2026-05-11';            // inicio de trabajos (recorrido)
-const _origInicio='2026-04-16';
-const _shiftDays=Math.round((new Date(PROG_INICIO+'T00:00:00')-new Date(_origInicio+'T00:00:00'))/86400000);
-const _origCut=['2026-04-30','2026-05-31','2026-06-30','2026-07-14']; // cortes originales (fin de cada mes)
+const PLAZO_DIAS=90;
+const MES_DIAS=[15,31,30,14];              // días de obra por mes original (16-30 abr · may · jun · 1-14 jul) = 90
+// ── GRANULARIDAD DINÁMICA (seccionador: día / semana / quincena / mes) ──
 const _mesCorto=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
-const _addDays=(iso,d)=>{const x=new Date(iso+'T00:00:00');x.setDate(x.getDate()+d);return x;};
-const PROG_MESES=_origCut.map(c=>{const dt=_addDays(c,_shiftDays);return {label:String(dt.getDate()).padStart(2,'0')+' '+_mesCorto[dt.getMonth()], fin:dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0')};});
+const _addDays=(iso,d)=>{const x=(iso instanceof Date)?new Date(iso):new Date(iso+'T00:00:00');x.setDate(x.getDate()+d);return x;};
+const _fmtDia=dt=>String(dt.getDate()).padStart(2,'0')+'/'+_mesCorto[dt.getMonth()];
+const _isoDia=dt=>dt.getFullYear()+'-'+String(dt.getMonth()+1).padStart(2,'0')+'-'+String(dt.getDate()).padStart(2,'0');
+// Distribuye un arreglo mensual [m0..m3] en días (1..90), uniforme dentro de cada mes
+function _aDiario(mensual){
+  const dia=[]; let off=0;
+  for(let m=0;m<4;m++){ const r=(mensual[m]||0)/MES_DIAS[m]; for(let d=0;d<MES_DIAS[m];d++) dia[off+d]=r; off+=MES_DIAS[m]; }
+  return dia;
+}
+const _diasGran={dia:1, semana:7, quincena:15, mes:30};
+const _granLabel={dia:'Día', semana:'Semana', quincena:'Quincena', mes:'Mes'};
+let _sGran='semana';   // granularidad activa
+let _sRecs=null;       // recs usados (para re-render al cambiar granularidad)
+function _periodos(gran){
+  const n=_diasGran[gran]||7;
+  const cuts=[]; for(let d=n; d<=PLAZO_DIAS; d+=n) cuts.push(d);
+  if(cuts[cuts.length-1]<PLAZO_DIAS) cuts.push(PLAZO_DIAS); // cerrar en fin de obra (100%)
+  return cuts.map((d,i)=>{const dt=_addDays(PROG_INICIO,d-1);const ini=_addDays(PROG_INICIO,(i>0?cuts[i-1]:0));return {label:_fmtDia(dt),fin:_isoDia(dt),dia:d,ini:_fmtDia(ini)};});
+}
 const TOT_FIN = Object.keys(CAT).reduce((s,k)=>s+CAT[k].pu*CAT[k].vol,0); // 23,627,283 (pavimentos)
 let _sdata = null; // datos para las curvas S (se llenan en buildAvanceProgramado)
 
@@ -566,13 +617,15 @@ function buildFinanciero(exec){
 }
 
 // ── AVANCE: PROGRAMA vs REAL (curvas S financiera y volumen + barras por período) ──
-function _realPorMes(recs){
-  // Bucketea ejecución real por los cortes del programa recorrido → {vol,fin}
-  const bk=[0,1,2,3].map(()=>({vol:0,fin:0}));
-  const cut=PROG_MESES.map(m=>new Date(m.fin+'T23:59:59'));
+function _realPorMes(recs, PER){
+  // Bucketea ejecución real por los cortes de la granularidad activa → {vol,fin}
+  const n=PER.length;
+  const bk=Array.from({length:n},()=>({vol:0,fin:0}));
+  const ini=new Date(PROG_INICIO+'T00:00:00');
   recs.forEach(r=>{
-    const f=new Date(String(r.fecha||'2026-01-01')+'T12:00:00');
-    let idx=cut.findIndex(c=>f<=c); if(idx<0)idx=3;
+    const f=new Date(String(r.fecha||PROG_INICIO)+'T12:00:00');
+    let dia=Math.floor((f-ini)/86400000)+1;
+    let idx=PER.findIndex(p=>dia<=p.dia); if(idx<0)idx=n-1; if(dia<1)idx=0;
     const isO2=r.kde>=247000&&r.kde<=252000, et=r.esp_teorico||3.5;
     let key; if(isO2){key=et>=4.5?'carp5':'bach2';} else {key=et<=3.5?'carp3':(et>=4.8?'bach1':'reniv');}
     bk[idx].vol+=r.volumen||0; bk[idx].fin+=(r.volumen||0)*CAT[key].pu;
@@ -580,37 +633,48 @@ function _realPorMes(recs){
   return bk;
 }
 function buildAvanceProgramado(recs){
+  _sRecs=recs;
+  const PER=_periodos(_sGran);
   const cum=arr=>{let a=0;return arr.map(x=>+(a+=x).toFixed(2));};
-  // Programado por mes
-  const progM=[0,1,2,3].map(i=>{let v=0,f=0;for(const k in PROGRAMA){v+=PROGRAMA[k][i];f+=PROGRAMA[k][i]*CAT[k].pu;}return{vol:v,fin:f};});
-  const realM=_realPorMes(recs);
+  // Programado: distribuir cada concepto en días y agrupar según la granularidad
+  const volDia=new Array(PLAZO_DIAS).fill(0), finDia=new Array(PLAZO_DIAS).fill(0);
+  for(const k in PROGRAMA){ const d=_aDiario(PROGRAMA[k]); for(let i=0;i<PLAZO_DIAS;i++){ volDia[i]+=d[i]; finDia[i]+=d[i]*CAT[k].pu; } }
+  // Por periodo (no acumulado)
+  const progM=PER.map((p,idx)=>{const d0=idx>0?PER[idx-1].dia:0; let v=0,f=0; for(let i=d0;i<p.dia;i++){v+=volDia[i];f+=finDia[i];} return {vol:+v.toFixed(2),fin:+f.toFixed(2)};});
+  const realM=_realPorMes(recs, PER);
   const progVol=cum(progM.map(m=>m.vol)), progFin=cum(progM.map(m=>m.fin));
   const realVol=cum(realM.map(m=>m.vol)), realFin=cum(realM.map(m=>m.fin));
-  // Periodo actual (hoy) según cortes del programa recorrido
-  const hoy=new Date();
-  let cur=PROG_MESES.findIndex(m=>hoy<=new Date(m.fin+'T23:59:59')); if(cur<0)cur=3;
-  // Delta al mes actual
+  // Periodo actual según el día de hoy desde el inicio recorrido
+  const ini=new Date(PROG_INICIO+'T00:00:00');
+  const diaHoy=Math.floor((new Date()-ini)/86400000)+1;
+  let cur=PER.findIndex(p=>diaHoy<=p.dia); if(cur<0)cur=PER.length-1; if(diaHoy<1)cur=0;
+  // Delta al periodo actual
   const dFin=realFin[cur]-progFin[cur], dVol=realVol[cur]-progVol[cur];
   const pctProgFin=progFin[cur]>0?(realFin[cur]/progFin[cur]*100):0;
   const atraso=dFin<0;
   const colDelta=atraso?'var(--red)':'var(--green)';
   const labelDelta=atraso?'ATRASO':'ADELANTO';
+  const PROG_MESES=PER; // alias para el resto del template
 
   // Guardar para dibujar las curvas tras insertar el DOM
-  _sdata={labels:PROG_MESES.map(m=>m.label),progVol,realVol,progFin,realFin,cur,TOT_VOL,TOT_FIN,progM,realM};
+  _sdata={labels:PER.map(m=>m.label),progVol,realVol,progFin,realFin,cur,TOT_VOL,TOT_FIN,progM,realM};
+
+  // Seccionador de granularidad
+  const selBtns=['dia','semana','quincena','mes'].map(g=>`<button class="gran-btn${g===_sGran?' on':''}" onclick="setGran('${g}')">${_granLabel[g]}</button>`).join('');
 
   return `
   <div class="section-hdr">📅 Avance vs programa de obra — programado contra real · <span style="font-weight:400;color:var(--gray)">recorrido al ${PROG_INICIO.split('-').reverse().join('/')}</span></div>
+  <div class="gran-bar"><span class="gran-lbl">Ver por:</span>${selBtns}</div>
   <div class="card">
-    <div class="card-hdr"><h4>🎯 Posición al ${PROG_MESES[cur].label} (periodo ${cur+1} de 4)</h4><div class="meta">${pctProgFin.toFixed(1)}% de lo programado</div></div>
+    <div class="card-hdr"><h4>🎯 Posición al ${PROG_MESES[cur].label} (${_granLabel[_sGran].toLowerCase()} ${cur+1} de ${PROG_MESES.length})</h4><div class="meta">${pctProgFin.toFixed(1)}% de lo programado</div></div>
     <div class="card-body">
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px">
         <div class="fin-kpi"><div class="fin-kpi-l">Programado al ${PROG_MESES[cur].label}</div><div class="fin-kpi-v">${_fmtMXNc(progFin[cur])}</div><div class="fin-kpi-s">${progVol[cur].toFixed(0)} m³</div></div>
         <div class="fin-kpi"><div class="fin-kpi-l">Real ejecutado</div><div class="fin-kpi-v">${_fmtMXNc(realFin[cur])}</div><div class="fin-kpi-s">${realVol[cur].toFixed(0)} m³</div></div>
         <div class="fin-kpi" style="border-color:${colDelta}"><div class="fin-kpi-l">${labelDelta}</div><div class="fin-kpi-v" style="color:${colDelta}">${_fmtMXNc(Math.abs(dFin))}</div><div class="fin-kpi-s" style="color:${colDelta}">${dVol>=0?'+':''}${dVol.toFixed(0)} m³ vs prog.</div></div>
       </div>
-      <div class="tbl-wrap" style="margin-top:10px">
-        <table class="cmp-tbl">
+      ${PROG_MESES.length<=16 ? `<div class="tbl-wrap" style="margin-top:10px">
+        <table class="cmp-tbl">` : `<div style="display:none"><table>`}
           <thead><tr>
             <th>PERIODO</th>
             <th class="r">PROG $</th><th class="r">REAL $</th><th class="r">Δ $</th>
@@ -641,70 +705,108 @@ function buildAvanceProgramado(recs){
           </tbody>
         </table>
       </div>
-      <div style="font-size:10px;color:var(--gray);margin-top:6px">Δ = real − programado · % PROG/REAL = del contrato total ($${(TOT_FIN/1e6).toFixed(1)}M / ${TOT_VOL} m³) · AVANCE = real ÷ programado del mes</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:6px">Δ = real − programado · % PROG/REAL = del contrato total ($${(TOT_FIN/1e6).toFixed(1)}M / ${TOT_VOL} m³) · AVANCE = real ÷ programado del periodo${PROG_MESES.length>16?' · (tabla oculta en vista por día — usa semana/quincena/mes para el detalle)':''} · desde ${PROG_INICIO.split('-').reverse().join('/')}</div>
     </div>
   </div>
-  <div class="two-col">
-    <div class="card"><div class="card-hdr"><h4>💵 Curva S financiera · programado vs real</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartSFin" style="width:100%;height:200px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
-    <div class="card"><div class="card-hdr"><h4>📦 Curva S volumen (m³) · programado vs real</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartSVol" style="width:100%;height:200px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
-  </div>
+  <div class="card"><div class="card-hdr"><h4>💵 Curva S financiera · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('fin')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSFin" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
+  <div class="card"><div class="card-hdr"><h4>📦 Curva S volumen (m³) · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('vol')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSVol" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
   <div class="card">
-    <div class="card-hdr"><h4>📊 Avance financiero por período · programado vs real</h4></div>
-    <div class="card-body" style="padding:12px 8px"><div id="chartBarras" style="width:100%;height:200px"></div></div>
+    <div class="card-hdr"><h4>📊 Avance financiero por semana · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('barras')">🔍 Ampliar</button></div>
+    <div class="card-body" style="padding:12px 8px"><div id="chartBarras" style="width:100%;height:230px"></div></div>
   </div>`;
 }
 
 // Dibuja una curva S de dos líneas (programado punteado + real sólido)
-function _sCurva(elId, labels, prog, real, maxVal, cur, fmt, color){
+function _sCurva(elId, labels, prog, real, maxVal, cur, fmt, color, total, H, fs, detail){
   const el=document.getElementById(elId); if(!el) return;
-  const W=el.offsetWidth||400, H=200, PAD=44;
+  H=H||200; fs=fs||1; const det=!!detail;
+  const W=el.offsetWidth||400, PAD=44*fs;
   const X=i=>PAD+(i/Math.max(labels.length-1,1))*(W-PAD*1.4);
   const Y=v=>H-PAD-(v/maxVal)*(H-PAD*1.6);
+  const pct=v=>total?(v/total*100).toFixed(1)+'%':'';
   let yl='';
   for(let i=0;i<=4;i++){const val=maxVal*i/4,y=H-PAD-(H-PAD*1.6)*i/4;
-    yl+=`<text x="${PAD-5}" y="${y+3}" text-anchor="end" font-size="8" fill="#94a3b8">${fmt(val,true)}</text><line x1="${PAD}" y1="${y}" x2="${W-6}" y2="${y}" stroke="#f1f5f9"/>`;}
-  // Programado (todas)
+    yl+=`<text x="${PAD-5}" y="${y+3}" text-anchor="end" font-size="${8*fs}" fill="#94a3b8">${fmt(val,true)}</text><line x1="${PAD}" y1="${y}" x2="${W-6}" y2="${y}" stroke="#f1f5f9"/>`;}
+  // Líneas
   let pp='M'+prog.map((v,i)=>`${X(i)},${Y(v)}`).join(' L');
-  let progCir=prog.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="3" fill="#94a3b8"/><text x="${X(i)}" y="${Y(v)+14}" text-anchor="middle" font-size="8" fill="#94a3b8">${fmt(v)}</text>`).join('');
-  // Real (solo hasta mes actual)
   const realPts=real.slice(0,cur+1);
   let rp='M'+realPts.map((v,i)=>`${X(i)},${Y(v)}`).join(' L');
-  let realCir=realPts.map((v,i)=>`<circle cx="${X(i)}" cy="${Y(v)}" r="4" fill="${color}" stroke="#fff" stroke-width="1.5"/><text x="${X(i)}" y="${Y(v)-8}" text-anchor="middle" font-size="8" fill="#334155" font-weight="700">${fmt(v)}</text>`).join('');
-  let xl=labels.map((l,i)=>`<text x="${X(i)}" y="${H-6}" text-anchor="middle" font-size="9" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}${i===cur?' ◄hoy':''}</text>`).join('');
+  // Marcadores + etiquetas con colocación dinámica: el punto MÁS ALTO lleva su etiqueta
+  // arriba y el MÁS BAJO abajo → nunca se encliman.
+  const gap=12*fs, lh=9*fs;
+  const n=prog.length;
+  const showVal = det && n<=8;                         // $ solo cuando hay pocos puntos
+  const step = Math.max(1, Math.ceil(n/12));           // ~12 etiquetas máx
+  let progCir='', realCir='';
+  for(let i=0;i<prog.length;i++){
+    const px=X(i), pyP=Y(prog[i]);
+    const hasR=i<=cur;
+    const pyR=hasR?Y(real[i]):null;
+    progCir+=`<circle cx="${px}" cy="${pyP}" r="${(n>8?2.5:3)*fs}" fill="#94a3b8"/>`;
+    if(hasR) realCir+=`<circle cx="${px}" cy="${pyR}" r="${(n>8?3.2:4)*fs}" fill="${color}" stroke="#fff" stroke-width="${1.5*fs}"/>`;
+    const tProg = showVal ? `${pct(prog[i])} · ${fmt(prog[i])}` : pct(prog[i]);
+    const tReal = hasR ? (showVal ? `${pct(real[i])} · ${fmt(real[i])}` : pct(real[i])) : null;
+    // Etiquetas 1 de cada `step` (+ último + actual). El real más reciente siempre se etiqueta.
+    const esUltReal = i===cur;
+    const mostrarProg = (i%step===0) || (i===prog.length-1) || (i===cur);
+    const mostrarReal = (i%step===0) || esUltReal;
+    if(hasR){
+      const progArriba = pyP <= pyR;
+      const yProg = progArriba ? pyP-gap : pyP+gap+lh*0.5;
+      const yReal = progArriba ? pyR+gap+lh*0.5 : pyR-gap;
+      if(mostrarProg) progCir+=`<text x="${px}" y="${yProg}" text-anchor="middle" font-size="${8.5*fs}" fill="#94a3b8" font-weight="700">${tProg}</text>`;
+      if(mostrarReal) realCir+=`<text x="${px}" y="${yReal}" text-anchor="middle" font-size="${9*fs}" fill="${color}" font-weight="800">${tReal}</text>`;
+    } else if(mostrarProg){
+      const arriba = pyP > (PAD+gap+lh);
+      progCir+=`<text x="${px}" y="${arriba?pyP-gap:pyP+gap+lh*0.5}" text-anchor="middle" font-size="${8.5*fs}" fill="#94a3b8" font-weight="700">${tProg}</text>`;
+    }
+  }
+  // Eje X: mostrar fecha 1 de cada `step` (+ actual + última) para no amontonar
+  let xl=labels.map((l,i)=>{
+    const mostrar = (i%step===0) || (i===cur) || (i===labels.length-1);
+    if(!mostrar) return `<line x1="${X(i)}" y1="${H-PAD}" x2="${X(i)}" y2="${H-PAD+4*fs}" stroke="#cbd5e1"/>`;
+    return `<text x="${X(i)}" y="${H-8*fs}" text-anchor="middle" font-size="${(n>8?8.5:9.5)*fs}" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}${i===cur?' ◄hoy':''}</text>`;
+  }).join('');
   el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
     ${yl}
-    <path d="${pp}" fill="none" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5,4" stroke-linejoin="round"/>
+    <path d="${pp}" fill="none" stroke="#94a3b8" stroke-width="${2*fs}" stroke-dasharray="${5*fs},${4*fs}" stroke-linejoin="round"/>
     ${progCir}
-    <path d="${rp}" fill="none" stroke="${color}" stroke-width="2.8" stroke-linejoin="round"/>
+    <path d="${rp}" fill="none" stroke="${color}" stroke-width="${2.8*fs}" stroke-linejoin="round"/>
     ${realCir}${xl}
     <line x1="${PAD}" y1="${PAD/2}" x2="${PAD}" y2="${H-PAD}" stroke="#e2e8f0"/>
   </svg>`;
 }
 // Barras agrupadas programado vs real por período (financiero del periodo, no acumulado)
-function _sBarras(elId, labels, progM, realM, cur){
+function _sBarras(elId, labels, progM, realM, cur, H, fs){
   const el=document.getElementById(elId); if(!el) return;
-  const W=el.offsetWidth||400, H=200, PAD=44;
+  H=H||200; fs=fs||1;
+  const W=el.offsetWidth||400, PAD=44*fs;
   const prog=progM.map(m=>m.fin), real=realM.map(m=>m.fin);
   const maxV=Math.max(...prog,...real)*1.15||1;
-  const groupW=(W-PAD*1.4)/labels.length, bw=Math.min(28,groupW/2.6);
+  const groupW=(W-PAD*1.4)/labels.length, bw=Math.min(28*fs,groupW/2.6);
   const Y=v=>H-PAD-(v/maxV)*(H-PAD*1.6);
   let yl='';
   for(let i=0;i<=4;i++){const val=maxV*i/4,y=H-PAD-(H-PAD*1.6)*i/4;
-    yl+=`<text x="${PAD-5}" y="${y+3}" text-anchor="end" font-size="8" fill="#94a3b8">${_fmtMXNc(val)}</text><line x1="${PAD}" y1="${y}" x2="${W-6}" y2="${y}" stroke="#f1f5f9"/>`;}
+    yl+=`<text x="${PAD-5}" y="${y+3}" text-anchor="end" font-size="${8*fs}" fill="#94a3b8">${_fmtMXNc(val)}</text><line x1="${PAD}" y1="${y}" x2="${W-6}" y2="${y}" stroke="#f1f5f9"/>`;}
   let bars='',xl='';
+  const muchos = labels.length>8;
+  const stepB = Math.max(1, Math.ceil(labels.length/12));
   labels.forEach((l,i)=>{
     const cx=PAD+groupW*(i+0.5);
     const yp=Y(prog[i]), yr=Y(real[i]);
-    bars+=`<rect x="${cx-bw-2}" y="${yp}" width="${bw}" height="${H-PAD-yp}" rx="3" fill="#94a3b8" opacity="0.85"/>`;
-    bars+=`<rect x="${cx+2}" y="${yr}" width="${bw}" height="${H-PAD-yr}" rx="3" fill="#1d4ed8"/>`;
-    if(prog[i]>0)bars+=`<text x="${cx-bw/2-2}" y="${yp-3}" text-anchor="middle" font-size="7" fill="#64748b">${_fmtMXNc(prog[i])}</text>`;
-    if(real[i]>0)bars+=`<text x="${cx+bw/2+2}" y="${yr-3}" text-anchor="middle" font-size="7" fill="#1d4ed8" font-weight="700">${_fmtMXNc(real[i])}</text>`;
-    xl+=`<text x="${cx}" y="${H-6}" text-anchor="middle" font-size="9" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}</text>`;
+    bars+=`<rect x="${cx-bw-1}" y="${yp}" width="${bw}" height="${H-PAD-yp}" rx="2" fill="#94a3b8" opacity="0.85"/>`;
+    bars+=`<rect x="${cx+1}" y="${yr}" width="${bw}" height="${H-PAD-yr}" rx="2" fill="#1d4ed8"/>`;
+    const etiq = (i%stepB===0) || i===cur;
+    if(!muchos && prog[i]>0)bars+=`<text x="${cx-bw/2-1}" y="${yp-3}" text-anchor="middle" font-size="${7.5*fs}" fill="#64748b">${_fmtMXNc(prog[i])}</text>`;
+    if(etiq && real[i]>0)bars+=`<text x="${cx}" y="${yr-3}" text-anchor="middle" font-size="${7.5*fs}" fill="#1d4ed8" font-weight="700">${_fmtMXNc(real[i])}</text>`;
+    const mostrarX = (i%stepB===0) || i===cur || i===labels.length-1;
+    if(mostrarX) xl+=`<text x="${cx}" y="${H-7*fs}" text-anchor="middle" font-size="${(muchos?8.5:9.5)*fs}" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}</text>`;
+    else xl+=`<line x1="${cx}" y1="${H-PAD}" x2="${cx}" y2="${H-PAD+4*fs}" stroke="#cbd5e1"/>`;
   });
   el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
     ${yl}${bars}${xl}
     <line x1="${PAD}" y1="${PAD/2}" x2="${PAD}" y2="${H-PAD}" stroke="#e2e8f0"/>
-    <g transform="translate(${W-150},6)"><rect width="10" height="10" rx="2" fill="#94a3b8" opacity="0.85"/><text x="14" y="9" font-size="9" fill="#64748b">Programado</text><rect x="74" width="10" height="10" rx="2" fill="#1d4ed8"/><text x="88" y="9" font-size="9" fill="#64748b">Real</text></g>
+    <g transform="translate(${W-150*fs},6)"><rect width="${10*fs}" height="${10*fs}" rx="2" fill="#94a3b8" opacity="0.85"/><text x="${14*fs}" y="${9*fs}" font-size="${9*fs}" fill="#64748b">Programado</text><rect x="${74*fs}" width="${10*fs}" height="${10*fs}" rx="2" fill="#1d4ed8"/><text x="${88*fs}" y="${9*fs}" font-size="${9*fs}" fill="#64748b">Real</text></g>
   </svg>`;
 }
 function buildSCharts(){
@@ -712,10 +814,45 @@ function buildSCharts(){
   const d=_sdata;
   const fMXN=(v,axis)=>_fmtMXNc(v);
   const fM3=(v,axis)=>axis?(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0)):v.toFixed(0);
-  _sCurva('chartSFin', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8');
-  _sCurva('chartSVol', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669');
-  _sBarras('chartBarras', d.labels, d.progM, d.realM, d.cur);
+  _sCurva('chartSFin', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8', d.TOT_FIN, 230, 1, false);
+  _sCurva('chartSVol', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669', d.TOT_VOL, 230, 1, false);
+  _sBarras('chartBarras', d.labels, d.progM, d.realM, d.cur, 230, 1);
 }
+
+// ── ZOOM de gráficas (modal a pantalla grande con % + montos) ──
+let _zoomScale=1, _zoomTipo='fin';
+window.abrirZoom=function(tipo){
+  _zoomTipo=tipo; _zoomScale=1;
+  const m=document.getElementById('zoomModal'); if(!m||!_sdata) return;
+  const titulos={fin:'💵 Curva S financiera · programado vs real',vol:'📦 Curva S volumen (m³) · programado vs real',barras:'📊 Avance financiero por período'};
+  document.getElementById('zoomTitle').textContent=titulos[tipo]||'';
+  m.style.display='flex';
+  // El contenedor grande mide el ancho disponible; render con detalle y fuente mayor
+  setTimeout(()=>{ _renderZoom(); }, 30);
+};
+function _renderZoom(){
+  const d=_sdata; if(!d) return;
+  const cont=document.getElementById('zoomChart');
+  // Ancho generoso para que los 4 puntos queden separados (mínimo 760px, escalable)
+  const baseW=Math.max(760, (document.getElementById('zoomScroll').offsetWidth||760));
+  cont.style.width=(baseW*_zoomScale)+'px';
+  const fMXN=(v)=>_fmtMXNc(v), fM3=(v,axis)=>axis?(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0)):v.toFixed(0);
+  const H=Math.round(440*_zoomScale), fs=1.5*_zoomScale;
+  if(_zoomTipo==='fin') _sCurva('zoomChart', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8', d.TOT_FIN, H, fs, true);
+  else if(_zoomTipo==='vol') _sCurva('zoomChart', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669', d.TOT_VOL, H, fs, true);
+  else _sBarras('zoomChart', d.labels, d.progM, d.realM, d.cur, H, fs);
+}
+window.zoomStep=function(dir){ _zoomScale=Math.min(2.5,Math.max(0.8,_zoomScale+dir*0.25)); _renderZoom(); };
+window.zoomReset=function(){ _zoomScale=1; _renderZoom(); };
+window.cerrarZoom=function(){ const m=document.getElementById('zoomModal'); if(m) m.style.display='none'; };
+// Seccionador: cambia granularidad (día/semana/quincena/mes) y re-renderiza la sección
+window.setGran=function(g){
+  if(!_diasGran[g]||g===_sGran) return;
+  _sGran=g;
+  const w=document.getElementById('avanceProgWrap');
+  if(w){ w.innerHTML=buildAvanceProgramado(_sRecs||[]); setTimeout(buildSCharts,30); }
+};
+
 
 
 // Si el último viaje fue hace menos de 8 horas, la jornada sigue siendo la de ese viaje.
@@ -822,7 +959,7 @@ function render(){
   ${secciones.financiero ? buildFinanciero(exec) : ''}
 
   <!-- AVANCE vs PROGRAMA -->
-  ${secciones.programa ? buildAvanceProgramado(filtered) : ''}
+  <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
 
   <!-- FALTANTE -->
   ${secciones.faltante ? `
