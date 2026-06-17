@@ -2379,6 +2379,17 @@ window.toast=function(msg,type='') {
   t.textContent=msg; t.className='toast show'+(type?' '+type:'');
   setTimeout(()=>t.className='toast',2600);
 };
+  window.parseCad = parseCad;
+window.fmtCad = fmtCad;
+window.calcKaConcepto = calcKaConcepto;
+window.calcResumenViaje = calcResumenViaje;
+window.actualizarHintDist = actualizarHintDist;
+window.actualizarConsecutivo = actualizarConsecutivo;
+Object.defineProperty(window, 'conceptosViaje', {
+  get(){ return conceptosViaje; },
+  set(v){ conceptosViaje = v; },
+  configurable: true
+});
 </script>
 </body>
 </html>
