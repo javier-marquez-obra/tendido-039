@@ -1090,7 +1090,7 @@ window.guardar = async function() {
     kde, ka, longitud:lng,
     ancho:+aw.toFixed(3), ancho_ini:concPpal.ancho_ini, ancho_fin:concPpal.ancho_fin,
     esp_teorico:concPpal.esp_teorico,
-    carril:document.getElementById('f_carril').value,
+    carril:concPpal.carril,
     area:+area.toFixed(4), volumen:+vol.toFixed(4),
     ton_reales:+tr.toFixed(4), esp_real:+er.toFixed(6),
     gp:mf>=0?'GANANCIA':'PERDIDA', m3_fav:+mf.toFixed(6),
@@ -1118,14 +1118,15 @@ window.guardar = async function() {
 };
 
 function resetForm(kaAnterior) {
-  conceptosViaje=[{id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
+  // Tendido continuo: el final del viaje anterior es el inicio del siguiente concepto
+  const kdeIni = (kaAnterior!==undefined && !isNaN(kaAnterior)) ? kaAnterior : null;
+  conceptosViaje=[{id:'CARPETA3-O1',ton:0,kde:kdeIni,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
   renderConceptosContainer();
-  ['f_placas','f_ton','f_kde','f_ka','f_ml','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>document.getElementById(id).value='');
-  // Tendido continuo: el final del viaje anterior es el inicio del siguiente
-  if (kaAnterior!==undefined && !isNaN(kaAnterior)) document.getElementById('f_kde').value = fmtCad(kaAnterior);
+  // Solo limpiar campos globales que SÍ existen (los de cadenamiento/ML viven por concepto)
+  ['f_placas','f_ton','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
   localStorage.removeItem('t039_draft');
-  const _ff2=document.getElementById('f_fecha'); _ff2.value=fechaJornada(); _ff2.dataset.auto='1';
-  document.getElementById('tempAlert').style.display='none';
+  const _ff2=document.getElementById('f_fecha'); if(_ff2){ _ff2.value=fechaJornada(); _ff2.dataset.auto='1'; }
+  const _ta=document.getElementById('tempAlert'); if(_ta) _ta.style.display='none';
   fotosActuales=[]; renderFotos(); clearCalc(); updateCounter();
 }
 
