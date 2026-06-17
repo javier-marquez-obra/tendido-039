@@ -4,7 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0d0f12">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d0f12'/%3E%3Crect x='6' y='26' width='52' height='12' rx='2' fill='%23222'/%3E%3Crect x='14' y='30' width='8' height='4' fill='%23f0b429'/%3E%3Crect x='28' y='30' width='8' height='4' fill='%23f0b429'/%3E%3Crect x='42' y='30' width='8' height='4' fill='%23f0b429'/%3E%3Ctext x='32' y='20' font-family='monospace' font-size='14' font-weight='700' fill='%23f0b429' text-anchor='middle'%3E039%3C/text%3E%3C/svg%3E">
 <title>TENDIDO 039 · Campo</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -1449,8 +1451,6 @@ function calcKaConcepto(i){
   const sentido=sentidoEl?sentidoEl.value:'sube';
   const kde=parseCad(kdeRaw);
   const ml=parseFloat(mlRaw)||0;
-  // Debug toast — quitar después
-  toast('KDE='+kdeRaw+'→'+kde+' ML='+ml+' S='+sentido,'');
   if(!isNaN(kde)&&ml>0){
     const ka=(sentido==='sube'||!sentido)?kde+ml:kde-ml;
     const el=document.getElementById('f_ka_'+i);
