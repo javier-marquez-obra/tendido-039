@@ -711,8 +711,8 @@ function buildAvanceProgramado(recs){
   <div class="card"><div class="card-hdr"><h4>💵 Curva S financiera · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('fin')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSFin" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
   <div class="card"><div class="card-hdr"><h4>📦 Curva S volumen (m³) · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('vol')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSVol" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span></div></div></div>
   <div class="card">
-    <div class="card-hdr"><h4>📊 Avance financiero por semana · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('barras')">🔍 Ampliar</button></div>
-    <div class="card-body" style="padding:12px 8px"><div id="chartBarras" style="width:100%;height:230px"></div></div>
+    <div class="card-hdr"><h4>📊 Avance financiero POR PERIODO · % del contrato ejecutado (no acumulado)</h4><button class="zoom-btn" onclick="abrirZoom('barras')">🔍 Ampliar</button></div>
+    <div class="card-body" style="padding:12px 8px"><div id="chartBarras" style="width:100%;height:230px"></div><div style="font-size:10px;color:var(--gray);text-align:center;margin-top:4px">Cada barra = lo ejecutado en ESE periodo (no acumulado). El % es respecto al contrato total. Azul = real · Gris = programado.</div></div>
   </div>`;
 }
 
@@ -777,7 +777,7 @@ function _sCurva(elId, labels, prog, real, maxVal, cur, fmt, color, total, H, fs
   </svg>`;
 }
 // Barras agrupadas programado vs real por período (financiero del periodo, no acumulado)
-function _sBarras(elId, labels, progM, realM, cur, H, fs){
+function _sBarras(elId, labels, progM, realM, cur, H, fs, total){
   const el=document.getElementById(elId); if(!el) return;
   H=H||200; fs=fs||1;
   const W=el.offsetWidth||400, PAD=44*fs;
@@ -785,6 +785,7 @@ function _sBarras(elId, labels, progM, realM, cur, H, fs){
   const maxV=Math.max(...prog,...real)*1.15||1;
   const groupW=(W-PAD*1.4)/labels.length, bw=Math.min(28*fs,groupW/2.6);
   const Y=v=>H-PAD-(v/maxV)*(H-PAD*1.6);
+  const pctT=v=>total?(v/total*100).toFixed(1)+'%':'';
   let yl='';
   for(let i=0;i<=4;i++){const val=maxV*i/4,y=H-PAD-(H-PAD*1.6)*i/4;
     yl+=`<text x="${PAD-5}" y="${y+3}" text-anchor="end" font-size="${8*fs}" fill="#94a3b8">${_fmtMXNc(val)}</text><line x1="${PAD}" y1="${y}" x2="${W-6}" y2="${y}" stroke="#f1f5f9"/>`;}
@@ -797,16 +798,25 @@ function _sBarras(elId, labels, progM, realM, cur, H, fs){
     bars+=`<rect x="${cx-bw-1}" y="${yp}" width="${bw}" height="${H-PAD-yp}" rx="2" fill="#94a3b8" opacity="0.85"/>`;
     bars+=`<rect x="${cx+1}" y="${yr}" width="${bw}" height="${H-PAD-yr}" rx="2" fill="#1d4ed8"/>`;
     const etiq = (i%stepB===0) || i===cur;
-    if(!muchos && prog[i]>0)bars+=`<text x="${cx-bw/2-1}" y="${yp-3}" text-anchor="middle" font-size="${7.5*fs}" fill="#64748b">${_fmtMXNc(prog[i])}</text>`;
-    if(etiq && real[i]>0)bars+=`<text x="${cx}" y="${yr-3}" text-anchor="middle" font-size="${7.5*fs}" fill="#1d4ed8" font-weight="700">${_fmtMXNc(real[i])}</text>`;
+    const conMonto = (i===cur) || !muchos;             // $ solo en la actual o en vistas no densas
+    const yTopReal = Math.min(yr,yp)-5*fs;             // arriba de la barra más alta del grupo
+    // REAL: % (azul, negrita) + $ debajo cuando aplica
+    if(real[i]>0 && etiq){
+      bars+=`<text x="${cx}" y="${yTopReal}" text-anchor="middle" font-size="${8.5*fs}" fill="#1d4ed8" font-weight="800">${pctT(real[i])}</text>`;
+      if(conMonto) bars+=`<text x="${cx}" y="${yTopReal-9*fs}" text-anchor="middle" font-size="${7.5*fs}" fill="#334155" font-weight="600">${_fmtMXNc(real[i])}</text>`;
+    }
+    // PROGRAMADO: % (gris) solo en vistas no densas
+    if(prog[i]>0 && !muchos && etiq && real[i]<=0){
+      bars+=`<text x="${cx}" y="${yp-5*fs}" text-anchor="middle" font-size="${8*fs}" fill="#94a3b8" font-weight="700">${pctT(prog[i])}</text>`;
+    }
     const mostrarX = (i%stepB===0) || i===cur || i===labels.length-1;
-    if(mostrarX) xl+=`<text x="${cx}" y="${H-7*fs}" text-anchor="middle" font-size="${(muchos?8.5:9.5)*fs}" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}</text>`;
+    if(mostrarX) xl+=`<text x="${cx}" y="${H-7*fs}" text-anchor="middle" font-size="${(muchos?8.5:9.5)*fs}" fill="#64748b" ${i===cur?'font-weight="700"':''}>${l}${i===cur?' ◄hoy':''}</text>`;
     else xl+=`<line x1="${cx}" y1="${H-PAD}" x2="${cx}" y2="${H-PAD+4*fs}" stroke="#cbd5e1"/>`;
   });
   el.innerHTML=`<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
     ${yl}${bars}${xl}
     <line x1="${PAD}" y1="${PAD/2}" x2="${PAD}" y2="${H-PAD}" stroke="#e2e8f0"/>
-    <g transform="translate(${W-150*fs},6)"><rect width="${10*fs}" height="${10*fs}" rx="2" fill="#94a3b8" opacity="0.85"/><text x="${14*fs}" y="${9*fs}" font-size="${9*fs}" fill="#64748b">Programado</text><rect x="${74*fs}" width="${10*fs}" height="${10*fs}" rx="2" fill="#1d4ed8"/><text x="${88*fs}" y="${9*fs}" font-size="${9*fs}" fill="#64748b">Real</text></g>
+    <g transform="translate(${W-160*fs},4)"><rect width="${10*fs}" height="${10*fs}" rx="2" fill="#94a3b8" opacity="0.85"/><text x="${14*fs}" y="${9*fs}" font-size="${9*fs}" fill="#64748b">Programado</text><rect x="${78*fs}" width="${10*fs}" height="${10*fs}" rx="2" fill="#1d4ed8"/><text x="${92*fs}" y="${9*fs}" font-size="${9*fs}" fill="#64748b">Real</text></g>
   </svg>`;
 }
 function buildSCharts(){
@@ -816,7 +826,7 @@ function buildSCharts(){
   const fM3=(v,axis)=>axis?(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0)):v.toFixed(0);
   _sCurva('chartSFin', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8', d.TOT_FIN, 230, 1, false);
   _sCurva('chartSVol', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669', d.TOT_VOL, 230, 1, false);
-  _sBarras('chartBarras', d.labels, d.progM, d.realM, d.cur, 230, 1);
+  _sBarras('chartBarras', d.labels, d.progM, d.realM, d.cur, 230, 1, d.TOT_FIN);
 }
 
 // ── ZOOM de gráficas (modal a pantalla grande con % + montos) ──
@@ -840,7 +850,7 @@ function _renderZoom(){
   const H=Math.round(440*_zoomScale), fs=1.5*_zoomScale;
   if(_zoomTipo==='fin') _sCurva('zoomChart', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8', d.TOT_FIN, H, fs, true);
   else if(_zoomTipo==='vol') _sCurva('zoomChart', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669', d.TOT_VOL, H, fs, true);
-  else _sBarras('zoomChart', d.labels, d.progM, d.realM, d.cur, H, fs);
+  else _sBarras('zoomChart', d.labels, d.progM, d.realM, d.cur, H, fs, d.TOT_FIN);
 }
 window.zoomStep=function(dir){ _zoomScale=Math.min(2.5,Math.max(0.8,_zoomScale+dir*0.25)); _renderZoom(); };
 window.zoomReset=function(){ _zoomScale=1; _renderZoom(); };
