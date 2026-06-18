@@ -1397,17 +1397,26 @@ function mismoUsuario(v){
   if(session.uid && v.capturado_por_uid) return v.capturado_por_uid===session.uid;
   return v.capturado_por && session.nombre && v.capturado_por===session.nombre;
 }
+// Última jornada con tiros capturados (la fecha más reciente que tiene viajes).
+// El checador puede editar mientras la jornada de su viaje SIGA siendo la última;
+// en cuanto arranca el TIRO DEL DÍA SIGUIENTE (primera captura de una fecha mayor),
+// las capturas anteriores quedan bloqueadas.
+function ultimaJornada(){
+  let mx='';
+  records.forEach(r=>{ if(r.fecha && r.fecha>mx) mx=r.fecha; });
+  return mx;
+}
 function puedeEditar(v){
   if(!v) return false;
   if(esEditor()) return true;
   if(session.rol==='checador' || session.rol==='capturista'){
-    return mismoUsuario(v) && v.fecha===getJornadaActiva();
+    return mismoUsuario(v) && v.fecha===ultimaJornada();
   }
   return false;
 }
 function motivoBloqueo(v){
   if(!mismoUsuario(v)) return 'Solo puedes modificar tus propias capturas';
-  if(v.fecha!==getJornadaActiva()) return 'Ya inició otra jornada · esta captura quedó bloqueada';
+  if(v.fecha!==ultimaJornada()) return 'Ya inició el tiro del día siguiente · esta captura quedó bloqueada';
   return 'Sin permiso para modificar';
 }
 
