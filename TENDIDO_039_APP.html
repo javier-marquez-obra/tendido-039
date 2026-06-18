@@ -497,6 +497,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
     </div>
     <div id="tiroFiltro" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+    <div id="tiroGrafico" style="margin-bottom:10px"></div>
     <div id="tiroWrap" style="overflow:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0"></div>
   </div>
 </div>
@@ -1375,6 +1376,61 @@ function motivoBloqueo(v){
 
 // ═══ TABLA DE TIRO (desglose por concepto) ═══
 const DEN_TIRO = 2.20;
+// ═══ GRÁFICO DE AVANCE POR CADENAMIENTO (planta, por lado) ═══
+function ladoDe(carril){
+  const k=(carril||'').toUpperCase();
+  if(k.includes('IZQ')) return 'IZQ';
+  if(k.includes('CENT')) return 'CEN';
+  if(k.includes('DER')) return 'DER';
+  return 'CEN';
+}
+function renderGraficoTiro(rs){
+  const el=document.getElementById('tiroGrafico'); if(!el) return;
+  const segs=[];
+  rs.forEach(v=>{
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril}];
+    cs.forEach(c=>{
+      if(c.kde!=null&&c.ka!=null){
+        const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka);
+        if(b>a) segs.push({a,b,side:ladoDe(c.carril),num:v.num_viaje_dia});
+      }
+    });
+  });
+  if(!segs.length){ el.innerHTML='<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>'; return; }
+  const minK=Math.min(...segs.map(s=>s.a)), maxK=Math.max(...segs.map(s=>s.b));
+  const span=Math.max(1,maxK-minK);
+  const W=720,PADL=86,PADR=74,PADT=22,trackH=22,gapT=12;
+  const tracks=[['IZQ','Lat. izquierda','#3ecf8e'],['CEN','Central','#f0b429'],['DER','Lat. derecha','#60a5fa']];
+  const H=PADT+tracks.length*(trackH+gapT)+24;
+  const X=k=>PADL+((k-minK)/span)*(W-PADL-PADR);
+  const NT=6; let ticks='';
+  for(let i=0;i<=NT;i++){ const k=minK+span*i/NT, x=X(k);
+    ticks+=`<line x1="${x}" y1="${PADT-4}" x2="${x}" y2="${H-22}" stroke="#222836" stroke-width="1"/>`
+         +`<text x="${x}" y="${H-7}" text-anchor="middle" font-size="9" fill="#94a3b8">${fmtCad(Math.round(k))}</text>`;
+  }
+  let rows='';
+  tracks.forEach((t,ti)=>{
+    const y=PADT+ti*(trackH+gapT), cy=y+trackH/2;
+    const ss=segs.filter(s=>s.side===t[0]);
+    rows+=`<line x1="${PADL}" y1="${cy}" x2="${W-PADR}" y2="${cy}" stroke="#1a1f29" stroke-width="${trackH}" stroke-linecap="round"/>`;
+    rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="10" font-weight="700" fill="${t[2]}">${t[1]}</text>`;
+    ss.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
+      rows+=`<rect x="${x1}" y="${y+3}" width="${Math.max(2,x2-x1)}" height="${trackH-6}" rx="3" fill="${t[2]}" opacity="0.9"><title>Viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+    });
+    if(ss.length){ const mb=Math.max(...ss.map(s=>s.b));
+      rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9.5" font-weight="800" fill="${t[2]}">${fmtCad(Math.round(mb))}</text>`;
+    } else {
+      rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9" fill="#6b7280">sin tiro</text>`;
+    }
+  });
+  el.innerHTML=`<div style="background:var(--bg);border:1px solid var(--bord);border-radius:10px;padding:8px 6px">
+    <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
+      <text x="${PADL}" y="13" font-size="10" font-weight="700" fill="#94a3b8">AVANCE POR CADENAMIENTO · hasta dónde va cada lado →</text>
+      ${ticks}${rows}
+    </svg>
+  </div>`;
+}
+
 function renderTablaTiro(){
   const wrap=document.getElementById('tiroWrap'); if(!wrap) return;
   let jornada=getJornadaActiva();
@@ -1386,6 +1442,7 @@ function renderTablaTiro(){
   rs=[...rs].sort((a,b)=>(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
   const fnote=document.getElementById('tiroFiltro');
   if(fnote) fnote.innerHTML=`Jornada <b style="color:var(--gold)">${(jornada||'—').split('-').reverse().join('/')}</b> · ${rs.length} viaje(s) · una fila por concepto`;
+  renderGraficoTiro(rs);
   if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en esta jornada</div>'; return; }
   let body='';
   let totM2=0,totM3=0,totTon=0,totGan=0,totPer=0;
