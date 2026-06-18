@@ -467,7 +467,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, setDoc, doc, getDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, setDoc, doc, getDoc, getDocFromServer, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -634,10 +634,15 @@ window.doLogin = async function() {
 // Lee el perfil/rol desde usuarios/{uid} y arma la sesión
 async function cargarSesion(user) {
   let perfil = { nombre:user.email, rol:'capturista', obras:[], activo:true };
+  let snap=null;
   try {
-    const snap = await getDoc(doc(db,'usuarios',user.uid));
-    if (snap.exists()) perfil = { ...perfil, ...snap.data() };
-  } catch(e){}
+    snap = await getDocFromServer(doc(db,'usuarios',user.uid)); // siempre fresco, evita caché viejo
+  } catch(e1) {
+    console.warn('Rol: falló lectura de servidor, intento caché:', e1?.code||e1);
+    try { snap = await getDoc(doc(db,'usuarios',user.uid)); } catch(e2){ console.warn('Rol: también falló caché:', e2?.code||e2); }
+  }
+  if (snap && snap.exists()) perfil = { ...perfil, ...snap.data() };
+  else console.warn('Rol: no se encontró documento usuarios/'+user.uid+' → queda como capturista');
   if (perfil.activo === false) { toast('Usuario inactivo','err'); await signOut(auth); return; }
   session = { uid:user.uid, nombre:perfil.nombre, rol:perfil.rol, obras:perfil.obras||[] };
   const isAdmin = perfil.rol==='admin';
