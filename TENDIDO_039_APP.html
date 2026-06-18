@@ -219,10 +219,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
   <div class="l-logo">TENDIDO <span>039</span></div>
   <div class="l-sub">Control de tendido · N-27 · 2026</div>
   <div class="l-card">
-    <div><label>Tu nombre</label><input type="text" id="ln" placeholder="Ing. Javier / Operador" autocomplete="off"></div>
-    <div><label>Contraseña / Código</label><input type="password" id="lp" placeholder="••••••••" autocomplete="off"></div>
+    <div><label>Correo</label><input type="email" id="ln" placeholder="tucorreo@ejemplo.com" autocomplete="username"></div>
+    <div><label>Contraseña</label><input type="password" id="lp" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="btn-enter" onclick="doLogin()">ENTRAR</button>
-    <div class="l-hint">Ingresa tu nombre y contraseña de acceso</div>
+    <div class="l-hint">Ingresa tu correo y contraseña</div>
   </div>
 </div>
 
@@ -467,7 +467,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, setDoc, doc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, setDoc, doc, getDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA9fVBF7SvhFh60SwmTY2LOIe32eaKxO1s",
@@ -583,39 +584,71 @@ let editFotos = []; // fotos durante edición
 let voiceRec = null;
 let voiceActive = false;
 
+// ═══ AUTH ═══
+const auth = getAuth(fbApp);
+
 // ═══ INIT ═══
 window.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
-    document.getElementById('splash').style.display = 'none';
-    document.getElementById('loginScreen').style.display = 'flex';
-  }, 1200);
   const _ff=document.getElementById('f_fecha');
   const _ja=localStorage.getItem('t039_jornada');
-  _ff.value = _ja || fechaJornada();
-  _ff.dataset.auto = _ja ? '' : '1';
+  if(_ff){ _ff.value = _ja || fechaJornada(); _ff.dataset.auto = _ja ? '' : '1'; }
   actualizarLockJornada();
 });
 
-// ═══ LOGIN ═══
-window.doLogin = async function() {
-  const nombre = document.getElementById('ln').value.trim();
-  const pass   = document.getElementById('lp').value.trim();
-  if (!nombre) { toast('Escribe tu nombre','err'); return; }
-  const hashPass = await sha256(pass);
-  const isAdmin = hashPass === HASH_ADMIN;
-  const isOp    = hashPass === HASH_OP;
-  if (!isAdmin && !isOp) { toast('Contraseña incorrecta','err'); return; }
-  session = { nombre, rol: isAdmin ? 'admin' : 'operador' };
-  document.getElementById('loginScreen').style.display = 'none';
-  document.getElementById('appShell').style.display    = 'flex';
-  document.getElementById('hInfo').textContent         = nombre + ' · N-27';
-  document.getElementById('roleTag').textContent       = isAdmin ? 'ADMIN' : 'OPERADOR';
-  document.getElementById('roleTag').className         = 'role-tag ' + (isAdmin ? 'admin' : 'op');
-  if (isAdmin) {
-    ['tab-rep1','tab-rep2','tab-reporte'].forEach(id => document.getElementById(id).classList.remove('locked'));
+// onAuthStateChanged decide la pantalla y MANTIENE la sesión al recargar
+onAuthStateChanged(auth, async (user) => {
+  const splash=document.getElementById('splash');
+  const ls=document.getElementById('loginScreen');
+  const as=document.getElementById('appShell');
+  if (user) {
+    await cargarSesion(user);
+    if(splash) splash.style.display='none';
+    if(ls) ls.style.display='none';
+    if(as) as.style.display='flex';
+  } else {
+    if(splash) splash.style.display='none';
+    if(as) as.style.display='none';
+    if(ls) ls.style.display='flex';
   }
-  startListener();
+});
+
+// ═══ LOGIN (Firebase Auth) ═══
+window.doLogin = async function() {
+  const email = document.getElementById('ln').value.trim();
+  const pass  = document.getElementById('lp').value.trim();
+  if (!email) { toast('Escribe tu correo','err'); return; }
+  if (!pass)  { toast('Escribe tu contraseña','err'); return; }
+  const btn = document.querySelector('.btn-enter');
+  if(btn){ btn.disabled=true; btn.textContent='Entrando...'; }
+  try {
+    await signInWithEmailAndPassword(auth, email, pass);
+    // onAuthStateChanged se encarga de mostrar la app
+  } catch(e) {
+    const M={'auth/invalid-credential':'Correo o contraseña incorrectos','auth/invalid-email':'Correo inválido','auth/user-disabled':'Usuario deshabilitado','auth/too-many-requests':'Demasiados intentos, espera un momento','auth/network-request-failed':'Sin conexión'};
+    toast(M[e.code]||'No se pudo entrar','err');
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent='ENTRAR'; }
+  }
 };
+
+// Lee el perfil/rol desde usuarios/{uid} y arma la sesión
+async function cargarSesion(user) {
+  let perfil = { nombre:user.email, rol:'capturista', obras:[], activo:true };
+  try {
+    const snap = await getDoc(doc(db,'usuarios',user.uid));
+    if (snap.exists()) perfil = { ...perfil, ...snap.data() };
+  } catch(e){}
+  if (perfil.activo === false) { toast('Usuario inactivo','err'); await signOut(auth); return; }
+  session = { uid:user.uid, nombre:perfil.nombre, rol:perfil.rol, obras:perfil.obras||[] };
+  const isAdmin = perfil.rol==='admin';
+  const hi=document.getElementById('hInfo'); if(hi) hi.textContent = session.nombre+' · N-27';
+  const rt=document.getElementById('roleTag');
+  if(rt){ rt.textContent = isAdmin?'ADMIN':(perfil.rol||'').toUpperCase(); rt.className='role-tag '+(isAdmin?'admin':'op'); }
+  if (isAdmin) ['tab-rep1','tab-rep2','tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
+  startListener();
+}
+
+window.cerrarSesion = async function(){ try{ await signOut(auth); }catch(e){} location.reload(); };
 
 // ═══ FIREBASE LISTENER ═══
 function startListener() {
