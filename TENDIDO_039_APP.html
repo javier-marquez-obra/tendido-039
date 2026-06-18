@@ -435,6 +435,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div id="ocrPanel" style="display:none;margin-top:10px;padding:12px;border:1px solid #3a2e00;border-radius:8px;background:#15120a"></div>
     </div>
 
+    <label id="ultimoWrap" style="display:flex;align-items:center;gap:10px;margin:4px 2px 10px;padding:11px 14px;background:#1a1400;border:1px solid #3a2e00;border-radius:10px;cursor:pointer">
+      <input type="checkbox" id="f_ultimo" style="width:20px;height:20px;accent-color:var(--gold)">
+      <span style="font-size:14px;font-weight:700;color:var(--gold)">🏁 Último camión del día</span>
+      <span style="font-size:11px;color:var(--muted);margin-left:auto">avisa el cierre de emulsión</span>
+    </label>
     <button class="btn-save" id="btnGuardar" onclick="guardar()">✓ GUARDAR EN OBRA</button>
   </div>
 
@@ -1229,6 +1234,7 @@ window.guardar = async function() {
   const btn=document.getElementById('btnGuardar');
   btn.disabled=true; btn.textContent='⟳ GUARDANDO...';
   setSyncState('loading');
+  let okGuardado=false;
   try {
     const p = addDoc(collection(db,COL),rec);
     if (navigator.onLine) {
@@ -1238,9 +1244,35 @@ window.guardar = async function() {
       p.catch(()=>{});
       resetForm(rec.ka); toast('📴 Viaje #'+rec.num_viaje_dia+' guardado EN EL DISPOSITIVO · se subirá al recuperar señal');
     }
+    okGuardado=true;
   } catch(e) { toast('Error: '+e.message,'err'); setSyncState('err'); }
   btn.disabled=false; btn.textContent='✓ GUARDAR EN OBRA';
+  if(okGuardado) avisarUltimoCamion(rec.fecha);
 };
+
+// Aviso al cerrar la jornada: si es el último camión y falta el cierre de emulsión, avisar.
+function avisarUltimoCamion(fecha){
+  const chk=document.getElementById('f_ultimo');
+  if(!chk || !chk.checked) return;
+  chk.checked=false; // se consume el aviso
+  const ed = emulDias[fecha] || null;
+  const tieneInicio = ed && ed.lts_inicio!=null;
+  const tieneFinal  = ed && ed.lts_final!=null;
+  if(tieneFinal){
+    toast('🏁 Último camión · la emulsión del día ya tiene cierre ('+ed.lts_usados+' lts usados)');
+    return;
+  }
+  const msg = tieneInicio
+    ? '🏁 ÚLTIMO CAMIÓN DEL DÍA\n\nFalta el CIERRE de emulsión: capturaste el inicial ('+ed.lts_inicio+' lts) pero NO el final del tanque.\n\n¿Capturar los litros finales ahora?'
+    : '🏁 ÚLTIMO CAMIÓN DEL DÍA\n\nNo hay registro de emulsión de este día (ni inicial ni final del tanque).\n\n¿Capturar la emulsión ahora?';
+  if(confirm(msg)){
+    const target = tieneInicio ? document.getElementById('f_emul_fin') : document.getElementById('f_emul_ini');
+    if(target){
+      try{ target.scrollIntoView({behavior:'smooth',block:'center'}); }catch(_){ target.scrollIntoView(); }
+      setTimeout(()=>{ try{ target.focus(); }catch(_){} }, 450);
+    }
+  }
+}
 
 function resetForm(kaAnterior) {
   // Tendido continuo: el final del viaje anterior es el inicio del siguiente concepto
@@ -2262,9 +2294,13 @@ function renderRepVolumen() {
     const dTon=rs.reduce((s,r)=>s+r.ton_recibidas,0);
     const dLong=rs.reduce((s,r)=>s+r.longitud,0);
     acumVol+=dVol;
-    // Emulsión del día
-    const emulRec=rs.find(r=>r.emulsion_lts);
-    const emulLts=emulRec?emulRec.emulsion_lts:0;
+    // Emulsión del día: prioridad al CIERRE DE TANQUE (lts inicio/final → lts_usados),
+    // y si no hay cierre, se usa el campo capturado en un viaje (emulsion_lts).
+    const ed = emulDias[fecha] || null;
+    const emulRecV = rs.find(r=>r.emulsion_lts);
+    const emulLts = (ed && ed.lts_usados!=null && ed.lts_usados>0)
+                      ? ed.lts_usados
+                      : (emulRecV ? emulRecV.emulsion_lts : 0);
     if (emulLts) acumLts+=emulLts;
     const ltm2=emulLts&&dArea>0?(emulLts/dArea).toFixed(3):'—';
     const ltm2Color=!emulLts?'var(--muted)':parseFloat(ltm2)<0.8||parseFloat(ltm2)>1.2?'var(--red)':'var(--green)';
