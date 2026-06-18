@@ -196,6 +196,22 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .sa{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}
 .bc{padding:11px;background:none;border:1px solid var(--bord);color:var(--muted);border-radius:8px;font-family:var(--sans);font-size:15px;font-weight:700;cursor:pointer}
 .bsv{padding:11px;background:var(--green);border:none;color:#000;border-radius:8px;font-family:var(--sans);font-size:15px;font-weight:800;cursor:pointer}
+.tiro-tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:11px;white-space:nowrap}
+.tiro-tbl th{background:var(--bg);color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em;padding:7px 8px;text-align:center;border-bottom:2px solid var(--bord);position:sticky;top:0;z-index:3;font-size:10px}
+.tiro-tbl td{padding:6px 8px;text-align:center;border-bottom:1px solid var(--bord);color:var(--txt);background:var(--surf)}
+.tiro-tbl tbody tr:hover td{background:var(--bg)}
+/* primera columna (N° camión) congelada */
+.tiro-tbl th:first-child,.tiro-tbl td:first-child{position:sticky;left:0;z-index:2}
+.tiro-tbl td:first-child{background:var(--surf);box-shadow:1px 0 0 var(--bord)}
+.tiro-tbl th:first-child{z-index:4;box-shadow:1px 0 0 var(--bord)}
+.tiro-tbl td.G{color:var(--green);font-weight:700}
+.tiro-tbl td.P{color:var(--red);font-weight:700}
+.tiro-mod{padding:5px 10px;background:var(--gold);border:none;border-radius:6px;color:#000;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap}
+.tiro-mod:disabled{background:var(--surf);color:var(--muted);border:1px solid var(--bord);cursor:not-allowed}
+/* modo ampliar (pantalla completa + celdas más grandes) */
+.sh.tiro-full{max-height:100dvh!important;height:100dvh}
+.sh.tiro-full .tiro-tbl{font-size:12.5px}
+.sh.tiro-full .tiro-tbl th,.sh.tiro-full .tiro-tbl td{padding:9px 11px}
 .bdl{grid-column:1/-1;padding:10px;background:none;border:1px solid var(--red);color:var(--red);border-radius:8px;font-family:var(--sans);font-size:14px;font-weight:700;cursor:pointer}
 /* TOAST */
 .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--green);color:#000;padding:10px 20px;border-radius:99px;font-family:var(--sans);font-size:14px;font-weight:800;letter-spacing:.04em;z-index:300;opacity:0;transition:opacity .2s;pointer-events:none;white-space:nowrap}
@@ -236,6 +252,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div class="sync-dot loading" id="syncDot"></div>
       <div class="role-tag" id="roleTag">—</div>
       <div class="cnt-badge" id="cntBadge">0</div>
+      <button id="btnTiro" onclick="abrirTiro()" title="Tabla de tiro"
+        style="background:var(--surf);border:1px solid var(--bord);color:var(--gold);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Tiro</button>
+      <button id="btnSalir" onclick="cerrarSesion()" title="Cerrar sesión"
+        style="background:var(--surf);border:1px solid var(--bord);color:var(--muted);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap">⎋ Salir</button>
     </div>
   </header>
 
@@ -458,8 +478,23 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="sa">
       <button class="bc" onclick="closeEdit()">Cancelar</button>
       <button class="bsv" onclick="saveEdit()">Guardar</button>
-      <button class="bdl" onclick="delRec()">🗑 Eliminar viaje</button>
+      <button class="bdl" id="btnDelRec" onclick="delRec()">🗑 Eliminar viaje</button>
     </div>
+  </div>
+</div>
+
+<!-- TABLA DE TIRO (desglose por concepto · ventana) -->
+<div class="ov" id="tiroOv" style="z-index:95;align-items:stretch">
+  <div class="sh" id="tiroSheet" style="max-height:96dvh;border-radius:0;display:flex;flex-direction:column">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <h4 style="margin:0">📋 Tabla de tiro</h4>
+      <div style="display:flex;gap:6px">
+        <button class="bc" id="btnAmpliarTiro" style="padding:6px 12px;font-size:13px" onclick="toggleAmpliarTiro()">⛶ Ampliar</button>
+        <button class="bc" style="padding:6px 12px;font-size:13px" onclick="cerrarTiro()">✕ Cerrar</button>
+      </div>
+    </div>
+    <div id="tiroFiltro" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+    <div id="tiroWrap" style="overflow:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0"></div>
   </div>
 </div>
 
@@ -646,10 +681,11 @@ async function cargarSesion(user) {
   if (perfil.activo === false) { toast('Usuario inactivo','err'); await signOut(auth); return; }
   session = { uid:user.uid, nombre:perfil.nombre, rol:perfil.rol, obras:perfil.obras||[] };
   const isAdmin = perfil.rol==='admin';
+  const isEditor = perfil.rol==='admin'||perfil.rol==='residente';
   const hi=document.getElementById('hInfo'); if(hi) hi.textContent = session.nombre+' · N-27';
   const rt=document.getElementById('roleTag');
-  if(rt){ rt.textContent = isAdmin?'ADMIN':(perfil.rol||'').toUpperCase(); rt.className='role-tag '+(isAdmin?'admin':'op'); }
-  if (isAdmin) ['tab-rep1','tab-rep2','tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
+  if(rt){ rt.textContent = (perfil.rol||'').toUpperCase()||'—'; rt.className='role-tag '+(isEditor?'admin':'op'); }
+  if (isEditor) ['tab-rep1','tab-rep2','tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
   startListener();
 }
 
@@ -1184,7 +1220,7 @@ window.guardar = async function() {
     num_viaje_dia:calcNumViajeDia(),
     observaciones:document.getElementById('f_obs').value.trim(),
     fotos:fotosActuales.filter(f=>f.b64).map(f=>f.b64),
-    capturado_por:session.nombre, rol:session.rol, ts:Date.now()
+    capturado_por:session.nombre, capturado_por_uid:session.uid, rol:session.rol, ts:Date.now()
   };
   const btn=document.getElementById('btnGuardar');
   btn.disabled=true; btn.textContent='⟳ GUARDANDO...';
@@ -1311,10 +1347,106 @@ window.editQuitarConcepto=function(i){
   renderEditConceptos();
 };
 
+// ═══ PERMISOS POR ROL ═══
+// admin / residente: editan todo siempre.
+// checador / capturista: solo SUS capturas y solo durante la jornada vigente
+//   (se bloquean al iniciar la siguiente jornada).
+function esEditor(){ return session.rol==='admin' || session.rol==='residente'; }
+function mismoUsuario(v){
+  if(session.uid && v.capturado_por_uid) return v.capturado_por_uid===session.uid;
+  return v.capturado_por && session.nombre && v.capturado_por===session.nombre;
+}
+function puedeEditar(v){
+  if(!v) return false;
+  if(esEditor()) return true;
+  if(session.rol==='checador' || session.rol==='capturista'){
+    return mismoUsuario(v) && v.fecha===getJornadaActiva();
+  }
+  return false;
+}
+function motivoBloqueo(v){
+  if(!mismoUsuario(v)) return 'Solo puedes modificar tus propias capturas';
+  if(v.fecha!==getJornadaActiva()) return 'Ya inició otra jornada · esta captura quedó bloqueada';
+  return 'Sin permiso para modificar';
+}
+
+// ═══ TABLA DE TIRO (desglose por concepto) ═══
+const DEN_TIRO = 2.20;
+function renderTablaTiro(){
+  const wrap=document.getElementById('tiroWrap'); if(!wrap) return;
+  let jornada=getJornadaActiva();
+  let rs=records.filter(r=>r.fecha===jornada);
+  if(!rs.length && records.length){
+    jornada=records.reduce((a,b)=>((a.ts||0)>(b.ts||0)?a:b)).fecha;
+    rs=records.filter(r=>r.fecha===jornada);
+  }
+  rs=[...rs].sort((a,b)=>(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
+  const fnote=document.getElementById('tiroFiltro');
+  if(fnote) fnote.innerHTML=`Jornada <b style="color:var(--gold)">${(jornada||'—').split('-').reverse().join('/')}</b> · ${rs.length} viaje(s) · una fila por concepto`;
+  if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en esta jornada</div>'; return; }
+  let body='';
+  rs.forEach(v=>{
+    const editable=puedeEditar(v);
+    const conceptos=(v.conceptos&&v.conceptos.length)
+      ? v.conceptos
+      : [{label:v.concepto,ton:v.ton_concepto||v.ton_recibidas,longitud:v.longitud,ancho:v.ancho,area:v.area,volumen:v.volumen,esp_teorico:v.esp_teorico,id:null}];
+    conceptos.forEach((c,ci)=>{
+      const cat=getCatItem(c.id)||{};
+      const lng=c.longitud||0, aw=c.ancho||0;
+      const area=(c.area!=null?c.area:lng*aw);
+      const vol=(c.volumen!=null?c.volumen:area*((c.esp_teorico||0)/100));
+      const ton=c.ton||0;
+      const er=(ton&&area)?ton/(area*DEN_TIRO):0;
+      const mf=(ton&&area&&c.esp_teorico)?(((c.esp_teorico/100)-er)*area):0;
+      const gan=mf>0?mf:0, per=mf<0?-mf:0;
+      const primera=ci===0;
+      const fechaTxt=(v.fecha||'').split('-').reverse().join('/');
+      const tp=v.temp_produccion, tt=v.temp_tendido;
+      const tpTxt=(tp!=null&&tp!=='')?`<span style="color:${tp<150?'var(--red)':'inherit'};font-weight:${tp<150?'700':'400'}">${tp}°</span>`:'—';
+      const ttTxt=(tt!=null&&tt!=='')?`<span style="color:${tt<130?'var(--red)':'inherit'};font-weight:${tt<130?'700':'400'}">${tt}°</span>`:'—';
+      body+=`<tr>
+        <td style="font-weight:700;color:var(--gold)">${primera?(v.num_viaje_dia||''):''}</td>
+        <td>${primera?fechaTxt:''}</td>
+        <td style="font-weight:700">${primera?(v.placas||''):''}</td>
+        <td>${primera?(v.material||''):''}</td>
+        <td style="text-align:left;color:var(--gold);font-weight:700">${c.label||''}</td>
+        <td>${cat.unidad||'M3'}</td>
+        <td>${lng.toFixed(2)}</td>
+        <td>${aw.toFixed(2)}</td>
+        <td>${area.toFixed(2)}</td>
+        <td style="color:var(--green);font-weight:700">${vol.toFixed(3)}</td>
+        <td>${ton.toFixed(2)}</td>
+        <td>${(c.esp_teorico||0).toFixed(1)}</td>
+        <td>${(er*100).toFixed(2)}</td>
+        <td>${primera?tpTxt:''}</td>
+        <td>${primera?ttTxt:''}</td>
+        <td class="G">${gan?('+'+gan.toFixed(3)):'—'}</td>
+        <td class="P">${per?('−'+per.toFixed(3)):'—'}</td>
+        <td>${primera?`<button class="tiro-mod" onclick="modificarDesdeTiro('${v._id}')" ${editable?'':'disabled'} title="${editable?'Modificar este viaje':motivoBloqueo(v)}">${editable?'✏️ Modificar':'🔒'}</button>`:''}</td>
+      </tr>`;
+    });
+  });
+  wrap.innerHTML=`<table class="tiro-tbl">
+    <thead><tr>
+      <th>N°</th><th>Fecha</th><th>Placas</th><th>Material</th><th>Concepto</th><th>Unidad</th>
+      <th>Long.</th><th>Ancho</th><th>m²</th><th>m³</th><th>Ton</th>
+      <th>Esp.&nbsp;teó</th><th>Esp.&nbsp;real</th><th>T.&nbsp;Prod</th><th>T.&nbsp;Tend</th><th>Ganancia</th><th>Pérdida</th><th>Acción</th>
+    </tr></thead><tbody>${body}</tbody></table>`;
+}
+window.abrirTiro=function(){ renderTablaTiro(); const o=document.getElementById('tiroOv'); if(o) o.classList.add('open'); };
+window.cerrarTiro=function(){ const o=document.getElementById('tiroOv'); if(o) o.classList.remove('open'); };
+window.toggleAmpliarTiro=function(){
+  const sh=document.getElementById('tiroSheet'), b=document.getElementById('btnAmpliarTiro');
+  if(!sh) return;
+  const full=sh.classList.toggle('tiro-full');
+  if(b) b.textContent = full?'⛶ Reducir':'⛶ Ampliar';
+};
+window.modificarDesdeTiro=function(id){ openEdit(id); }; // abre el editor encima; al guardar, la tabla se refresca sola
+
 // ═══ EDIT ═══
 window.openEdit=function(id) {
-  if (session.rol!=='admin') return;
   const r=records.find(x=>x._id===id); if (!r) return;
+  if(!puedeEditar(r)){ toast(motivoBloqueo(r),'err'); return; }
   editId=id;
   editConceptos=r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.length>0
     ? r.conceptos.map(cv=>({...cv,ml:cv.longitud||cv.ml||0}))
@@ -1329,24 +1461,15 @@ window.openEdit=function(id) {
       <div class="field"><label>Placas</label><input type="text" id="e_p" value="${r.placas}" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()"></div>
       <div class="field"><label>Ton recibidas</label><input type="number" id="e_t" value="${r.ton_recibidas}" step="0.01" inputmode="decimal"></div>
       <div class="field ff" style="grid-column:1/-1"><label>Conceptos del viaje</label>
-        <div style="margin-top:6px">
-          ${(r.conceptos&&r.conceptos.length>1
-            ? r.conceptos
-            : [{label:r.concepto||'CARPETA 3CM O1', ton:r.ton_concepto||r.ton_recibidas}]
-          ).map((cv,i)=>`
-            <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
-              <input type="text" id="e_conc_label_${i}" value="${cv.label}"
-                style="flex:2;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;color:var(--gold);font-weight:700;font-size:11px">
-              <input type="number" id="e_conc_ton_${i}" value="${cv.ton}" step="0.01" inputmode="decimal"
-                style="width:80px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;text-align:center;font-weight:700;color:var(--gold)">
-              <span style="font-size:10px;color:var(--muted)">ton</span>
-            </div>`).join('')}
-        </div>
+        <div id="editConceptosWrap" style="margin-top:6px"></div>
+        <button type="button" onclick="editAgregarConcepto()"
+          style="margin-top:4px;padding:8px 14px;background:var(--surf);border:1px dashed var(--bord);border-radius:8px;color:var(--gold);font-weight:700;cursor:pointer;width:100%">+ Agregar concepto</button>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">Edita tipo, tonelaje, De KM, ML y carril de cada concepto aquí arriba. El "De/A KM general" de abajo es el rango del viaje para el cálculo de m³.</div>
       </div>
       <div class="field"><label>№ Vale</label><input type="text" id="e_v" value="${r.vale||''}"></div>
       <div class="field"><label>№ Remisión</label><input type="text" id="e_r" value="${r.remision||''}"></div>
-      <div class="field"><label>De KM (cadenamiento)</label><input type="text" id="e_de" value="${fmtCad(r.kde)}" autocomplete="off"></div>
-      <div class="field"><label>A KM (cadenamiento)</label><input type="text" id="e_ka" value="${fmtCad(r.ka)}" autocomplete="off"></div>
+      <div class="field"><label>De KM general (m³)</label><input type="text" id="e_de" value="${fmtCad(r.kde)}" autocomplete="off"></div>
+      <div class="field"><label>A KM general (m³)</label><input type="text" id="e_ka" value="${fmtCad(r.ka)}" autocomplete="off"></div>
       <div class="field"><label>Ancho INICIAL (m)</label><input type="number" id="e_aw1" value="${r.ancho_ini??r.ancho}" step="0.01" inputmode="decimal"></div>
       <div class="field"><label>Ancho FINAL (m)</label><input type="number" id="e_aw2" value="${r.ancho_fin??r.ancho}" step="0.01" inputmode="decimal"></div>
       <div class="field"><label>Esp. teórico (cm)</label><input type="number" id="e_et" value="${r.esp_teorico}" step="0.1" inputmode="decimal"></div>
@@ -1373,6 +1496,7 @@ window.openEdit=function(id) {
   editFotos = (r.fotos||[]).map(b=>({b64:b, esNueva:false}));
   renderEditFotos();
   document.getElementById('editOv').className='ov open';
+  const _bd=document.getElementById('btnDelRec'); if(_bd) _bd.style.display=esEditor()?'':'none';
   setTimeout(()=>renderEditConceptos(),80);
 };
 window.closeEdit=function(){
@@ -1418,8 +1542,8 @@ window.agregarFotoEdit = function(e) {
   e.target.value = '';
 };
 window.saveEdit=async function() {
-  if (session.rol!=='admin') return;
   const r=records.find(x=>x._id===editId); if (!r) return;
+  if(!puedeEditar(r)){ toast(motivoBloqueo(r),'err'); return; }
   const fechaAnterior = r.fecha;
   const fechaNueva = document.getElementById('e_f').value;
   const ton=parseFloat(document.getElementById('e_t').value);
@@ -1478,6 +1602,7 @@ window.saveEdit=async function() {
   } catch(e) { toast('Error: '+e.message,'err'); }
 };
 window.delRec=async function() {
+  if (!esEditor()) { toast('Solo admin o residente pueden eliminar viajes','err'); return; }
   if (!confirm('¿Eliminar este viaje permanentemente?')) return;
   try {
     const rDel = records.find(x => x._id === editId);
@@ -1813,6 +1938,8 @@ function renderAll() {
   actualizarPlacasList();
   actualizarStatusEmul();
   prellenarKde();
+  // Si la tabla de tiro está abierta, refrescar al llegar/cambiar datos
+  const _tov=document.getElementById('tiroOv'); if(_tov&&_tov.classList.contains('open')) renderTablaTiro();
   if(conceptosViaje.length===0) initConceptosViaje();
   else renderConceptosContainer();
   // Actualizar consecutivos cuando llegan nuevos datos de Firebase
@@ -1847,7 +1974,7 @@ function renderList() {
     const edTxt = ed ? `🛢️ ${ed.lts_inicio!=null?ed.lts_inicio+' lts inicio':''}${ed.lts_final!=null?' · '+ed.lts_final+' lts final · usó '+ed.lts_usados+' lts':' · SIN CIERRE'}` : '';
     html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj · ${ml.toFixed(2)} m<br><span style="font-size:10px;color:var(--muted)">ACUM. OBRA: ${acumPorFecha[date].toFixed(2)} m${edTxt?' · '+edTxt:''}</span></div></div>`;
     rs.forEach(r=>{
-      const G=r.gp==='GANANCIA', ce=session.rol==='admin';
+      const G=r.gp==='GANANCIA', ce=puedeEditar(r);
       html+=`<div class="rc${ce?'':' no-edit'}" onclick="${ce?`openEdit('${r._id}')`:''}" >
         <div class="rt">
           <div>
@@ -2251,7 +2378,7 @@ function renderFisicoFinanciero() {
 function renderReporte() {
   const dc=document.getElementById('dashContent');
   const lm=document.getElementById('lockMsg');
-  if (session.rol!=='admin') { lm.style.display='block'; dc.innerHTML=''; return; }
+  if (!esEditor()) { lm.style.display='block'; dc.innerHTML=''; return; }
   lm.style.display='none';
   if (!records.length) { dc.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Sin datos</div>'; return; }
   const tt=records.reduce((s,r)=>s+r.ton_recibidas,0);
