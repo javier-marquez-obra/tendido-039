@@ -241,6 +241,18 @@ body.ppt-mode .ppt-watermark{display:block}
 </head>
 <body>
 
+<!-- LOGIN (lectura blindada · mismo Auth que la app de campo) -->
+<div id="repLogin" style="position:fixed;inset:0;z-index:99999;background:#0d0f12;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.5)">
+    <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px">REPORTE EJECUTIVO · 039</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:20px">Acceso restringido · inicia sesión</div>
+    <input id="rl_user" type="email" placeholder="Correo" autocomplete="username" onkeydown="if(event.key==='Enter')repLogin()" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font-size:15px;margin-bottom:10px;box-sizing:border-box">
+    <input id="rl_pass" type="password" placeholder="Contrase&ntilde;a" autocomplete="current-password" onkeydown="if(event.key==='Enter')repLogin()" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font-size:15px;margin-bottom:14px;box-sizing:border-box">
+    <button id="rl_btn" onclick="repLogin()" style="width:100%;padding:13px;background:#7c3aed;color:#fff;border:none;border-radius:9px;font-size:15px;font-weight:700;cursor:pointer">Entrar</button>
+    <div id="rl_err" style="color:#ef4444;font-size:12px;margin-top:10px;min-height:16px"></div>
+  </div>
+</div>
+
 <div class="header">
   <div class="header-inner">
     <div class="header-brand">
@@ -259,6 +271,7 @@ body.ppt-mode .ppt-watermark{display:block}
         <span id="syncDot" style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block"></span>
         <span id="syncLabel">Conectando...</span>
       </div>
+      <button id="repLogoutBtn" onclick="repLogout()" title="Cerrar sesión" style="display:none;background:#fff;border:1px solid #cbd5e1;color:#64748b;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px">⎋ Salir</button>
     </div>
   </div>
 </div>
@@ -326,6 +339,7 @@ body.ppt-mode .ppt-watermark{display:block}
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { initializeFirestore, persistentLocalCache, collection, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const FB = {
   apiKey:"AIzaSyA9fVBF7SvhFh60SwmTY2LOIe32eaKxO1s",
@@ -446,23 +460,56 @@ const fb=initializeApp(FB);
 let db;
 try { db=initializeFirestore(fb,{localCache:persistentLocalCache()}); }
 catch(e){ db=initializeFirestore(fb,{}); }
-// Si Firebase tarda más de 8 segundos, mostrar datos del caché mientras sigue intentando
-const _t=setTimeout(()=>{
-  const c=localStorage.getItem('rep039');
-  if(c&&!allRecs.length){allRecs=JSON.parse(c);buildFechaFilter();applyFilters();setSyncErr();}
-},8000);
-onSnapshot(query(collection(db,'viajes'),orderBy('ts','desc')), snap=>{
-  clearTimeout(_t);
-  allRecs=snap.docs.map(d=>({_id:d.id,...d.data()}));
-  try { localStorage.setItem('rep039',JSON.stringify(allRecs.map(r=>({...r,fotos:undefined})))); } catch(e) { console.warn('localStorage lleno'); }
-  setSyncOk();
-  buildFechaFilter();
-  applyFilters();
-},()=>{
-  clearTimeout(_t);
-  const c=localStorage.getItem('rep039');
-  if(c){allRecs=JSON.parse(c);buildFechaFilter();applyFilters();}
-  setSyncErr();
+const auth=getAuth(fb);
+
+// El listener de datos SOLO arranca con sesión iniciada (lectura blindada por reglas).
+let _repListenerStarted=false;
+function startReportListener(){
+  if(_repListenerStarted) return; _repListenerStarted=true;
+  // Si Firebase tarda más de 8 segundos, mostrar datos del caché mientras sigue intentando
+  const _t=setTimeout(()=>{
+    const c=localStorage.getItem('rep039');
+    if(c&&!allRecs.length){allRecs=JSON.parse(c);buildFechaFilter();applyFilters();setSyncErr();}
+  },8000);
+  onSnapshot(query(collection(db,'viajes'),orderBy('ts','desc')), snap=>{
+    clearTimeout(_t);
+    allRecs=snap.docs.map(d=>({_id:d.id,...d.data()}));
+    try { localStorage.setItem('rep039',JSON.stringify(allRecs.map(r=>({...r,fotos:undefined})))); } catch(e) { console.warn('localStorage lleno'); }
+    setSyncOk();
+    buildFechaFilter();
+    applyFilters();
+  },()=>{
+    clearTimeout(_t);
+    const c=localStorage.getItem('rep039');
+    if(c){allRecs=JSON.parse(c);buildFechaFilter();applyFilters();}
+    setSyncErr();
+  });
+}
+
+// ── SESIÓN (mismo Auth que la app de campo) ──
+window.repLogin = async function(){
+  const u=document.getElementById('rl_user').value.trim();
+  const p=document.getElementById('rl_pass').value;
+  const err=document.getElementById('rl_err'), btn=document.getElementById('rl_btn');
+  err.textContent=''; btn.disabled=true; btn.textContent='Entrando...';
+  try { await signInWithEmailAndPassword(auth,u,p); }
+  catch(e){
+    const c=e.code||'';
+    err.textContent = (c.includes('invalid-credential')||c.includes('wrong-password')||c.includes('user-not-found')||c.includes('invalid-email'))
+      ? 'Correo o contraseña incorrectos' : 'Error: '+(c||e.message);
+  }
+  btn.disabled=false; btn.textContent='Entrar';
+};
+window.repLogout = async function(){ try{ await signOut(auth); }catch(e){} location.reload(); };
+onAuthStateChanged(auth, user=>{
+  const lg=document.getElementById('repLogin');
+  if(user){
+    if(lg) lg.style.display='none';
+    const lb=document.getElementById('repLogoutBtn'); if(lb) lb.style.display='';
+    startReportListener();
+  } else {
+    if(lg) lg.style.display='flex';
+  }
 });
 
 window.toggleSecciones = function() {

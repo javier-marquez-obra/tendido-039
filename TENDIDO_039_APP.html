@@ -703,6 +703,7 @@ window.cerrarSesion = async function(){ try{ await signOut(auth); }catch(e){} lo
 // ═══ FIREBASE LISTENER ═══
 function startListener() {
   setSyncState('loading');
+  startEmulListener();
   try {
     const q = query(collection(db, COL), orderBy('ts','desc'));
     onSnapshot(q, snap => {
@@ -1058,19 +1059,23 @@ window.guardarEmulsionDia = async function() {
   } catch(e) { toast('Error: '+e.message,'err'); }
 };
 let emulDias = {};
-onSnapshot(collection(db,'emulsion039'), snap => {
-  emulDias = {};
-  snap.forEach(s => { emulDias[s.id] = s.data(); });
-  // Precargar la tarjeta con lo del día si ya existe
-  const hoy = fechaJornada(), e = emulDias[hoy];
-  if (e) {
-    const i=document.getElementById('f_emul_ini'), f=document.getElementById('f_emul_fin');
-    if (i && !i.value && e.lts_inicio!=null) i.value = e.lts_inicio;
-    if (f && !f.value && e.lts_final!=null)  f.value = e.lts_final;
-    calcEmulsion();
-  }
-  if (typeof renderAll === 'function' && records.length) renderAll();
-});
+let _emulListenerStarted=false;
+function startEmulListener(){
+  if(_emulListenerStarted) return; _emulListenerStarted=true;
+  onSnapshot(collection(db,'emulsion039'), snap => {
+    emulDias = {};
+    snap.forEach(s => { emulDias[s.id] = s.data(); });
+    // Precargar la tarjeta con lo del día si ya existe
+    const hoy = fechaJornada(), e = emulDias[hoy];
+    if (e) {
+      const i=document.getElementById('f_emul_ini'), f=document.getElementById('f_emul_fin');
+      if (i && !i.value && e.lts_inicio!=null) i.value = e.lts_inicio;
+      if (f && !f.value && e.lts_final!=null)  f.value = e.lts_final;
+      calcEmulsion();
+    }
+    if (typeof renderAll === 'function' && records.length) renderAll();
+  });
+}
 
 // ═══ FECHA LOCAL (corrige bug de zona horaria: toISOString usa UTC y después de las 6PM marcaba el día siguiente) ═══
 // ═══ CADENAMIENTOS ═══
