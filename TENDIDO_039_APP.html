@@ -6,6 +6,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#0d0f12">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22TENDIDO%20039%22%2C%22short_name%22%3A%22TENDIDO%20039%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22any%22%2C%22start_url%22%3A%22https%3A%2F%2Fjavier-marquez-obra.github.io%2Ftendido-039%2FTENDIDO_039_APP.html%22%2C%22scope%22%3A%22https%3A%2F%2Fjavier-marquez-obra.github.io%2Ftendido-039%2F%22%2C%22background_color%22%3A%22%230d0f12%22%2C%22theme_color%22%3A%22%230d0f12%22%7D">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%230d0f12'/%3E%3Crect x='6' y='26' width='52' height='12' rx='2' fill='%23222'/%3E%3Crect x='14' y='30' width='8' height='4' fill='%23f0b429'/%3E%3Crect x='28' y='30' width='8' height='4' fill='%23f0b429'/%3E%3Crect x='42' y='30' width='8' height='4' fill='%23f0b429'/%3E%3Ctext x='32' y='20' font-family='monospace' font-size='14' font-weight='700' fill='%23f0b429' text-anchor='middle'%3E039%3C/text%3E%3C/svg%3E">
 <title>TENDIDO 039 · Campo</title>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -206,6 +207,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .tiro-tbl th:first-child{z-index:4;box-shadow:1px 0 0 var(--bord)}
 .tiro-tbl td.G{color:var(--green);font-weight:700}
 .tiro-tbl td.P{color:var(--red);font-weight:700}
+.tiro-tbl tfoot td{position:sticky;bottom:0;background:var(--card);font-weight:800;font-size:12px;color:var(--gold);border-top:2px solid var(--gold);z-index:3}
+.tiro-tbl tfoot td:first-child{left:auto;color:var(--muted);font-size:11px}
 .tiro-mod{padding:5px 10px;background:var(--gold);border:none;border-radius:6px;color:#000;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap}
 .tiro-mod:disabled{background:var(--surf);color:var(--muted);border:1px solid var(--bord);cursor:not-allowed}
 /* modo ampliar (pantalla completa + celdas más grandes) */
@@ -1385,6 +1388,7 @@ function renderTablaTiro(){
   if(fnote) fnote.innerHTML=`Jornada <b style="color:var(--gold)">${(jornada||'—').split('-').reverse().join('/')}</b> · ${rs.length} viaje(s) · una fila por concepto`;
   if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en esta jornada</div>'; return; }
   let body='';
+  let totM2=0,totM3=0,totTon=0,totGan=0,totPer=0;
   rs.forEach(v=>{
     const editable=puedeEditar(v);
     const conceptos=(v.conceptos&&v.conceptos.length)
@@ -1399,6 +1403,7 @@ function renderTablaTiro(){
       const er=(ton&&area)?ton/(area*DEN_TIRO):0;
       const mf=(ton&&area&&c.esp_teorico)?(((c.esp_teorico/100)-er)*area):0;
       const gan=mf>0?mf:0, per=mf<0?-mf:0;
+      totM2+=area; totM3+=vol; totTon+=ton; totGan+=gan; totPer+=per;
       const primera=ci===0;
       const fechaTxt=(v.fecha||'').split('-').reverse().join('/');
       const tp=v.temp_produccion, tt=v.temp_tendido;
@@ -1411,6 +1416,8 @@ function renderTablaTiro(){
         <td>${primera?(v.material||''):''}</td>
         <td style="text-align:left;color:var(--gold);font-weight:700">${c.label||''}</td>
         <td>${cat.unidad||'M3'}</td>
+        <td>${c.kde!=null?fmtCad(c.kde):'—'}</td>
+        <td>${c.ka!=null?fmtCad(c.ka):'—'}</td>
         <td>${lng.toFixed(2)}</td>
         <td>${aw.toFixed(2)}</td>
         <td>${area.toFixed(2)}</td>
@@ -1428,10 +1435,20 @@ function renderTablaTiro(){
   });
   wrap.innerHTML=`<table class="tiro-tbl">
     <thead><tr>
-      <th>N°</th><th>Fecha</th><th>Placas</th><th>Material</th><th>Concepto</th><th>Unidad</th>
+      <th>N°</th><th>Fecha</th><th>Placas</th><th>Material</th><th>Concepto</th><th>Unidad</th><th>KM&nbsp;ini</th><th>KM&nbsp;fin</th>
       <th>Long.</th><th>Ancho</th><th>m²</th><th>m³</th><th>Ton</th>
       <th>Esp.&nbsp;teó</th><th>Esp.&nbsp;real</th><th>T.&nbsp;Prod</th><th>T.&nbsp;Tend</th><th>Ganancia</th><th>Pérdida</th><th>Acción</th>
-    </tr></thead><tbody>${body}</tbody></table>`;
+    </tr></thead><tbody>${body}</tbody>
+    <tfoot><tr class="tiro-tot">
+      <td colspan="10" style="text-align:right">ACUMULADO ▸</td>
+      <td>${totM2.toFixed(2)}</td>
+      <td>${totM3.toFixed(3)}</td>
+      <td>${totTon.toFixed(2)}</td>
+      <td colspan="4"></td>
+      <td class="G">${totGan?('+'+totGan.toFixed(3)):'—'}</td>
+      <td class="P">${totPer?('−'+totPer.toFixed(3)):'—'}</td>
+      <td></td>
+    </tr></tfoot></table>`;
 }
 window.abrirTiro=function(){ renderTablaTiro(); const o=document.getElementById('tiroOv'); if(o) o.classList.add('open'); };
 window.cerrarTiro=function(){ const o=document.getElementById('tiroOv'); if(o) o.classList.remove('open'); };
