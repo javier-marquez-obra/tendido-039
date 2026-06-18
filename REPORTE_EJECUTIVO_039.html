@@ -287,6 +287,7 @@ body.ppt-mode .ppt-watermark{display:block}
     <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
     <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
     <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
+    <button id="sec-cadenamiento" onclick="toggleSec('cadenamiento')" class="sec-btn">🛣️ Cadenamiento obra</button>
     <button id="sec-camiones" onclick="toggleSec('camiones')" class="sec-btn">🚛 Metros por camión</button>
     <button id="sec-graficas" onclick="toggleSec('graficas')" class="sec-btn">📊 Gráficas</button>
     <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
@@ -432,6 +433,7 @@ let secciones={
   avance:true,
   financiero:true,
   programa:true,
+  cadenamiento:true,
   camiones:true,
   graficas:true,
   faltante:true,
@@ -876,6 +878,91 @@ function fechaJornada(recs){
 }
 
 // ── MAIN RENDER ──
+// ═══ AVANCE POR CADENAMIENTO — TODA LA OBRA (acumulado · scroll + zoom) ═══
+let _cadScale=0.08; // px por metro
+function ladoCad(carril){ const k=(carril||'').toUpperCase(); if(k.includes('IZQ'))return'IZQ'; if(k.includes('CENT'))return'CEN'; if(k.includes('DER'))return'DER'; return 'CEN'; }
+function _cadSegs(recs){
+  const out={O1:[],O2:[]};
+  recs.forEach(v=>{
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto}];
+    cs.forEach(c=>{
+      if(c.kde==null||c.ka==null) return;
+      const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka);
+      if(b<=a) return;
+      const tramo=(c.kde>=247000&&c.kde<=252000)?'O2':'O1';
+      const reniv=(String(c.id||'')+String(c.label||'')).toUpperCase().includes('RENIV');
+      out[tramo].push({a,b,side:ladoCad(c.carril),reniv});
+    });
+  });
+  return out;
+}
+function _svgTramo(lo,hi,segs,scale){
+  const PADL=66,PADR=88,PADT=28,trackH=18,renH=6,gapT=20,axisH=24;
+  const innerW=Math.max(280,Math.round((hi-lo)*scale));
+  const W=PADL+innerW+PADR;
+  const tracks=[['IZQ','Izquierda','#2563eb'],['CEN','Central','#d97706'],['DER','Derecha','#059669']];
+  const RENIV='#7c3aed';
+  const H=PADT+tracks.length*(trackH+gapT)+axisH;
+  const X=k=>PADL+((k-lo)/(hi-lo))*innerW;
+  const nice=[50,100,200,250,500,1000,2000,5000]; const rawIv=70/scale; const iv=nice.find(n=>n>=rawIv)||5000;
+  let ticks='';
+  for(let k=Math.ceil(lo/iv)*iv;k<=hi;k+=iv){ const x=X(k);
+    ticks+=`<line x1="${x}" y1="${PADT-4}" x2="${x}" y2="${H-axisH+4}" stroke="#eef2f7"/>`
+         +`<text x="${x}" y="${H-8}" text-anchor="middle" font-size="9" fill="#94a3b8">${fmtKm(k)}</text>`;
+  }
+  let rows='';
+  tracks.forEach((t,ti)=>{
+    const y=PADT+ti*(trackH+gapT), cy=y+trackH/2;
+    const ss=segs.filter(s=>s.side===t[0]);
+    const carp=ss.filter(s=>!s.reniv), ren=ss.filter(s=>s.reniv);
+    rows+=`<line x1="${PADL}" y1="${cy}" x2="${PADL+innerW}" y2="${cy}" stroke="#eef2f7" stroke-width="${trackH}" stroke-linecap="round"/>`;
+    rows+=`<text x="${PADL-6}" y="${cy+3}" text-anchor="end" font-size="9.5" font-weight="700" fill="${t[2]}">${t[1]}</text>`;
+    carp.forEach(s=>{ const x1=X(s.a),x2=X(s.b); rows+=`<rect x="${x1}" y="${y+2}" width="${Math.max(1.5,x2-x1)}" height="${trackH-4}" rx="2" fill="${t[2]}" opacity="0.85"/>`; });
+    ren.forEach(s=>{ const x1=X(s.a),x2=X(s.b); rows+=`<rect x="${x1}" y="${y-renH-1}" width="${Math.max(1.5,x2-x1)}" height="${renH}" rx="1.5" fill="${RENIV}"/>`; });
+    if(carp.length){ const mb=Math.max(...carp.map(s=>s.b)); const xm=X(mb);
+      rows+=`<line x1="${xm}" y1="${y-2}" x2="${xm}" y2="${y+trackH+2}" stroke="${t[2]}" stroke-width="2"/>`;
+      rows+=`<text x="${PADL+innerW+6}" y="${cy+3}" font-size="9" font-weight="800" fill="${t[2]}">${fmtKm(mb)}</text>`;
+    } else {
+      rows+=`<text x="${PADL+innerW+6}" y="${cy+3}" font-size="8.5" fill="#cbd5e1">—</text>`;
+    }
+  });
+  const xf=X(hi);
+  rows+=`<line x1="${xf}" y1="${PADT-2}" x2="${xf}" y2="${H-axisH+2}" stroke="#ef4444" stroke-dasharray="3 3"/><text x="${xf}" y="${PADT-6}" text-anchor="end" font-size="8.5" fill="#ef4444">meta ${fmtKm(hi)}</text>`;
+  return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" style="display:block">${ticks}${rows}</svg>`;
+}
+function renderCadHTML(){
+  const segs=_cadSegs(filtered);
+  const tramos=[['Tramo O1 · MEX-200',46200,58700,segs.O1],['Tramo O2 · MEX-80 / Autlán',247600,251600,segs.O2]];
+  let out='';
+  tramos.forEach(([nom,lo,hi,ss])=>{
+    if(!ss.length) return;
+    out+=`<div style="margin-bottom:14px">
+      <div style="font-weight:700;color:#1e293b;font-size:13px;margin-bottom:6px">${nom} <span style="font-weight:400;color:var(--gray);font-size:11px">· ${fmtKm(lo)} → ${fmtKm(hi)}</span></div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--gray2);border-radius:10px;background:#fff;padding:8px">${_svgTramo(lo,hi,ss,_cadScale)}</div>
+    </div>`;
+  });
+  if(!out) out='<div style="color:var(--gray);padding:16px;text-align:center">Aún no hay tiros con cadenamiento capturado</div>';
+  return out;
+}
+window.zoomCad=function(f){
+  if(f==='fit') _cadScale=0.08; else _cadScale=Math.min(1.5,Math.max(0.02,_cadScale*f));
+  const w=document.getElementById('cadWrap'); if(w) w.innerHTML=renderCadHTML();
+};
+function buildSeccionCad(){
+  return `<div class="section-hdr">🛣️ Avance por cadenamiento — toda la obra (acumulado)</div>
+  <div class="card"><div class="card-body">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
+      <div style="font-size:11px;color:var(--gray)"><span style="display:inline-block;width:10px;height:10px;background:#2563eb;border-radius:2px;vertical-align:middle"></span> izq · <span style="display:inline-block;width:10px;height:10px;background:#d97706;border-radius:2px;vertical-align:middle"></span> central · <span style="display:inline-block;width:10px;height:10px;background:#059669;border-radius:2px;vertical-align:middle"></span> der · <span style="display:inline-block;width:10px;height:10px;background:#7c3aed;border-radius:2px;vertical-align:middle"></span> renivelación</div>
+      <div style="display:flex;gap:6px">
+        <button class="f-chip" onclick="zoomCad(0.7)">− Reducir</button>
+        <button class="f-chip" onclick="zoomCad('fit')">Ajustar</button>
+        <button class="f-chip" onclick="zoomCad(1.4)">+ Ampliar</button>
+      </div>
+    </div>
+    <div id="cadWrap">${renderCadHTML()}</div>
+  </div></div>`;
+}
+
 function render(){
   const hoy=fechaJornada(records);
   const hoyR=filtered.filter(r=>r.fecha===hoy);
@@ -970,6 +1057,8 @@ function render(){
 
   <!-- AVANCE vs PROGRAMA -->
   <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
+
+  ${secciones.cadenamiento ? buildSeccionCad() : ''}
 
   <!-- FALTANTE -->
   ${secciones.faltante ? `
