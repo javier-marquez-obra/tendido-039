@@ -310,10 +310,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <!-- SENTIDO DEL TENDIDO -->
         <div class="field" style="grid-column:1/-1">
           <label style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)">SENTIDO DEL TENDIDO</label>
-          <select id="f_sentido" onchange="localStorage.setItem('t039_sentido',this.value);conceptosViaje.forEach((_,i)=>calcKaConcepto(i))"
+          <select id="f_sentido" onchange="localStorage.setItem('t039_sentido',this.value);renderConceptosContainer();conceptosViaje.forEach((_,i)=>calcKaConcepto(i))"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:10px;font-size:14px;font-weight:700;color:var(--gold)">
-            <option value="sube">&#11014;&#65039; Sube KM (De menor &#8594; A mayor)</option>
-            <option value="baja">&#11015;&#65039; Baja KM (De mayor &#8594; A menor)</option>
+            <option value="sube">&#11014;&#65039; Sube KM por defecto (De menor &#8594; A mayor)</option>
+            <option value="baja">&#11015;&#65039; Baja KM por defecto (De mayor &#8594; A menor)</option>
           </select>
         </div>
         <!-- CONCEPTOS DEL CAMIÓN (cada uno con su cadenamiento propio) -->
@@ -834,6 +834,17 @@ window.calcKa = function() {
   // Recalcular KA de todos los conceptos al cambiar el sentido del tendido
   conceptosViaje.forEach((_,i)=>calcKaConcepto(i));
 };
+// Cambiar el sentido del cadenamiento SOLO de este concepto (para cuando se regresa por el otro carril)
+window.toggleSentidoConcepto=function(i){
+  if(!conceptosViaje[i]) return;
+  const g=(document.getElementById('f_sentido')||{}).value||'sube';
+  const cur=conceptosViaje[i].sentido||g;
+  const nv=cur==='sube'?'baja':'sube';
+  conceptosViaje[i].sentido=nv;
+  const b=document.getElementById('f_sent_'+i);
+  if(b){ b.textContent=nv==='baja'?'⬇️ baja':'⬆️ sube'; b.style.borderColor=nv==='baja'?'var(--gold)':'var(--bord)'; b.style.color=nv==='baja'?'var(--gold)':'var(--muted)'; }
+  calcKaConcepto(i);
+};
 
 // ═══ CALC ═══
 // Promedio de ancho: si solo capturan uno, usa ese
@@ -1184,10 +1195,13 @@ window.guardar = async function() {
   if(!vd.ok){ toast(vd.msg,'err'); return; }
   // Leer cadenamientos y geometría de cada concepto desde el DOM
   const DEN_=2.35;
+  const _gsent=(document.getElementById('f_sentido')||{}).value||'sube';
   const conceptosGuardar=conceptosViaje.map((cv,i)=>{
     const kde_=parseCad((document.getElementById('f_kde_'+i)||{}).value);
-    const ka_=parseCad((document.getElementById('f_ka_'+i)||{}).textContent||(document.getElementById('f_ka_'+i)||{}).value||'');
+    const sent_=cv.sentido||_gsent;
+    let ka_=parseCad((document.getElementById('f_ka_'+i)||{}).textContent||(document.getElementById('f_ka_'+i)||{}).value||'');
     const ml_=parseFloat((document.getElementById('f_ml_'+i)||{}).value)||0;
+    if(isNaN(ka_) && !isNaN(kde_) && ml_>0) ka_=sent_==='sube'?kde_+ml_:kde_-ml_;
     const aw1_=parseFloat((document.getElementById('f_aw1_'+i)||{}).value)||0;
     const aw2_=parseFloat((document.getElementById('f_aw2_'+i)||{}).value)||0;
     const aw_=aw1_&&aw2_?(aw1_+aw2_)/2:(aw1_||aw2_||0);
@@ -1200,7 +1214,7 @@ window.guardar = async function() {
       id:cv.id, label:cat.label||cv.id, codigo:cat.codigo||'',
       ton:+(cv.ton||0).toFixed(2), pu:cat.pu||0,
       importe:+((cat.pu||0)*(cv.ton||0)).toFixed(2),
-      kde:isNaN(kde_)?null:kde_, ka:isNaN(ka_)?null:ka_,
+      kde:isNaN(kde_)?null:kde_, ka:isNaN(ka_)?null:ka_, sentido:sent_,
       longitud:+ml_.toFixed(2), ancho:+aw_.toFixed(3),
       ancho_ini:aw1_||null, ancho_fin:aw2_||null,
       esp_teorico:et_, carril:carril_,
@@ -1343,7 +1357,7 @@ function renderEditConceptos(){
             oninput="editConceptos[${i}].ml=parseFloat(this.value)||0;calcEditKa(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:14px;font-weight:700;color:var(--green)">
         </div>
-        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">A KM</div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px;display:flex;justify-content:space-between;align-items:center;gap:3px"><span>A KM</span><button type="button" id="e_sent_${i}" onclick="toggleSentidoEditConcepto(${i})" title="Sentido de este concepto. ⬆️ sube · ⬇️ baja (regresa). Toca para cambiar." style="background:var(--bg);border:1px solid ${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--bord)'};color:${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--muted)'};border-radius:4px;cursor:pointer;font-size:9px;font-weight:700;padding:0 4px;line-height:14px;white-space:nowrap">${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'⬇️ baja':'⬆️ sube'}</button></div>
           <input type="text" id="e_conc_ka_${i}" value="${cv.ka?fmtCad(cv.ka):''}" readonly
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:11px;font-weight:700;color:var(--blue)">
         </div>
@@ -1378,7 +1392,8 @@ function renderEditConceptos(){
 function calcEditKa(i){
   const kde=parseCad((document.getElementById('e_conc_kde_'+i)||{}).value);
   const ml=parseFloat((document.getElementById('e_conc_ml_'+i)||{}).value)||0;
-  const sent=(document.getElementById('f_sentido')||{}).value||'sube';
+  const g=(document.getElementById('f_sentido')||{}).value||'sube';
+  const sent=(editConceptos[i]&&editConceptos[i].sentido)?editConceptos[i].sentido:g;
   if(!isNaN(kde)&&ml>0){
     const ka=sent==='sube'?kde+ml:kde-ml;
     const el=document.getElementById('e_conc_ka_'+i);
@@ -1386,6 +1401,16 @@ function calcEditKa(i){
     editConceptos[i].ka=ka;
   }
 }
+window.toggleSentidoEditConcepto=function(i){
+  if(!editConceptos[i]) return;
+  const g=(document.getElementById('f_sentido')||{}).value||'sube';
+  const cur=editConceptos[i].sentido||g;
+  const nv=cur==='sube'?'baja':'sube';
+  editConceptos[i].sentido=nv;
+  const b=document.getElementById('e_sent_'+i);
+  if(b){ b.textContent=nv==='baja'?'⬇️ baja':'⬆️ sube'; b.style.borderColor=nv==='baja'?'var(--gold)':'var(--bord)'; b.style.color=nv==='baja'?'var(--gold)':'var(--muted)'; }
+  calcEditKa(i);
+};
 
 function actualizarEditTonHint(){
   const ton=parseFloat((document.getElementById('e_t')||{}).value)||0;
@@ -1658,7 +1683,7 @@ function renderTablaTiro(){
       <td style="font-weight:700;color:var(--blue)">${carrilC}</td>
       <td>${row.unidad}</td>
       <td>${kdeC!=null?fmtCad(kdeC):'—'}</td>
-      <td>${kaC!=null?fmtCad(kaC):'—'}</td>
+      <td>${kaC!=null?fmtCad(kaC)+((kdeC!=null&&kaC<kdeC)?' <span title="Regresa (baja KM)" style="color:var(--gold)">⬇</span>':''):'—'}</td>
       <td>${lng.toFixed(2)}</td>
       <td>${aw.toFixed(2)}</td>
       <td>${area.toFixed(2)}</td>
@@ -1883,7 +1908,9 @@ window.saveEdit=async function() {
     const ml=parseFloat((document.getElementById('e_conc_ml_'+i)||{}).value);
     if(!isNaN(ml)) cv.ml=ml;
     cv.longitud=+(cv.ml||0).toFixed(2);
-    if(cv.kde!=null&&cv.longitud) cv.ka=sent==='sube'?cv.kde+cv.longitud:cv.kde-cv.longitud;
+    const cvSent=cv.sentido||sent;
+    if(cv.kde!=null&&cv.longitud) cv.ka=cvSent==='sube'?cv.kde+cv.longitud:cv.kde-cv.longitud;
+    cv.sentido=cvSent;
     cv.carril=(document.getElementById('e_conc_carril_'+i)||{value:cv.carril||'L. DER.'}).value;
     const a1=parseFloat((document.getElementById('e_conc_aw1_'+i)||{}).value);
     const a2=parseFloat((document.getElementById('e_conc_aw2_'+i)||{}).value);
@@ -2002,7 +2029,8 @@ function calcKaConcepto(i){
   const sentidoEl=document.getElementById('f_sentido');
   const kdeRaw=kdeEl?kdeEl.value:'';
   const mlRaw=mlEl?mlEl.value:'';
-  const sentido=sentidoEl?sentidoEl.value:'sube';
+  const gsent=sentidoEl?sentidoEl.value:'sube';
+  const sentido=(conceptosViaje[i]&&conceptosViaje[i].sentido)?conceptosViaje[i].sentido:gsent;
   const kde=parseCad(kdeRaw);
   const ml=parseFloat(mlRaw)||0;
   if(!isNaN(kde)&&ml>0){
@@ -2093,7 +2121,10 @@ function renderConceptosContainer(){
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:16px;font-weight:700;color:var(--green)">
         </div>
         <div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">A KM (auto)</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between;align-items:center;gap:4px">
+            <span>A KM (auto)</span>
+            <button type="button" id="f_sent_${i}" onclick="toggleSentidoConcepto(${i})" title="Sentido de ESTE concepto. ⬆️ sube KM · ⬇️ baja KM (cuando regresas por el otro carril). Toca para cambiar." style="background:var(--bg);border:1px solid ${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--bord)'};color:${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--muted)'};border-radius:5px;cursor:pointer;font-size:10px;font-weight:700;padding:1px 5px;line-height:16px;white-space:nowrap">${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'⬇️ baja':'⬆️ sube'}</button>
+          </div>
           <div id="f_ka_${i}" style="width:100%;background:var(--bg);border:1px solid var(--blue);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--blue);min-height:32px;line-height:20px">${cv.ka?fmtCad(cv.ka):'—'}</div>
         </div>
         <div>
