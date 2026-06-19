@@ -1326,7 +1326,7 @@ function renderEditConceptos(){
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:11px;font-weight:700">
         </div>
         <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">ML</div>
-          <input type="number" id="e_conc_ml_${i}" value="${cv.ml||cv.longitud||''}" placeholder="110.50" step="0.01"
+          <input type="number" id="e_conc_ml_${i}" value="${(cv.ml||cv.longitud)?(+(cv.ml||cv.longitud)).toFixed(2):''}" placeholder="110.50" step="0.01"
             oninput="editConceptos[${i}].ml=parseFloat(this.value)||0;calcEditKa(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:14px;font-weight:700;color:var(--green)">
         </div>
@@ -1340,6 +1340,22 @@ function renderEditConceptos(){
             ${['L. DER.','L. IZQ.','CENT.','CARR. DER.','CARR. IZQ.'].map(o=>`<option ${(cv.carril||'L. DER.')===o?'selected':''}>${o}</option>`).join('')}
           </select>
         </div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Ancho ini</div>
+          <input type="number" id="e_conc_aw1_${i}" value="${cv.aw1!=null?cv.aw1:''}" placeholder="4.00" step="0.01" inputmode="decimal"
+            oninput="editConceptos[${i}].aw1=parseFloat(this.value)||0"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:13px;font-weight:700">
+        </div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Ancho fin</div>
+          <input type="number" id="e_conc_aw2_${i}" value="${cv.aw2!=null?cv.aw2:''}" placeholder="4.00" step="0.01" inputmode="decimal"
+            oninput="editConceptos[${i}].aw2=parseFloat(this.value)||0"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:13px;font-weight:700">
+        </div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Esp. (cm)</div>
+          <input type="number" id="e_conc_et_${i}" value="${cv.et!=null?cv.et:3}" placeholder="3.0" step="0.1" inputmode="decimal"
+            oninput="editConceptos[${i}].et=parseFloat(this.value)||3"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:13px;font-weight:700;color:var(--gold)">
+        </div>
+        <div style="display:flex;align-items:flex-end;justify-content:center;font-size:10px;color:var(--muted)">m²/m³ al guardar</div>
       </div>
     </div>`;
   }).join('');
@@ -1583,12 +1599,23 @@ window.openEdit=function(id) {
   if(!puedeEditar(r)){ toast(motivoBloqueo(r),'err'); return; }
   editId=id;
   editConceptos=r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.length>0
-    ? r.conceptos.map(cv=>({...cv,ml:cv.longitud||cv.ml||0}))
+    ? r.conceptos.map(cv=>({...cv, ml:cv.longitud||cv.ml||0,
+        aw1:(cv.ancho_ini!=null?cv.ancho_ini:(cv.ancho!=null?cv.ancho:(r.ancho_ini!=null?r.ancho_ini:r.ancho))),
+        aw2:(cv.ancho_fin!=null?cv.ancho_fin:(cv.ancho!=null?cv.ancho:(r.ancho_fin!=null?r.ancho_fin:r.ancho))),
+        et:(cv.esp_teorico!=null?cv.esp_teorico:(r.esp_teorico!=null?r.esp_teorico:3)) }))
     : (()=>{
         const cat=catalogoActivo.find(x=>x.label===(r.concepto||'')||x.id===(r.concepto||''));
         return [{id:cat?cat.id:'CARPETA3-O1',label:cat?cat.label:(r.concepto||'CARPETA 3CM · O1'),
-                 ton:r.ton_concepto||r.ton_recibidas,kde:r.kde,ka:r.ka,ml:r.longitud||0,carril:r.carril||'L. DER.'}];
+                 ton:r.ton_concepto||r.ton_recibidas,kde:r.kde,ka:r.ka,ml:r.longitud||0,carril:r.carril||'L. DER.',
+                 aw1:(r.ancho_ini!=null?r.ancho_ini:r.ancho), aw2:(r.ancho_fin!=null?r.ancho_fin:r.ancho), et:(r.esp_teorico!=null?r.esp_teorico:3)}];
       })();
+  // Si el concepto principal no trae cadenamiento, respaldarlo con el del viaje (evita que salga vacío arriba)
+  if(editConceptos.length){
+    const pp=editConceptos.reduce((a,b)=>((a.ton||0)>=(b.ton||0)?a:b));
+    if(pp.kde==null && r.kde!=null) pp.kde=r.kde;
+    if((!pp.ml||pp.ml===0) && r.longitud) pp.ml=r.longitud;
+    if(pp.ka==null && r.ka!=null) pp.ka=r.ka;
+  }
   document.getElementById('editFlds').innerHTML=`
     <div class="fg">
       <div class="field"><label>Fecha</label><input type="date" id="e_f" value="${r.fecha}"></div>
@@ -1598,20 +1625,12 @@ window.openEdit=function(id) {
         <div id="editConceptosWrap" style="margin-top:6px"></div>
         <button type="button" onclick="editAgregarConcepto()"
           style="margin-top:4px;padding:8px 14px;background:var(--surf);border:1px dashed var(--bord);border-radius:8px;color:var(--gold);font-weight:700;cursor:pointer;width:100%">+ Agregar concepto</button>
-        <div style="font-size:10px;color:var(--muted);margin-top:6px">Edita tipo, tonelaje, De KM, ML y carril de cada concepto aquí arriba. El "De/A KM general" de abajo es el rango del viaje para el cálculo de m³.</div>
+        <div style="font-size:10px;color:var(--muted);margin-top:6px">Cada concepto lleva su propio <b>cadenamiento</b> (De KM/ML) y su <b>carril</b> aquí arriba. El ancho y el espesor de abajo son del viaje (compartidos).</div>
       </div>
       <div class="field"><label>№ Vale</label><input type="text" id="e_v" value="${r.vale||''}"></div>
       <div class="field"><label>№ Remisión</label><input type="text" id="e_r" value="${r.remision||''}"></div>
-      <div class="field"><label>De KM general (m³)</label><input type="text" id="e_de" value="${fmtCad(r.kde)}" autocomplete="off"></div>
-      <div class="field"><label>A KM general (m³)</label><input type="text" id="e_ka" value="${fmtCad(r.ka)}" autocomplete="off"></div>
-      <div class="field"><label>Ancho INICIAL (m)</label><input type="number" id="e_aw1" value="${r.ancho_ini??r.ancho}" step="0.01" inputmode="decimal"></div>
-      <div class="field"><label>Ancho FINAL (m)</label><input type="number" id="e_aw2" value="${r.ancho_fin??r.ancho}" step="0.01" inputmode="decimal"></div>
-      <div class="field"><label>Esp. teórico (cm)</label><input type="number" id="e_et" value="${r.esp_teorico}" step="0.1" inputmode="decimal"></div>
       <div class="field"><label>Temp prod °C</label><input type="number" id="e_tp" value="${r.temp_produccion||''}"></div>
       <div class="field"><label>Temp tend °C</label><input type="number" id="e_tt" value="${r.temp_tendido||''}"></div>
-      <div class="field ff"><label>Carril</label>
-        <select id="e_c">${['L. DER.','L. IZQ.','CENT.','CARR. DER.','CARR. IZQ.'].map(c=>`<option ${r.carril===c?'selected':''}>${c}</option>`).join('')}</select>
-      </div>
     </div>
 
     <!-- FOTOS — editables -->
@@ -1681,13 +1700,8 @@ window.saveEdit=async function() {
   const fechaAnterior = r.fecha;
   const fechaNueva = document.getElementById('e_f').value;
   const ton=parseFloat(document.getElementById('e_t').value);   // ton TOTAL del camión
-  const aw1=parseFloat(document.getElementById('e_aw1').value);
-  const aw2=parseFloat(document.getElementById('e_aw2').value);
-  const aw=anchoProm('e_aw1','e_aw2');                          // ancho general (compartido)
-  const et=parseFloat(document.getElementById('e_et').value);   // esp. teórico general (cm)
   const sent=(document.getElementById('f_sentido')||{}).value||'sube';
-  // Reconstruir CADA concepto con SU propia longitud, carril, geometría y consecutivo.
-  // (el ancho y el esp. teórico son generales del viaje)
+  // Reconstruir CADA concepto con SU propia geometría (longitud, ancho, espesor), carril y consecutivo.
   editConceptos.forEach((cv,i)=>{
     const sel=document.getElementById('e_conc_id_'+i);
     if(sel){ cv.id=sel.value; const cat=getCatItem(sel.value)||{}; cv.label=cat.label||sel.value; cv.codigo=cat.codigo||''; cv.pu=cat.pu||0; }
@@ -1700,22 +1714,33 @@ window.saveEdit=async function() {
     cv.longitud=+(cv.ml||0).toFixed(2);
     if(cv.kde!=null&&cv.longitud) cv.ka=sent==='sube'?cv.kde+cv.longitud:cv.kde-cv.longitud;
     cv.carril=(document.getElementById('e_conc_carril_'+i)||{value:cv.carril||'L. DER.'}).value;
-    cv.ancho=+(cv.ancho||aw).toFixed(3);
-    cv.esp_teorico=cv.esp_teorico||et;
+    const a1=parseFloat((document.getElementById('e_conc_aw1_'+i)||{}).value);
+    const a2=parseFloat((document.getElementById('e_conc_aw2_'+i)||{}).value);
+    const e =parseFloat((document.getElementById('e_conc_et_'+i)||{}).value);
+    if(!isNaN(a1)) cv.aw1=a1;
+    if(!isNaN(a2)) cv.aw2=a2;
+    if(!isNaN(e))  cv.esp_teorico=e;
+    const awc=(cv.aw1&&cv.aw2)?(cv.aw1+cv.aw2)/2:(cv.aw1||cv.aw2||cv.ancho||0);
+    cv.ancho=+(awc||0).toFixed(3);
+    cv.ancho_ini=(cv.aw1!=null?cv.aw1:null);
+    cv.ancho_fin=(cv.aw2!=null?cv.aw2:null);
+    cv.esp_teorico=cv.esp_teorico||3;
     cv.area=+((cv.longitud||0)*cv.ancho).toFixed(4);
-    cv.volumen=+(cv.area*((cv.esp_teorico||et)/100)).toFixed(4);
+    cv.volumen=+(cv.area*(cv.esp_teorico/100)).toFixed(4);
     cv.importe=+((cv.pu||0)*(cv.ton||0)).toFixed(2);
     // cv.num_consec se conserva del original (no se reasigna al editar)
   });
   // Resumen del viaje desde el concepto PRINCIPAL (el de mayor tonelaje), igual que en captura.
   const concPpal=editConceptos.reduce((a,b)=>((a.ton||0)>=(b.ton||0)?a:b), editConceptos[0]||{});
-  const kde=concPpal.kde!=null?concPpal.kde:parseCad(document.getElementById('e_de').value);
-  const ka=concPpal.ka!=null?concPpal.ka:parseCad(document.getElementById('e_ka').value);
+  const kde=concPpal.kde!=null?concPpal.kde:(r.kde!=null?r.kde:0);
+  const ka=concPpal.ka!=null?concPpal.ka:(r.ka!=null?r.ka:0);
   const lng=concPpal.longitud||Math.abs((ka||0)-(kde||0));
+  const aw=concPpal.ancho||r.ancho||0;
+  const et=concPpal.esp_teorico||r.esp_teorico||3;
   const area=concPpal.area||(lng*aw);
   const vol=concPpal.volumen||(area*(et/100));
   const er=ton&&area?(ton/(area*DEN)):0;
-  const mf=ton&&area?(((concPpal.esp_teorico||et)/100)-er)*area:0;
+  const mf=ton&&area?(((et)/100)-er)*area:0;
   try {
     const _pUpd = updateDoc(doc(db,COL,editId),{
       fecha:document.getElementById('e_f').value,
@@ -1728,8 +1753,8 @@ window.saveEdit=async function() {
       area_total:+editConceptos.reduce((s,cv)=>s+(cv.area||0),0).toFixed(4),
       vol_total:+editConceptos.reduce((s,cv)=>s+(cv.volumen||0),0).toFixed(4),
       long_total:+editConceptos.reduce((s,cv)=>s+(cv.longitud||0),0).toFixed(2),
-      ancho:+aw.toFixed(3), ancho_ini:isNaN(aw1)?null:aw1, ancho_fin:isNaN(aw2)?null:aw2,
-      esp_teorico:concPpal.esp_teorico||et,
+      ancho:+aw.toFixed(3), ancho_ini:(concPpal.ancho_ini!=null?concPpal.ancho_ini:null), ancho_fin:(concPpal.ancho_fin!=null?concPpal.ancho_fin:null),
+      esp_teorico:et,
       vale:document.getElementById('e_v').value.trim(),
       remision:document.getElementById('e_r').value.trim(),
       carril:concPpal.carril||'L. DER.',
@@ -2581,7 +2606,7 @@ function renderReporte() {
   records.forEach(r=>{ if(!bd[r.fecha]) bd[r.fecha]=[]; bd[r.fecha].push(r); });
   let sh='';
   Object.keys(bd).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
-    const rs=bd[date];
+    const rs=[...bd[date]].sort((a,b)=>(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
     const filas=[]; rs.forEach(r=>filasConcepto(r).forEach(f=>filas.push(f)));
     const dt=filas.reduce((s,f)=>s+f.ton,0), df=filas.reduce((s,f)=>s+f.m3_fav,0);
     const d=new Date(date+'T12:00:00');
