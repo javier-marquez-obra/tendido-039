@@ -209,6 +209,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 .tiro-tbl td.P{color:var(--red);font-weight:700}
 .tiro-tbl tfoot td{position:sticky;bottom:0;background:var(--card);font-weight:800;font-size:12px;color:var(--gold);border-top:2px solid var(--gold);z-index:3}
 .tiro-tbl tfoot td:first-child{left:auto;color:var(--muted);font-size:11px}
+.tiro-tbl thead tr:first-child th{z-index:4}
+.tiro-tbl thead tr:first-child th:first-child{z-index:5}
+.tiro-tbl thead tr.flt th{top:31px;z-index:2;padding:3px 4px;background:var(--surf);text-transform:none;letter-spacing:0;border-bottom:1px solid var(--bord);font-weight:400}
+.tiro-tbl thead tr.flt th:first-child{left:0;z-index:3;background:var(--surf)}
+.tiro-tbl thead tr.flt select,.tiro-tbl thead tr.flt input{font-family:inherit}
 .tiro-mod{padding:5px 10px;background:var(--gold);border:none;border-radius:6px;color:#000;font-weight:700;font-size:11px;cursor:pointer;white-space:nowrap}
 .tiro-mod:disabled{background:var(--surf);color:var(--muted);border:1px solid var(--bord);cursor:not-allowed}
 /* modo ampliar (pantalla completa + celdas más grandes) */
@@ -1464,6 +1469,23 @@ window.tiroTodosDias = function(){
   else _tiroDias=new Set(fechas);
   renderTablaTiro();
 };
+// Filtros independientes por columna (franjas)
+let _tiroF={placas:'',material:'',concepto:'',carril:'',unidad:'',
+  kdeMin:'',kdeMax:'',kaMin:'',kaMax:'',lngMin:'',lngMax:'',awMin:'',awMax:'',
+  m2Min:'',m2Max:'',m3Min:'',m3Max:'',tonMin:'',tonMax:'',espMin:'',espMax:'',
+  tpMin:'',tpMax:'',ttMin:'',ttMax:''};
+window.tiroSetF=function(k,v){ if(k in _tiroF){ _tiroF[k]=v; renderTablaTiro(); } };
+window.tiroLimpiarF=function(){ for(const k in _tiroF) _tiroF[k]=''; renderTablaTiro(); };
+function _numF(s,isCad){ if(s==null||s==='') return null; const n=isCad?parseCad(String(s)):parseFloat(s); return isNaN(n)?null:n; }
+function _rangoOK(val,minS,maxS,isCad){
+  const mn=_numF(minS,isCad), mx=_numF(maxS,isCad);
+  if(mn==null&&mx==null) return true;        // sin filtro en esta columna
+  if(val==null||isNaN(val)) return false;    // hay filtro pero la fila no tiene dato
+  if(mn!=null&&val<mn) return false;
+  if(mx!=null&&val>mx) return false;
+  return true;
+}
+function _hayFiltrosCol(){ return Object.values(_tiroF).some(v=>v!==''); }
 // ═══ GRÁFICO DE AVANCE POR CADENAMIENTO (planta, por lado) ═══
 function ladoDe(carril){
   const k=(carril||'').toUpperCase();
@@ -1563,10 +1585,10 @@ function renderTablaTiro(){
   }
   renderGraficoTiro(rs);
   if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en los días elegidos</div>'; return; }
-  let body='';
-  let totM2=0,totM3=0,totTon=0,totGan=0,totPer=0;
+
+  // 1) Filas planas (una por concepto) con todos los campos derivados
+  let flatAll=[];
   rs.forEach(v=>{
-    const editable=puedeEditar(v);
     const conceptos=(v.conceptos&&v.conceptos.length)
       ? v.conceptos
       : [{label:v.concepto,ton:v.ton_concepto||v.ton_recibidas,longitud:v.longitud,ancho:v.ancho,area:v.area,volumen:v.volumen,esp_teorico:v.esp_teorico,kde:v.kde,ka:v.ka,carril:v.carril,id:null}];
@@ -1578,49 +1600,120 @@ function renderTablaTiro(){
       const ton=c.ton||0;
       const er=(ton&&area)?ton/(area*DEN_TIRO):0;
       const mf=(ton&&area&&c.esp_teorico)?(((c.esp_teorico/100)-er)*area):0;
-      const gan=mf>0?mf:0, per=mf<0?-mf:0;
-      totM2+=area; totM3+=vol; totTon+=ton; totGan+=gan; totPer+=per;
-      const primera=ci===0;
-      const kdeC=(c.kde!=null)?c.kde:(primera?v.kde:null);
-      const kaC =(c.ka !=null)?c.ka :(primera?v.ka :null);
-      const lblC=c.label||cat.label||v.concepto||'';
-      const carrilC=c.carril||v.carril||'—';
-      const fechaTxt=(v.fecha||'').split('-').reverse().join('/');
-      const tp=v.temp_produccion, tt=v.temp_tendido;
-      const tpTxt=(tp!=null&&tp!=='')?`<span style="color:${tp<150?'var(--red)':'inherit'};font-weight:${tp<150?'700':'400'}">${tp}°</span>`:'—';
-      const ttTxt=(tt!=null&&tt!=='')?`<span style="color:${tt<130?'var(--red)':'inherit'};font-weight:${tt<130?'700':'400'}">${tt}°</span>`:'—';
-      body+=`<tr>
-        <td style="font-weight:700;color:var(--gold)">${primera?(v.num_viaje_dia||''):''}</td>
-        <td>${primera?fechaTxt:''}</td>
-        <td style="font-weight:700">${primera?(v.placas||''):''}</td>
-        <td>${primera?(v.material||''):''}</td>
-        <td style="text-align:left;color:var(--gold);font-weight:700">${lblC||'—'}</td>
-        <td style="font-weight:700;color:var(--blue)">${carrilC}</td>
-        <td>${cat.unidad||'M3'}</td>
-        <td>${kdeC!=null?fmtCad(kdeC):'—'}</td>
-        <td>${kaC!=null?fmtCad(kaC):'—'}</td>
-        <td>${lng.toFixed(2)}</td>
-        <td>${aw.toFixed(2)}</td>
-        <td>${area.toFixed(2)}</td>
-        <td style="color:var(--green);font-weight:700">${vol.toFixed(3)}</td>
-        <td>${ton.toFixed(2)}</td>
-        <td>${(er*100).toFixed(2)}</td>
-        <td>${primera?tpTxt:''}</td>
-        <td>${primera?ttTxt:''}</td>
-        <td class="G">${gan?('+'+gan.toFixed(3)):'—'}</td>
-        <td class="P">${per?('−'+per.toFixed(3)):'—'}</td>
-        <td>${primera?`<button class="tiro-mod" onclick="modificarDesdeTiro('${v._id}')" ${editable?'':'disabled'} title="${editable?'Modificar este viaje':motivoBloqueo(v)}">${editable?'✏️ Modificar':'🔒'}</button>`:''}</td>
-      </tr>`;
+      const kdeC=(c.kde!=null)?c.kde:(ci===0?v.kde:null);
+      const kaC =(c.ka !=null)?c.ka :(ci===0?v.ka:null);
+      flatAll.push({v,lng,aw,area,vol,ton,er,mf,kdeC,kaC,
+        lblC:c.label||cat.label||v.concepto||'', carrilC:c.carril||v.carril||'—',
+        unidad:cat.unidad||'M3', tp:v.temp_produccion, tt:v.temp_tendido});
     });
   });
+
+  // Valores distintos para los menús (del universo de días elegidos)
+  const distintos=(g)=>[...new Set(flatAll.map(g).filter(x=>x!=null&&x!==''&&x!=='—'))].sort();
+  const optMat=distintos(r=>r.v.material), optConc=distintos(r=>r.lblC), optCarril=distintos(r=>r.carrilC), optUni=distintos(r=>r.unidad);
+
+  // 2) Aplicar filtros por columna
+  const F=_tiroF, up=s=>String(s||'').toUpperCase();
+  let flat=flatAll.filter(row=>{
+    if(F.placas && !up(row.v.placas).includes(up(F.placas))) return false;
+    if(F.material && (row.v.material||'')!==F.material) return false;
+    if(F.concepto && row.lblC!==F.concepto) return false;
+    if(F.carril && row.carrilC!==F.carril) return false;
+    if(F.unidad && row.unidad!==F.unidad) return false;
+    if(!_rangoOK(row.kdeC,F.kdeMin,F.kdeMax,true)) return false;
+    if(!_rangoOK(row.kaC ,F.kaMin ,F.kaMax ,true)) return false;
+    if(!_rangoOK(row.lng ,F.lngMin,F.lngMax)) return false;
+    if(!_rangoOK(row.aw  ,F.awMin ,F.awMax )) return false;
+    if(!_rangoOK(row.area,F.m2Min ,F.m2Max )) return false;
+    if(!_rangoOK(row.vol ,F.m3Min ,F.m3Max )) return false;
+    if(!_rangoOK(row.ton ,F.tonMin,F.tonMax)) return false;
+    if(!_rangoOK(row.er*100,F.espMin,F.espMax)) return false;
+    if(!_rangoOK((row.tp===''||row.tp==null)?null:+row.tp,F.tpMin,F.tpMax)) return false;
+    if(!_rangoOK((row.tt===''||row.tt==null)?null:+row.tt,F.ttMin,F.ttMax)) return false;
+    return true;
+  });
+
+  // 3) Marcar la primera fila visible de cada viaje (muestra N°, placas, etc.)
+  const visto={};
+  flat.forEach(row=>{ const id=row.v._id; row.primera=!visto[id]; visto[id]=true; });
+
+  // 4) Totales de lo filtrado
+  let totM2=0,totM3=0,totTon=0,totGan=0,totPer=0;
+  flat.forEach(row=>{ totM2+=row.area; totM3+=row.vol; totTon+=row.ton; if(row.mf>0)totGan+=row.mf; else totPer+=-row.mf; });
+
+  // 5) Cuerpo
+  const body=flat.map(row=>{
+    const {v,lng,aw,area,vol,ton,er,mf,kdeC,kaC,lblC,carrilC,tp,tt,primera}=row;
+    const editable=puedeEditar(v);
+    const gan=mf>0?mf:0, per=mf<0?-mf:0;
+    const fechaTxt=(v.fecha||'').split('-').reverse().join('/');
+    const tpTxt=(tp!=null&&tp!=='')?`<span style="color:${tp<150?'var(--red)':'inherit'};font-weight:${tp<150?'700':'400'}">${tp}°</span>`:'—';
+    const ttTxt=(tt!=null&&tt!=='')?`<span style="color:${tt<130?'var(--red)':'inherit'};font-weight:${tt<130?'700':'400'}">${tt}°</span>`:'—';
+    return `<tr>
+      <td style="font-weight:700;color:var(--gold)">${primera?(v.num_viaje_dia||''):''}</td>
+      <td>${primera?fechaTxt:''}</td>
+      <td style="font-weight:700">${primera?(v.placas||''):''}</td>
+      <td>${primera?(v.material||''):''}</td>
+      <td style="text-align:left;color:var(--gold);font-weight:700">${lblC||'—'}</td>
+      <td style="font-weight:700;color:var(--blue)">${carrilC}</td>
+      <td>${row.unidad}</td>
+      <td>${kdeC!=null?fmtCad(kdeC):'—'}</td>
+      <td>${kaC!=null?fmtCad(kaC):'—'}</td>
+      <td>${lng.toFixed(2)}</td>
+      <td>${aw.toFixed(2)}</td>
+      <td>${area.toFixed(2)}</td>
+      <td style="color:var(--green);font-weight:700">${vol.toFixed(3)}</td>
+      <td>${ton.toFixed(2)}</td>
+      <td>${(er*100).toFixed(2)}</td>
+      <td>${primera?tpTxt:''}</td>
+      <td>${primera?ttTxt:''}</td>
+      <td class="G">${gan?('+'+gan.toFixed(3)):'—'}</td>
+      <td class="P">${per?('−'+per.toFixed(3)):'—'}</td>
+      <td>${primera?`<button class="tiro-mod" onclick="modificarDesdeTiro('${v._id}')" ${editable?'':'disabled'} title="${editable?'Modificar este viaje':motivoBloqueo(v)}">${editable?'✏️ Modificar':'🔒'}</button>`:''}</td>
+    </tr>`;
+  }).join('');
+
+  // 6) Fila de filtros por columna
+  const fi='width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:5px;color:var(--txt);padding:3px 4px;font-size:10px';
+  const fn='width:48px;background:var(--bg);border:1px solid var(--bord);border-radius:5px;color:var(--txt);padding:3px 3px;font-size:10px;text-align:center';
+  const selF=(k,opts,ph)=>`<select onchange="tiroSetF('${k}',this.value)" style="${fi}"><option value="">${ph}</option>${opts.map(o=>`<option ${F[k]===o?'selected':''}>${o}</option>`).join('')}</select>`;
+  const txtF=(k,ph)=>`<input value="${F[k]||''}" onchange="tiroSetF('${k}',this.value)" placeholder="${ph}" style="${fi}">`;
+  const rngF=(kmin,kmax,ph)=>`<div style="display:flex;gap:2px;justify-content:center"><input value="${F[kmin]||''}" onchange="tiroSetF('${kmin}',this.value)" placeholder="${ph||'mín'}" style="${fn}"><input value="${F[kmax]||''}" onchange="tiroSetF('${kmax}',this.value)" placeholder="máx" style="${fn}"></div>`;
+  const filtros=`<tr class="flt">
+    <th></th>
+    <th></th>
+    <th>${txtF('placas','placas')}</th>
+    <th>${selF('material',optMat,'todos')}</th>
+    <th>${selF('concepto',optConc,'todos')}</th>
+    <th>${selF('carril',optCarril,'todos')}</th>
+    <th>${selF('unidad',optUni,'todos')}</th>
+    <th>${rngF('kdeMin','kdeMax','46+200')}</th>
+    <th>${rngF('kaMin','kaMax','46+800')}</th>
+    <th>${rngF('lngMin','lngMax')}</th>
+    <th>${rngF('awMin','awMax')}</th>
+    <th>${rngF('m2Min','m2Max')}</th>
+    <th>${rngF('m3Min','m3Max')}</th>
+    <th>${rngF('tonMin','tonMax')}</th>
+    <th>${rngF('espMin','espMax')}</th>
+    <th>${rngF('tpMin','tpMax')}</th>
+    <th>${rngF('ttMin','ttMax')}</th>
+    <th></th>
+    <th></th>
+    <th><button class="bc" onclick="tiroLimpiarF()" style="padding:3px 6px;font-size:10px" title="Quitar todos los filtros de columna">✖ Limpiar</button></th>
+  </tr>`;
+
+  const filtroActivo=_hayFiltrosCol();
   wrap.innerHTML=`<table class="tiro-tbl">
-    <thead><tr>
+    <thead>
+    <tr>
       <th>N°</th><th>Fecha</th><th>Placas</th><th>Material</th><th>Concepto</th><th>Carril</th><th>Unidad</th><th>KM&nbsp;ini</th><th>KM&nbsp;fin</th>
       <th>Long.</th><th>Ancho</th><th>m²</th><th>m³</th><th>Ton</th>
       <th>Esp.&nbsp;real</th><th>T.&nbsp;Prod</th><th>T.&nbsp;Tend</th><th>Ganancia</th><th>Pérdida</th><th>Acción</th>
-    </tr></thead><tbody>${body}</tbody>
+    </tr>
+    ${filtros}
+    </thead><tbody>${body||`<tr><td colspan="20" style="padding:18px;text-align:center;color:var(--muted)">Ningún renglón cumple los filtros · <a href="#" onclick="tiroLimpiarF();return false" style="color:var(--blue)">limpiar filtros</a></td></tr>`}</tbody>
     <tfoot><tr class="tiro-tot">
-      <td colspan="11" style="text-align:right">ACUMULADO ▸</td>
+      <td colspan="11" style="text-align:right">${filtroActivo?'ACUMULADO (filtrado) ▸':'ACUMULADO ▸'}</td>
       <td>${totM2.toFixed(2)}</td>
       <td>${totM3.toFixed(3)}</td>
       <td>${totTon.toFixed(2)}</td>
