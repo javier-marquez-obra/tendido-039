@@ -995,6 +995,72 @@ window.zoomCad=function(f){
   if(f==='fit') _cadScale=0.08; else _cadScale=Math.min(1.5,Math.max(0.02,_cadScale*f));
   const w=document.getElementById('cadWrap'); if(w) w.innerHTML=renderCadHTML();
 };
+// ═══ DIAGNÓSTICO DE HUECOS POR CARRIL ═══
+function mergeIntervals(arr){
+  const s=[...arr].sort((x,y)=>x[0]-y[0]); const out=[];
+  for(const iv of s){ if(out.length&&iv[0]<=out[out.length-1][1]+1) out[out.length-1][1]=Math.max(out[out.length-1][1],iv[1]); else out.push([iv[0],iv[1]]); }
+  return out;
+}
+function _cadDetalle(recs){
+  const segs=[], sinCad=[], carrilRaro=[];
+  recs.forEach(v=>{
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto}];
+    cs.forEach(c=>{
+      const car=(c.carril||v.carril||'');
+      const kde=c.kde!=null?c.kde:v.kde, ka=c.ka!=null?c.ka:v.ka;
+      const tramo=(kde>=247000&&kde<=252000)?'O2':'O1';
+      const lab=c.label||c.id||v.concepto||'';
+      if(kde==null||ka==null){ sinCad.push({fecha:v.fecha,vj:v.num_viaje_dia,label:lab}); return; }
+      const a=Math.min(kde,ka), b=Math.max(kde,ka);
+      if(b<=a){ sinCad.push({fecha:v.fecha,vj:v.num_viaje_dia,label:lab}); return; }
+      const up=car.toUpperCase();
+      if(!(up.includes('IZQ')||up.includes('CENT')||up.includes('DER'))) carrilRaro.push({fecha:v.fecha,vj:v.num_viaje_dia,carril:car||'(vacío)'});
+      const reniv=(String(c.id||'')+String(lab)).toUpperCase().includes('RENIV');
+      segs.push({tramo,a,b,side:ladoCad(car),reniv,fecha:v.fecha,carril:car,vj:v.num_viaje_dia});
+    });
+  });
+  return {segs,sinCad,carrilRaro};
+}
+function _dm(f){ return (f||'').split('-').reverse().slice(0,2).join('/'); }
+function diagnosticoHuecos(){
+  const {segs,sinCad,carrilRaro}=_cadDetalle(filtered);
+  const tramos=[['O1','Tramo O1 · MEX-200'],['O2','Tramo O2 · MEX-80 / Autlán']];
+  const sides=[['IZQ','Izquierda'],['CEN','Central'],['DER','Derecha']];
+  let out='';
+  tramos.forEach(([tk,tn])=>{
+    const tsegs=segs.filter(s=>s.tramo===tk);
+    if(!tsegs.length) return;
+    out+=`<div style="font-weight:700;color:#1e293b;margin:8px 0 3px">${tn}</div>`;
+    sides.forEach(([sk,sn])=>{
+      const carp=tsegs.filter(s=>s.side===sk&&!s.reniv).map(s=>[s.a,s.b]);
+      if(!carp.length){ out+=`<div style="font-size:11px;color:#94a3b8;margin-left:8px">${sn}: sin carpeta</div>`; return; }
+      const merged=mergeIntervals(carp);
+      const gaps=[];
+      for(let i=1;i<merged.length;i++){ const g1=merged[i-1][1], g2=merged[i][0]; if(g2-g1>1) gaps.push([g1,g2]); }
+      if(!gaps.length){ out+=`<div style="font-size:11px;color:#059669;margin-left:8px">${sn}: ✅ continuo ${fmtKm(merged[0][0])} → ${fmtKm(merged[merged.length-1][1])}</div>`; return; }
+      out+=`<div style="font-size:11px;color:#b45309;margin-left:8px">${sn}: ⚠️ ${gaps.length} hueco(s)</div>`;
+      gaps.forEach(([g1,g2])=>{
+        const porReniv=tsegs.some(s=>s.side===sk&&s.reniv&&s.a<=g1+1&&s.b>=g2-1);
+        const otro=tsegs.filter(s=>s.side!==sk&&!s.reniv&&s.a<g2&&s.b>g1);
+        let hint='';
+        if(porReniv) hint=' · cubierto por renivelación (ok)';
+        else if(otro.length){
+          const dias=[...new Set(otro.map(s=>_dm(s.fecha)))];
+          const lados=[...new Set(otro.map(s=>(sides.find(x=>x[0]===s.side)||[])[1]))];
+          hint=` · ese tramo SÍ se hizo en ${lados.join('/')} (${dias.join(', ')}) → revisa el carril capturado`;
+        } else {
+          hint=' · sin cobertura en ningún carril (faltante real o cadenamiento mal capturado)';
+        }
+        out+=`<div style="font-size:11px;margin-left:16px;color:#92400e">• ${fmtKm(g1)} → ${fmtKm(g2)} (${Math.round(g2-g1)} m)${hint}</div>`;
+      });
+    });
+  });
+  if(sinCad.length) out+=`<div style="font-size:11px;color:#dc2626;margin-top:7px">⛔ ${sinCad.length} concepto(s) SIN cadenamiento (no se grafican): ${sinCad.slice(0,8).map(x=>'vj#'+(x.vj||'?')+' '+_dm(x.fecha)).join(', ')}${sinCad.length>8?'…':''}</div>`;
+  if(carrilRaro.length) out+=`<div style="font-size:11px;color:#dc2626;margin-top:4px">⚠️ ${carrilRaro.length} concepto(s) con carril no reconocido (caen a Central): ${carrilRaro.slice(0,8).map(x=>'vj#'+(x.vj||'?')+' "'+x.carril+'" '+_dm(x.fecha)).join(', ')}${carrilRaro.length>8?'…':''}</div>`;
+  if(!out) out='<div style="color:#94a3b8;font-size:12px">Sin datos para diagnosticar</div>';
+  return out;
+}
+
 function buildSeccionCad(){
   return `<div class="section-hdr">🛣️ Avance por cadenamiento — toda la obra (acumulado)</div>
   <div class="card"><div class="card-body">
@@ -1007,6 +1073,10 @@ function buildSeccionCad(){
       </div>
     </div>
     <div id="cadWrap">${renderCadHTML()}</div>
+    <details style="margin-top:12px">
+      <summary style="cursor:pointer;font-weight:700;color:#7c3aed;font-size:13px">🔎 Diagnóstico de huecos por carril</summary>
+      <div style="margin-top:8px;background:#faf5ff;border:1px solid #e9d5ff;border-radius:10px;padding:10px 12px;line-height:1.5">${diagnosticoHuecos()}</div>
+    </details>
   </div></div>`;
 }
 

@@ -1680,44 +1680,59 @@ window.saveEdit=async function() {
   if(!puedeEditar(r)){ toast(motivoBloqueo(r),'err'); return; }
   const fechaAnterior = r.fecha;
   const fechaNueva = document.getElementById('e_f').value;
-  const ton=parseFloat(document.getElementById('e_t').value);
-  const kde=parseCad(document.getElementById('e_de').value);
-  const ka=parseCad(document.getElementById('e_ka').value);
+  const ton=parseFloat(document.getElementById('e_t').value);   // ton TOTAL del camión
   const aw1=parseFloat(document.getElementById('e_aw1').value);
   const aw2=parseFloat(document.getElementById('e_aw2').value);
-  const aw=anchoProm('e_aw1','e_aw2');
-  const et=parseFloat(document.getElementById('e_et').value);
-  const lng=Math.abs(ka-kde), area=lng*aw, vol=area*(et/100);
-  const er=ton/(area*DEN);                    // espesor real en metros
-  const mf=((et/100) - er) * area;            // (teórico - real) × área = m³ a favor
+  const aw=anchoProm('e_aw1','e_aw2');                          // ancho general (compartido)
+  const et=parseFloat(document.getElementById('e_et').value);   // esp. teórico general (cm)
+  const sent=(document.getElementById('f_sentido')||{}).value||'sube';
+  // Reconstruir CADA concepto con SU propia longitud, carril, geometría y consecutivo.
+  // (el ancho y el esp. teórico son generales del viaje)
+  editConceptos.forEach((cv,i)=>{
+    const sel=document.getElementById('e_conc_id_'+i);
+    if(sel){ cv.id=sel.value; const cat=getCatItem(sel.value)||{}; cv.label=cat.label||sel.value; cv.codigo=cat.codigo||''; cv.pu=cat.pu||0; }
+    const t=parseFloat((document.getElementById('e_conc_ton_'+i)||{}).value);
+    if(!isNaN(t)) cv.ton=t;
+    const kd=parseCad((document.getElementById('e_conc_kde_'+i)||{}).value);
+    if(!isNaN(kd)&&kd) cv.kde=kd;
+    const ml=parseFloat((document.getElementById('e_conc_ml_'+i)||{}).value);
+    if(!isNaN(ml)) cv.ml=ml;
+    cv.longitud=+(cv.ml||0).toFixed(2);
+    if(cv.kde!=null&&cv.longitud) cv.ka=sent==='sube'?cv.kde+cv.longitud:cv.kde-cv.longitud;
+    cv.carril=(document.getElementById('e_conc_carril_'+i)||{value:cv.carril||'L. DER.'}).value;
+    cv.ancho=+(cv.ancho||aw).toFixed(3);
+    cv.esp_teorico=cv.esp_teorico||et;
+    cv.area=+((cv.longitud||0)*cv.ancho).toFixed(4);
+    cv.volumen=+(cv.area*((cv.esp_teorico||et)/100)).toFixed(4);
+    cv.importe=+((cv.pu||0)*(cv.ton||0)).toFixed(2);
+    // cv.num_consec se conserva del original (no se reasigna al editar)
+  });
+  // Resumen del viaje desde el concepto PRINCIPAL (el de mayor tonelaje), igual que en captura.
+  const concPpal=editConceptos.reduce((a,b)=>((a.ton||0)>=(b.ton||0)?a:b), editConceptos[0]||{});
+  const kde=concPpal.kde!=null?concPpal.kde:parseCad(document.getElementById('e_de').value);
+  const ka=concPpal.ka!=null?concPpal.ka:parseCad(document.getElementById('e_ka').value);
+  const lng=concPpal.longitud||Math.abs((ka||0)-(kde||0));
+  const area=concPpal.area||(lng*aw);
+  const vol=concPpal.volumen||(area*(et/100));
+  const er=ton&&area?(ton/(area*DEN)):0;
+  const mf=ton&&area?(((concPpal.esp_teorico||et)/100)-er)*area:0;
   try {
     const _pUpd = updateDoc(doc(db,COL,editId),{
       fecha:document.getElementById('e_f').value,
       placas:normPlacas(document.getElementById('e_p').value),
       ton_recibidas:ton, kde,ka,longitud:lng,
-      concepto:editConceptos[0]?.label||r.concepto||'CARPETA 3CM · O1',
-      ton_concepto:editConceptos[0]?.ton||ton,
-      conceptos:(()=>{
-        editConceptos.forEach((cv,i)=>{
-          const sel=document.getElementById('e_conc_id_'+i);
-          if(sel){cv.id=sel.value;const cat=getCatItem(sel.value)||{};cv.label=cat.label||sel.value;cv.codigo=cat.codigo||'';cv.pu=cat.pu||0;}
-          const t=parseFloat((document.getElementById('e_conc_ton_'+i)||{}).value)||0;
-          if(t) cv.ton=t;
-          cv.kde=parseCad((document.getElementById('e_conc_kde_'+i)||{}).value)||cv.kde;
-          cv.ml=parseFloat((document.getElementById('e_conc_ml_'+i)||{}).value)||cv.ml||0;
-          const sent=(document.getElementById('f_sentido')||{}).value||'sube';
-          if(cv.kde&&cv.ml) cv.ka=sent==='sube'?cv.kde+cv.ml:cv.kde-cv.ml;
-          cv.longitud=cv.ml||0;
-          cv.carril=(document.getElementById('e_conc_carril_'+i)||{value:cv.carril||'L. DER.'}).value;
-          cv.importe=+((cv.pu||0)*cv.ton).toFixed(2);
-        });
-        return editConceptos.length>0?[...editConceptos]:null;
-      })(),
+      concepto:concPpal.label||r.concepto||'CARPETA 3CM · O1',
+      ton_concepto:concPpal.ton||ton,
+      conceptos:[...editConceptos],
+      importe_viaje:+editConceptos.reduce((s,cv)=>s+(cv.importe||0),0).toFixed(2),
+      area_total:+editConceptos.reduce((s,cv)=>s+(cv.area||0),0).toFixed(4),
+      vol_total:+editConceptos.reduce((s,cv)=>s+(cv.volumen||0),0).toFixed(4),
+      long_total:+editConceptos.reduce((s,cv)=>s+(cv.longitud||0),0).toFixed(2),
       ancho:+aw.toFixed(3), ancho_ini:isNaN(aw1)?null:aw1, ancho_fin:isNaN(aw2)?null:aw2,
-      esp_teorico:et,
+      esp_teorico:concPpal.esp_teorico||et,
       vale:document.getElementById('e_v').value.trim(),
       remision:document.getElementById('e_r').value.trim(),
-      carril:document.getElementById('e_c').value,
+      carril:concPpal.carril||'L. DER.',
       temp_produccion:parseFloat(document.getElementById('e_tp').value)||null,
       temp_tendido:parseFloat(document.getElementById('e_tt').value)||null,
       observaciones:document.getElementById('e_obs').value.trim(),
@@ -2520,6 +2535,33 @@ function conceptoTxt(r){
   }
   return r.concepto || '—';
 }
+// Cadenamiento de salida: acepta número (metros) o string ya formateado ("48+272.51")
+function cadOut(v){
+  if(v==null||v==='') return '';
+  if(typeof v==='string' && v.includes('+')) return v;
+  const n = typeof v==='number' ? v : parseCad(String(v));
+  return isNaN(n) ? '' : fmtCad(n);
+}
+// Separa un viaje en una fila por concepto, con su geometría y ganancia/pérdida propias.
+function filasConcepto(r){
+  const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{
+    id:r.concepto, label:r.concepto, ton:(r.ton_concepto!=null?r.ton_concepto:r.ton_recibidas),
+    kde:r.kde, ka:r.ka, longitud:r.longitud, ancho:r.ancho, esp_teorico:r.esp_teorico, carril:r.carril,
+    area:r.area, volumen:r.volumen
+  }];
+  return cs.map(c=>{
+    const cat=getCatItem(c.id)||{};
+    const lng=c.longitud||0, aw=(c.ancho!=null?c.ancho:(r.ancho||0));
+    const esp=(c.esp_teorico!=null?c.esp_teorico:(r.esp_teorico||0));
+    const area=(c.area!=null?c.area:lng*aw);
+    const vol=(c.volumen!=null?c.volumen:area*esp/100);
+    const ton=c.ton||0;
+    const er=(ton&&area)?ton/(area*DEN):0;
+    const mf=(ton&&area&&esp)?(((esp/100)-er)*area):0;
+    return { r, label:(c.label||cat.label||c.id||r.concepto||'—'), ton, area, volumen:vol,
+             esp_real:er, m3_fav:mf, gp:mf>=0?'GANANCIA':'PERDIDA', carril:(c.carril||r.carril||''), kde:c.kde, ka:c.ka };
+  });
+}
 
 function renderReporte() {
   const dc=document.getElementById('dashContent');
@@ -2527,40 +2569,45 @@ function renderReporte() {
   if (!esEditor()) { lm.style.display='block'; dc.innerHTML=''; return; }
   lm.style.display='none';
   if (!records.length) { dc.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Sin datos</div>'; return; }
-  const tt=records.reduce((s,r)=>s+r.ton_recibidas,0);
-  const ta=records.reduce((s,r)=>s+r.area,0);
-  const tv=records.reduce((s,r)=>s+r.volumen,0);
-  const tf=records.reduce((s,r)=>s+r.m3_fav,0);
-  const ng=records.filter(r=>r.gp==='GANANCIA').length;
+  // Aplanar a filas por concepto (totales consistentes con la tabla separada)
+  const allFilas=[]; records.forEach(r=>filasConcepto(r).forEach(f=>allFilas.push(f)));
+  const tt=allFilas.reduce((s,f)=>s+f.ton,0);
+  const ta=allFilas.reduce((s,f)=>s+f.area,0);
+  const tv=allFilas.reduce((s,f)=>s+f.volumen,0);
+  const tf=allFilas.reduce((s,f)=>s+f.m3_fav,0);
+  const ng=allFilas.filter(f=>f.gp==='GANANCIA').length;
+  const nTot=allFilas.length||1;
   const bd={};
   records.forEach(r=>{ if(!bd[r.fecha]) bd[r.fecha]=[]; bd[r.fecha].push(r); });
   let sh='';
   Object.keys(bd).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
-    const rs=bd[date], dt=rs.reduce((s,r)=>s+r.ton_recibidas,0), df=rs.reduce((s,r)=>s+r.m3_fav,0), da=rs.reduce((s,r)=>s+r.area,0);
+    const rs=bd[date];
+    const filas=[]; rs.forEach(r=>filasConcepto(r).forEach(f=>filas.push(f)));
+    const dt=filas.reduce((s,f)=>s+f.ton,0), df=filas.reduce((s,f)=>s+f.m3_fav,0);
     const d=new Date(date+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
     sh+=`<div class="ds">
       <div class="dsh" onclick="toggleDay('${date}')">
         <div class="dsd">${lb}</div>
-        <div class="dss"><div class="dst t">${dt.toFixed(1)}t</div><div class="dst c">${rs.length}vj</div></div>
+        <div class="dss"><div class="dst t">${dt.toFixed(1)}t</div><div class="dst c">${rs.length}vj · ${filas.length}c</div></div>
       </div>
       <div class="dsb" id="day-${date}">
         <table class="dtbl" style="margin-top:8px">
-          <thead><tr><th>Placa</th><th>Concepto</th><th>#</th><th>Ton</th><th>Esp.r</th><th>m³fav</th><th>P°/T°</th><th>Por</th></tr></thead>
+          <thead><tr><th>Placa</th><th>Concepto</th><th>Cuerpo</th><th>#</th><th>Ton</th><th>Esp.r</th><th>m³fav</th><th>P°/T°</th></tr></thead>
           <tbody>
-          ${rs.map(r=>`<tr>
-            <td>${r.placas}</td>
-            <td style="font-size:10px;color:var(--gold);font-weight:600">${conceptoTxt(r)}</td>
-            <td>${r.num_viaje_dia||'—'}</td>
-            <td>${r.ton_recibidas.toFixed(1)}</td>
-            <td>${(r.esp_real*100).toFixed(2)}</td>
-            <td class="${r.gp==='GANANCIA'?'G':'P'}">${r.m3_fav>=0?'+':''}${r.m3_fav.toFixed(3)}</td>
-            <td style="color:var(--muted);font-size:10px">${r.temp_produccion||'—'}/${r.temp_tendido||'—'}</td>
-            <td style="color:var(--muted);font-size:10px">${(r.capturado_por||'?').split(' ')[0]}</td>
+          ${filas.map(f=>`<tr>
+            <td>${f.r.placas}</td>
+            <td style="font-size:10px;color:var(--gold);font-weight:600">${f.label}</td>
+            <td style="font-size:10px;color:var(--muted)">${f.carril||'—'}</td>
+            <td>${f.r.num_viaje_dia||'—'}</td>
+            <td>${f.ton.toFixed(1)}</td>
+            <td>${(f.esp_real*100).toFixed(2)}</td>
+            <td class="${f.gp==='GANANCIA'?'G':'P'}">${f.m3_fav>=0?'+':''}${f.m3_fav.toFixed(3)}</td>
+            <td style="color:var(--muted);font-size:10px">${f.r.temp_produccion||'—'}/${f.r.temp_tendido||'—'}</td>
           </tr>`).join('')}
           <tr style="border-top:1px solid var(--gold)">
-            <td>TOT</td><td>—</td><td>${rs.length}</td><td>${dt.toFixed(1)}</td><td>—</td>
-            <td class="${df>=0?'G':'P'}">${df>=0?'+':''}${df.toFixed(3)}</td><td>—</td><td>—</td>
+            <td>TOT</td><td>—</td><td>—</td><td>${rs.length}</td><td>${dt.toFixed(1)}</td><td>—</td>
+            <td class="${df>=0?'G':'P'}">${df>=0?'+':''}${df.toFixed(3)}</td><td>—</td>
           </tr>
           </tbody>
         </table>
@@ -2570,7 +2617,7 @@ function renderReporte() {
   dc.innerHTML=`
     <div class="kg">
       <div class="kc ac"><div class="kl">Ton totales</div><div class="kv">${tt.toFixed(1)}</div><div class="ks">${records.length} viajes</div></div>
-      <div class="kc gr"><div class="kl">m³ a favor</div><div class="kv">${tf>=0?'+':''}${tf.toFixed(2)}</div><div class="ks">${(ng/records.length*100).toFixed(0)}% ganancia</div></div>
+      <div class="kc gr"><div class="kl">m³ a favor</div><div class="kv">${tf>=0?'+':''}${tf.toFixed(2)}</div><div class="ks">${(ng/nTot*100).toFixed(0)}% ganancia</div></div>
       <div class="kc"><div class="kl">Área m²</div><div class="kv">${(ta/1000).toFixed(1)}k</div><div class="ks">${(ta/8000*100).toFixed(1)}% meta</div></div>
       <div class="kc"><div class="kl">Volumen m³</div><div class="kv">${tv.toFixed(1)}</div><div class="ks">cat: ${CATALOGO_E7.filter(c=>c.id!=='OTRO').reduce((s,c)=>s+c.cantidad,0)} m³</div></div>
     </div>
@@ -2648,10 +2695,45 @@ window.exportVolumenCSV = function() {
 
 window.exportCSV = function() {
   if (!records.length) { toast('Sin datos','warn'); return; }
-  const h=['VJ#','FECHA','PLACAS','TON_REC','MATERIAL','PG','TIPO','CONCEPTO','VALE','REMISION','DE_KM','A_KM','LONG','ANCHO','ESP_T_CM','CARRIL','AREA_M2','VOL_M3','TON_REALES','ESP_REAL_CM','GP','M3_FAV','TEMP_PROD','TEMP_TEND','OBS','CAPTURADO_POR'];
-  const rows=records.map(r=>[r.num_viaje_dia||'',r.fecha,r.placas,r.ton_recibidas.toFixed(2),r.material,r.pg,r.tipo,conceptoTxt(r).replace(/,/g,' '),r.vale||'',r.remision||'',r.kde,r.ka,r.longitud,r.ancho.toFixed(2),r.esp_teorico,r.carril,r.area.toFixed(4),r.volumen.toFixed(4),r.ton_reales.toFixed(4),(r.esp_real*100).toFixed(4),r.gp,r.m3_fav.toFixed(6),r.temp_produccion||'',r.temp_tendido||'',(r.observaciones||'').replace(/,/g,' '),r.capturado_por||''].join(','));
+  const h=['VJ#','FECHA','PLACAS','TON_CONCEPTO','MATERIAL','PG','TIPO','CONCEPTO','VALE','REMISION','DE_KM','A_KM','LONG','ANCHO','ESP_T_CM','CARRIL','AREA_M2','VOL_M3','TON_REALES','ESP_REAL_CM','GP','M3_FAV','TEMP_PROD','TEMP_TEND','OBS','CAPTURADO_POR'];
+  const ord=[...records].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||((a.num_viaje_dia||0)-(b.num_viaje_dia||0)));
+  const rows=[];
+  ord.forEach(r=>{
+    // UNA FILA POR CONCEPTO. Si el viaje no trae conceptos[], se arma uno con los datos del viaje
+    // (así los días viejos también muestran su concepto).
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{
+      id:r.concepto, label:r.concepto, ton:(r.ton_concepto!=null?r.ton_concepto:r.ton_recibidas),
+      kde:r.kde, ka:r.ka, longitud:r.longitud, ancho:r.ancho, esp_teorico:r.esp_teorico, carril:r.carril,
+      area:r.area, volumen:r.volumen
+    }];
+    cs.forEach(c=>{
+      const cat=getCatItem(c.id)||{};
+      const label=(c.label||cat.label||c.id||r.concepto||'(sin concepto)');
+      const lng=(c.longitud!=null?c.longitud:0);
+      const aw=(c.ancho!=null?c.ancho:(r.ancho||0));
+      const esp=(c.esp_teorico!=null?c.esp_teorico:(r.esp_teorico||0));
+      const area=(c.area!=null?c.area:lng*aw);
+      const vol=(c.volumen!=null?c.volumen:area*esp/100);
+      const ton=(c.ton!=null?c.ton:0);
+      const er=(ton&&area)?ton/(area*DEN):0;
+      const mf=(ton&&area&&esp)?(((esp/100)-er)*area):0;
+      rows.push([
+        r.num_viaje_dia||'', r.fecha, r.placas, (+ton).toFixed(2),
+        r.material, r.pg, r.tipo, String(label).replace(/,/g,' '),
+        r.vale||'', r.remision||'',
+        cadOut(c.kde), cadOut(c.ka),
+        lng.toFixed(2), (+aw).toFixed(2), esp,
+        (c.carril||r.carril||'').replace(/,/g,' '),
+        area.toFixed(2), vol.toFixed(3),
+        (vol*DEN).toFixed(2), (er*100).toFixed(2),
+        mf>=0?'GANANCIA':'PERDIDA', mf.toFixed(3),
+        r.temp_produccion||'', r.temp_tendido||'',
+        (r.observaciones||'').replace(/,/g,' '), r.capturado_por||''
+      ].join(','));
+    });
+  });
   dl([h.join(','),...rows].join('\n'), `TENDIDO_039_COMPLETO_${hoyLocal()}.csv`);
-  toast('✓ CSV completo descargado');
+  toast('✓ CSV por concepto · '+rows.length+' filas');
 };
 
 function dl(content, filename) {
