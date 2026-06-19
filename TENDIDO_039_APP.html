@@ -1438,6 +1438,8 @@ function motivoBloqueo(v){
 
 // ═══ TABLA DE TIRO (desglose por concepto) ═══
 const DEN_TIRO = 2.20;
+let _tiroFecha = null; // null=por defecto (jornada activa) · '__todos__'=todos los días · 'YYYY-MM-DD'=día
+window.setTiroFecha = function(v){ _tiroFecha = v; renderTablaTiro(); };
 // ═══ GRÁFICO DE AVANCE POR CADENAMIENTO (planta, por lado) ═══
 function ladoDe(carril){
   const k=(carril||'').toUpperCase();
@@ -1509,17 +1511,31 @@ function renderGraficoTiro(rs){
 
 function renderTablaTiro(){
   const wrap=document.getElementById('tiroWrap'); if(!wrap) return;
-  let jornada=getJornadaActiva();
-  let rs=records.filter(r=>r.fecha===jornada);
-  if(!rs.length && records.length){
-    jornada=records.reduce((a,b)=>((a.ts||0)>(b.ts||0)?a:b)).fecha;
-    rs=records.filter(r=>r.fecha===jornada);
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  // Selección por defecto: jornada activa si tiene datos, si no la última con datos
+  if(_tiroFecha===null){
+    const ja=getJornadaActiva();
+    _tiroFecha = fechas.includes(ja) ? ja : (fechas[0]||'__todos__');
   }
-  rs=[...rs].sort((a,b)=>(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
+  // Si el día elegido ya no existe (cambió la data), caer a la última
+  if(_tiroFecha!=='__todos__' && !fechas.includes(_tiroFecha)) _tiroFecha = fechas[0]||'__todos__';
+
+  const todos = _tiroFecha==='__todos__';
+  let rs = todos ? [...records] : records.filter(r=>r.fecha===_tiroFecha);
+  rs = rs.sort((a,b)=> (a.fecha||'').localeCompare(b.fecha||'') || (a.num_viaje_dia||0)-(b.num_viaje_dia||0));
+
   const fnote=document.getElementById('tiroFiltro');
-  if(fnote) fnote.innerHTML=`Jornada <b style="color:var(--gold)">${(jornada||'—').split('-').reverse().join('/')}</b> · ${rs.length} viaje(s) · una fila por concepto`;
+  if(fnote){
+    const opts = `<option value="__todos__" ${todos?'selected':''}>📋 Todos los días</option>`
+      + fechas.map(f=>`<option value="${f}" ${_tiroFecha===f?'selected':''}>${f.split('-').reverse().join('/')}</option>`).join('');
+    fnote.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-weight:700;color:var(--gold)">📅 Día:</span>
+      <select onchange="setTiroFecha(this.value)" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:6px 10px;font-size:13px;font-weight:700">${opts}</select>
+      <span style="color:var(--muted)">${rs.length} viaje(s)${todos?' · TODA LA OBRA':''} · una fila por concepto</span>
+    </div>`;
+  }
   renderGraficoTiro(rs);
-  if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en esta jornada</div>'; return; }
+  if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en este día</div>'; return; }
   let body='';
   let totM2=0,totM3=0,totTon=0,totGan=0,totPer=0;
   rs.forEach(v=>{
