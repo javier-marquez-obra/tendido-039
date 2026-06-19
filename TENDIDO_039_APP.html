@@ -497,12 +497,20 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
       <h4 style="margin:0">📋 Tabla de tiro</h4>
       <div style="display:flex;gap:6px">
+        <button class="bc" id="btnGrafTiro" style="padding:6px 12px;font-size:13px" onclick="toggleGraficoTiro()">📉 Ocultar gráfico</button>
         <button class="bc" id="btnAmpliarTiro" style="padding:6px 12px;font-size:13px" onclick="toggleAmpliarTiro()">⛶ Ampliar</button>
         <button class="bc" style="padding:6px 12px;font-size:13px" onclick="cerrarTiro()">✕ Cerrar</button>
       </div>
     </div>
     <div id="tiroFiltro" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
-    <div id="tiroGrafico" style="margin-bottom:10px"></div>
+    <div id="tiroGraficoBox" style="height:300px;overflow:auto;-webkit-overflow-scrolling:touch;flex:none">
+      <div id="tiroGrafico"></div>
+    </div>
+    <div id="tiroDrag" onmousedown="tiroDragStart(event)" ontouchstart="tiroDragStart(event)"
+      title="Arrastra para ajustar el tamaño del gráfico"
+      style="height:16px;flex:none;cursor:row-resize;display:flex;align-items:center;justify-content:center;background:var(--bg);border-top:1px solid var(--bord);border-bottom:1px solid var(--bord);margin:4px 0;border-radius:6px;touch-action:none;user-select:none">
+      <span style="color:var(--muted);font-size:13px;letter-spacing:3px;font-weight:900">⸺⸺</span>
+    </div>
     <div id="tiroWrap" style="overflow:auto;-webkit-overflow-scrolling:touch;flex:1;min-height:0"></div>
   </div>
 </div>
@@ -1542,7 +1550,7 @@ function renderTablaTiro(){
     const editable=puedeEditar(v);
     const conceptos=(v.conceptos&&v.conceptos.length)
       ? v.conceptos
-      : [{label:v.concepto,ton:v.ton_concepto||v.ton_recibidas,longitud:v.longitud,ancho:v.ancho,area:v.area,volumen:v.volumen,esp_teorico:v.esp_teorico,id:null}];
+      : [{label:v.concepto,ton:v.ton_concepto||v.ton_recibidas,longitud:v.longitud,ancho:v.ancho,area:v.area,volumen:v.volumen,esp_teorico:v.esp_teorico,kde:v.kde,ka:v.ka,carril:v.carril,id:null}];
     conceptos.forEach((c,ci)=>{
       const cat=getCatItem(c.id)||{};
       const lng=c.longitud||0, aw=c.ancho||0;
@@ -1554,6 +1562,9 @@ function renderTablaTiro(){
       const gan=mf>0?mf:0, per=mf<0?-mf:0;
       totM2+=area; totM3+=vol; totTon+=ton; totGan+=gan; totPer+=per;
       const primera=ci===0;
+      const kdeC=(c.kde!=null)?c.kde:(primera?v.kde:null);
+      const kaC =(c.ka !=null)?c.ka :(primera?v.ka :null);
+      const lblC=c.label||cat.label||v.concepto||'';
       const fechaTxt=(v.fecha||'').split('-').reverse().join('/');
       const tp=v.temp_produccion, tt=v.temp_tendido;
       const tpTxt=(tp!=null&&tp!=='')?`<span style="color:${tp<150?'var(--red)':'inherit'};font-weight:${tp<150?'700':'400'}">${tp}°</span>`:'—';
@@ -1563,10 +1574,10 @@ function renderTablaTiro(){
         <td>${primera?fechaTxt:''}</td>
         <td style="font-weight:700">${primera?(v.placas||''):''}</td>
         <td>${primera?(v.material||''):''}</td>
-        <td style="text-align:left;color:var(--gold);font-weight:700">${c.label||''}</td>
+        <td style="text-align:left;color:var(--gold);font-weight:700">${lblC||'—'}</td>
         <td>${cat.unidad||'M3'}</td>
-        <td>${c.kde!=null?fmtCad(c.kde):'—'}</td>
-        <td>${c.ka!=null?fmtCad(c.ka):'—'}</td>
+        <td>${kdeC!=null?fmtCad(kdeC):'—'}</td>
+        <td>${kaC!=null?fmtCad(kaC):'—'}</td>
         <td>${lng.toFixed(2)}</td>
         <td>${aw.toFixed(2)}</td>
         <td>${area.toFixed(2)}</td>
@@ -1600,6 +1611,37 @@ function renderTablaTiro(){
     </tr></tfoot></table>`;
 }
 window.abrirTiro=function(){ renderTablaTiro(); const o=document.getElementById('tiroOv'); if(o) o.classList.add('open'); };
+// Divisor arrastrable: ajusta el alto del gráfico para ver más/menos tabla
+let _tiroDrag=null;
+window.tiroDragStart=function(e){
+  const box=document.getElementById('tiroGraficoBox'); if(!box||box.style.display==='none') return;
+  _tiroDrag={y:(e.touches?e.touches[0].clientY:e.clientY), h:box.offsetHeight};
+  document.body.style.userSelect='none';
+  if(e.cancelable) e.preventDefault();
+};
+function _tiroDragMove(e){
+  if(!_tiroDrag) return;
+  const box=document.getElementById('tiroGraficoBox'); if(!box) return;
+  const y=(e.touches?e.touches[0].clientY:e.clientY);
+  let h=_tiroDrag.h+(y-_tiroDrag.y);
+  h=Math.max(60, Math.min(h, (window.innerHeight||800)*0.78));
+  box.style.height=h+'px';
+  if(e.cancelable) e.preventDefault();
+}
+function _tiroDragEnd(){ if(_tiroDrag){ _tiroDrag=null; document.body.style.userSelect=''; } }
+document.addEventListener('mousemove',_tiroDragMove);
+document.addEventListener('touchmove',_tiroDragMove,{passive:false});
+document.addEventListener('mouseup',_tiroDragEnd);
+document.addEventListener('touchend',_tiroDragEnd);
+// Ocultar/mostrar gráfico para dar toda la pantalla a la tabla
+window.toggleGraficoTiro=function(){
+  const box=document.getElementById('tiroGraficoBox'), dr=document.getElementById('tiroDrag'), b=document.getElementById('btnGrafTiro');
+  if(!box) return;
+  const oculto = box.style.display==='none';
+  box.style.display = oculto?'':'none';
+  if(dr) dr.style.display = oculto?'':'none';
+  if(b) b.textContent = oculto?'📉 Ocultar gráfico':'📈 Mostrar gráfico';
+};
 window.cerrarTiro=function(){ const o=document.getElementById('tiroOv'); if(o) o.classList.remove('open'); };
 window.toggleAmpliarTiro=function(){
   const sh=document.getElementById('tiroSheet'), b=document.getElementById('btnAmpliarTiro');
