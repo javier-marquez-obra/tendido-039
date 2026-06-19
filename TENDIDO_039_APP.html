@@ -1446,8 +1446,24 @@ function motivoBloqueo(v){
 
 // ═══ TABLA DE TIRO (desglose por concepto) ═══
 const DEN_TIRO = 2.20;
-let _tiroFecha = null; // null=por defecto (jornada activa) · '__todos__'=todos los días · 'YYYY-MM-DD'=día
-window.setTiroFecha = function(v){ _tiroFecha = v; renderTablaTiro(); };
+let _tiroDias = null; // null=por defecto(jornada activa) · Set de fechas seleccionadas
+function _diasSelDefault(fechas){
+  const ja=getJornadaActiva();
+  return new Set([ fechas.includes(ja)?ja:(fechas[0]||null) ].filter(Boolean));
+}
+window.toggleTiroDia = function(f){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
+  if(!(_tiroDias instanceof Set)) _tiroDias=_diasSelDefault(fechas);
+  if(_tiroDias.has(f)) _tiroDias.delete(f); else _tiroDias.add(f);
+  if(_tiroDias.size===0) _tiroDias=_diasSelDefault(fechas);
+  renderTablaTiro();
+};
+window.tiroTodosDias = function(){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
+  if(_tiroDias instanceof Set && _tiroDias.size===fechas.length) _tiroDias=null;
+  else _tiroDias=new Set(fechas);
+  renderTablaTiro();
+};
 // ═══ GRÁFICO DE AVANCE POR CADENAMIENTO (planta, por lado) ═══
 function ladoDe(carril){
   const k=(carril||'').toUpperCase();
@@ -1520,30 +1536,33 @@ function renderGraficoTiro(rs){
 function renderTablaTiro(){
   const wrap=document.getElementById('tiroWrap'); if(!wrap) return;
   const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
-  // Selección por defecto: jornada activa si tiene datos, si no la última con datos
-  if(_tiroFecha===null){
-    const ja=getJornadaActiva();
-    _tiroFecha = fechas.includes(ja) ? ja : (fechas[0]||'__todos__');
-  }
-  // Si el día elegido ya no existe (cambió la data), caer a la última
-  if(_tiroFecha!=='__todos__' && !fechas.includes(_tiroFecha)) _tiroFecha = fechas[0]||'__todos__';
+  if(!(_tiroDias instanceof Set)) _tiroDias=_diasSelDefault(fechas);
+  for(const f of [..._tiroDias]) if(!fechas.includes(f)) _tiroDias.delete(f);
+  if(_tiroDias.size===0 && fechas.length) _tiroDias.add(fechas[0]);
+  const sel=_tiroDias;
+  const todos = fechas.length>0 && sel.size===fechas.length;
 
-  const todos = _tiroFecha==='__todos__';
-  let rs = todos ? [...records] : records.filter(r=>r.fecha===_tiroFecha);
+  let rs = records.filter(r=>sel.has(r.fecha));
   rs = rs.sort((a,b)=> (a.fecha||'').localeCompare(b.fecha||'') || (a.num_viaje_dia||0)-(b.num_viaje_dia||0));
 
   const fnote=document.getElementById('tiroFiltro');
   if(fnote){
-    const opts = `<option value="__todos__" ${todos?'selected':''}>📋 Todos los días</option>`
-      + fechas.map(f=>`<option value="${f}" ${_tiroFecha===f?'selected':''}>${f.split('-').reverse().join('/')}</option>`).join('');
-    fnote.innerHTML = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <span style="font-weight:700;color:var(--gold)">📅 Día:</span>
-      <select onchange="setTiroFecha(this.value)" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:6px 10px;font-size:13px;font-weight:700">${opts}</select>
-      <span style="color:var(--muted)">${rs.length} viaje(s)${todos?' · TODA LA OBRA':''} · una fila por concepto</span>
+    const chipBase='padding:5px 11px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord);white-space:nowrap';
+    const chips = fechas.map(f=>{
+      const on=sel.has(f);
+      return `<button onclick="toggleTiroDia('${f}')" style="${chipBase};background:${on?'var(--gold)':'var(--bg)'};color:${on?'#1a1a1a':'var(--txt)'};border-color:${on?'var(--gold)':'var(--bord)'}">${f.split('-').reverse().join('/').slice(0,5)}</button>`;
+    }).join('');
+    fnote.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-weight:700;color:var(--gold)">📅 Días:</span>
+        <button onclick="tiroTodosDias()" style="${chipBase};background:${todos?'var(--blue)':'var(--bg)'};color:${todos?'#fff':'var(--txt)'};border-color:${todos?'var(--blue)':'var(--bord)'}">📋 Todos</button>
+        ${chips}
+      </div>
+      <span style="color:var(--muted);font-size:11px">${rs.length} viaje(s) · ${sel.size} día(s) · una fila por concepto · <i>toca para elegir varios</i></span>
     </div>`;
   }
   renderGraficoTiro(rs);
-  if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en este día</div>'; return; }
+  if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en los días elegidos</div>'; return; }
   let body='';
   let totM2=0,totM3=0,totTon=0,totGan=0,totPer=0;
   rs.forEach(v=>{
@@ -1565,6 +1584,7 @@ function renderTablaTiro(){
       const kdeC=(c.kde!=null)?c.kde:(primera?v.kde:null);
       const kaC =(c.ka !=null)?c.ka :(primera?v.ka :null);
       const lblC=c.label||cat.label||v.concepto||'';
+      const carrilC=c.carril||v.carril||'—';
       const fechaTxt=(v.fecha||'').split('-').reverse().join('/');
       const tp=v.temp_produccion, tt=v.temp_tendido;
       const tpTxt=(tp!=null&&tp!=='')?`<span style="color:${tp<150?'var(--red)':'inherit'};font-weight:${tp<150?'700':'400'}">${tp}°</span>`:'—';
@@ -1575,6 +1595,7 @@ function renderTablaTiro(){
         <td style="font-weight:700">${primera?(v.placas||''):''}</td>
         <td>${primera?(v.material||''):''}</td>
         <td style="text-align:left;color:var(--gold);font-weight:700">${lblC||'—'}</td>
+        <td style="font-weight:700;color:var(--blue)">${carrilC}</td>
         <td>${cat.unidad||'M3'}</td>
         <td>${kdeC!=null?fmtCad(kdeC):'—'}</td>
         <td>${kaC!=null?fmtCad(kaC):'—'}</td>
@@ -1583,7 +1604,6 @@ function renderTablaTiro(){
         <td>${area.toFixed(2)}</td>
         <td style="color:var(--green);font-weight:700">${vol.toFixed(3)}</td>
         <td>${ton.toFixed(2)}</td>
-        <td>${(c.esp_teorico||0).toFixed(1)}</td>
         <td>${(er*100).toFixed(2)}</td>
         <td>${primera?tpTxt:''}</td>
         <td>${primera?ttTxt:''}</td>
@@ -1595,16 +1615,16 @@ function renderTablaTiro(){
   });
   wrap.innerHTML=`<table class="tiro-tbl">
     <thead><tr>
-      <th>N°</th><th>Fecha</th><th>Placas</th><th>Material</th><th>Concepto</th><th>Unidad</th><th>KM&nbsp;ini</th><th>KM&nbsp;fin</th>
+      <th>N°</th><th>Fecha</th><th>Placas</th><th>Material</th><th>Concepto</th><th>Carril</th><th>Unidad</th><th>KM&nbsp;ini</th><th>KM&nbsp;fin</th>
       <th>Long.</th><th>Ancho</th><th>m²</th><th>m³</th><th>Ton</th>
-      <th>Esp.&nbsp;teó</th><th>Esp.&nbsp;real</th><th>T.&nbsp;Prod</th><th>T.&nbsp;Tend</th><th>Ganancia</th><th>Pérdida</th><th>Acción</th>
+      <th>Esp.&nbsp;real</th><th>T.&nbsp;Prod</th><th>T.&nbsp;Tend</th><th>Ganancia</th><th>Pérdida</th><th>Acción</th>
     </tr></thead><tbody>${body}</tbody>
     <tfoot><tr class="tiro-tot">
-      <td colspan="10" style="text-align:right">ACUMULADO ▸</td>
+      <td colspan="11" style="text-align:right">ACUMULADO ▸</td>
       <td>${totM2.toFixed(2)}</td>
       <td>${totM3.toFixed(3)}</td>
       <td>${totTon.toFixed(2)}</td>
-      <td colspan="4"></td>
+      <td colspan="3"></td>
       <td class="G">${totGan?('+'+totGan.toFixed(3)):'—'}</td>
       <td class="P">${totPer?('−'+totPer.toFixed(3)):'—'}</td>
       <td></td>
