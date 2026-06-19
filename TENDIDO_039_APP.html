@@ -2513,6 +2513,14 @@ function renderFisicoFinanciero() {
   </div>`;
 }
 
+function conceptoTxt(r){
+  if(r.conceptos && r.conceptos.length){
+    const labs=[...new Set(r.conceptos.map(c=>c.label||'').filter(Boolean))];
+    if(labs.length) return labs.join(' + ');
+  }
+  return r.concepto || '—';
+}
+
 function renderReporte() {
   const dc=document.getElementById('dashContent');
   const lm=document.getElementById('lockMsg');
@@ -2538,10 +2546,11 @@ function renderReporte() {
       </div>
       <div class="dsb" id="day-${date}">
         <table class="dtbl" style="margin-top:8px">
-          <thead><tr><th>Placa</th><th>#</th><th>Ton</th><th>Esp.r</th><th>m³fav</th><th>P°/T°</th><th>Por</th></tr></thead>
+          <thead><tr><th>Placa</th><th>Concepto</th><th>#</th><th>Ton</th><th>Esp.r</th><th>m³fav</th><th>P°/T°</th><th>Por</th></tr></thead>
           <tbody>
           ${rs.map(r=>`<tr>
             <td>${r.placas}</td>
+            <td style="font-size:10px;color:var(--gold);font-weight:600">${conceptoTxt(r)}</td>
             <td>${r.num_viaje_dia||'—'}</td>
             <td>${r.ton_recibidas.toFixed(1)}</td>
             <td>${(r.esp_real*100).toFixed(2)}</td>
@@ -2550,7 +2559,7 @@ function renderReporte() {
             <td style="color:var(--muted);font-size:10px">${(r.capturado_por||'?').split(' ')[0]}</td>
           </tr>`).join('')}
           <tr style="border-top:1px solid var(--gold)">
-            <td>TOT</td><td>${rs.length}</td><td>${dt.toFixed(1)}</td><td>—</td>
+            <td>TOT</td><td>—</td><td>${rs.length}</td><td>${dt.toFixed(1)}</td><td>—</td>
             <td class="${df>=0?'G':'P'}">${df>=0?'+':''}${df.toFixed(3)}</td><td>—</td><td>—</td>
           </tr>
           </tbody>
@@ -2639,8 +2648,8 @@ window.exportVolumenCSV = function() {
 
 window.exportCSV = function() {
   if (!records.length) { toast('Sin datos','warn'); return; }
-  const h=['VJ#','FECHA','PLACAS','TON_REC','MATERIAL','PG','TIPO','VALE','REMISION','DE_KM','A_KM','LONG','ANCHO','ESP_T_CM','CARRIL','AREA_M2','VOL_M3','TON_REALES','ESP_REAL_CM','GP','M3_FAV','TEMP_PROD','TEMP_TEND','OBS','CAPTURADO_POR'];
-  const rows=records.map(r=>[r.num_viaje_dia||'',r.fecha,r.placas,r.ton_recibidas.toFixed(2),r.material,r.pg,r.tipo,r.vale||'',r.remision||'',r.kde,r.ka,r.longitud,r.ancho.toFixed(2),r.esp_teorico,r.carril,r.area.toFixed(4),r.volumen.toFixed(4),r.ton_reales.toFixed(4),(r.esp_real*100).toFixed(4),r.gp,r.m3_fav.toFixed(6),r.temp_produccion||'',r.temp_tendido||'',(r.observaciones||'').replace(/,/g,' '),r.capturado_por||''].join(','));
+  const h=['VJ#','FECHA','PLACAS','TON_REC','MATERIAL','PG','TIPO','CONCEPTO','VALE','REMISION','DE_KM','A_KM','LONG','ANCHO','ESP_T_CM','CARRIL','AREA_M2','VOL_M3','TON_REALES','ESP_REAL_CM','GP','M3_FAV','TEMP_PROD','TEMP_TEND','OBS','CAPTURADO_POR'];
+  const rows=records.map(r=>[r.num_viaje_dia||'',r.fecha,r.placas,r.ton_recibidas.toFixed(2),r.material,r.pg,r.tipo,conceptoTxt(r).replace(/,/g,' '),r.vale||'',r.remision||'',r.kde,r.ka,r.longitud,r.ancho.toFixed(2),r.esp_teorico,r.carril,r.area.toFixed(4),r.volumen.toFixed(4),r.ton_reales.toFixed(4),(r.esp_real*100).toFixed(4),r.gp,r.m3_fav.toFixed(6),r.temp_produccion||'',r.temp_tendido||'',(r.observaciones||'').replace(/,/g,' '),r.capturado_por||''].join(','));
   dl([h.join(','),...rows].join('\n'), `TENDIDO_039_COMPLETO_${hoyLocal()}.csv`);
   toast('✓ CSV completo descargado');
 };
