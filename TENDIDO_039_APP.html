@@ -509,6 +509,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     </div>
     <div id="tiroFiltro" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--gold);color:var(--gold)" onclick="exportarTablaExcel()">📊 Exportar tabla (Excel formulado)</button>
       <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--green);color:var(--green)" onclick="exportarCadExcel()">⬇️ Exportar cadenamientos (Excel)</button>
       <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('cadExcelFile').click()">⬆️ Subir Excel de cadenamientos</button>
       <input type="file" id="cadExcelFile" accept=".xlsx,.xls" style="display:none" onchange="leerCadExcel(this.files[0]);this.value=''">
@@ -1799,6 +1800,56 @@ function _conceptosDe(v){
   return (v.conceptos&&v.conceptos.length)?v.conceptos
     :[{id:v.concepto||null,label:v.concepto||'',ton:v.ton_concepto||v.ton_recibidas,kde:v.kde,ka:v.ka,longitud:v.longitud,ancho:v.ancho,esp_teorico:v.esp_teorico,carril:v.carril,sentido:v.sentido}];
 }
+// Exporta la TABLA DE TIRO completa a Excel, numérica y con FÓRMULAS vivas.
+// Columnas: A ID·B IDX·C Fecha·D Viaje·E Placas·F Material·G Concepto·H Carril·I Sentido·
+//           J De KM·K ML·L A KM(f)·M Ancho·N m²(f)·O Esp.teó·P m³(f)·Q Ton·R Esp.real(f)·S T.Prod·T T.Tend
+window.exportarTablaExcel=function(){
+  if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel; revisa tu conexión','err'); return; }
+  const rs=_rsTiroSel(); const filas=[];
+  rs.forEach(v=>_conceptosDe(v).forEach((c,ci)=>{
+    const sent=c.sentido||v.sentido||((c.ka!=null&&c.kde!=null&&c.ka<c.kde)?'baja':'sube');
+    const ml=c.longitud!=null?+(+c.longitud).toFixed(2):0;
+    const aw=c.ancho!=null?+(+c.ancho).toFixed(3):0;
+    const esp=c.esp_teorico!=null?+c.esp_teorico:0;
+    const ton=c.ton!=null?+(+c.ton).toFixed(2):0;
+    const area=c.area!=null?+(+c.area).toFixed(2):+(ml*aw).toFixed(2);
+    const vol=c.volumen!=null?+(+c.volumen).toFixed(3):+(area*esp/100).toFixed(3);
+    const er=area>0?+(ton/(area*DEN_TIRO)*100).toFixed(2):0;
+    filas.push({ID:v._id,IDX:ci,Fecha:v.fecha,Viaje:v.num_viaje_dia||'',Placas:v.placas||'',
+      Material:v.material||'',Concepto:c.label||c.id||'',Carril:c.carril||v.carril||'',Sentido:sent,
+      'De KM':c.kde!=null?+(+c.kde).toFixed(2):'', ML:ml, 'A KM':c.ka!=null?+(+c.ka).toFixed(2):'',
+      Ancho:aw, 'm²':area, 'Esp.teó(cm)':esp, 'm³':vol, Ton:ton, 'Esp.real(cm)':er,
+      'T.Prod':v.temp_produccion!=null&&v.temp_produccion!==''?+v.temp_produccion:'',
+      'T.Tend':v.temp_tendido!=null&&v.temp_tendido!==''?+v.temp_tendido:''});
+  }));
+  if(!filas.length){ toast('No hay tiros en los días seleccionados','err'); return; }
+  const header=['ID','IDX','Fecha','Viaje','Placas','Material','Concepto','Carril','Sentido','De KM','ML','A KM','Ancho','m²','Esp.teó(cm)','m³','Ton','Esp.real(cm)','T.Prod','T.Tend'];
+  const ws=XLSX.utils.json_to_sheet(filas,{header});
+  filas.forEach((f,i)=>{
+    const R=i+2;
+    if(typeof f['De KM']==='number' && typeof f.ML==='number'){
+      // L A KM = De KM ± ML según Sentido(I)
+      ws['L'+R]={t:'n', f:`IF(LOWER(LEFT(I${R},1))="b",J${R}-K${R},J${R}+K${R})`, v:(typeof f['A KM']==='number'?f['A KM']:0)};
+    }
+    // N m² = ML(K) × Ancho(M)
+    ws['N'+R]={t:'n', f:`K${R}*M${R}`, v:f['m²']||0};
+    // P m³ = m²(N) × Esp.teó(O) / 100
+    ws['P'+R]={t:'n', f:`N${R}*O${R}/100`, v:f['m³']||0};
+    // R Esp.real(cm) = Ton(Q) / (m²(N) × densidad) × 100
+    ws['R'+R]={t:'n', f:`IF(N${R}>0,Q${R}/(N${R}*${DEN_TIRO})*100,0)`, v:f['Esp.real(cm)']||0};
+  });
+  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:9},{wch:18},{wch:9},{wch:7},{wch:11},{wch:8},{wch:11},{wch:7},{wch:9},{wch:11},{wch:8},{wch:8},{wch:11},{wch:7},{wch:7}];
+  // Fila de TOTALES con fórmulas SUMA (m², m³, Ton)
+  const tot=filas.length+2;
+  ws['M'+tot]={t:'s',v:'TOTALES ▸'};
+  ws['N'+tot]={t:'n', f:`SUM(N2:N${filas.length+1})`};
+  ws['P'+tot]={t:'n', f:`SUM(P2:P${filas.length+1})`};
+  ws['Q'+tot]={t:'n', f:`SUM(Q2:Q${filas.length+1})`};
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length+1,c:19}});
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tabla de tiro');
+  XLSX.writeFile(wb,`TENDIDO_039_TABLA_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Tabla exportada · todo numérico y con fórmulas (A KM, m², m³, esp. real y totales)','ok');
+};
 window.exportarCadExcel=function(){
   if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel; revisa tu conexión','err'); return; }
   const rs=_rsTiroSel(); const filas=[];
