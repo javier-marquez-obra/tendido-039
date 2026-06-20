@@ -238,6 +238,7 @@ body.ppt-mode .ppt-watermark{display:block}
   svg{break-inside:avoid;page-break-inside:avoid}
 }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 </head>
 <body>
 
@@ -1217,8 +1218,8 @@ function render(){
 
   <div class="export-bar">
     <button class="btn-exp primary" onclick="exportPago()">📥 Excel pago camiones</button>
-    <button class="btn-exp" onclick="exportSICT()">📄 Generador SICT CSV</button>
-    <button class="btn-exp" onclick="exportCompleto()">📊 Reporte completo CSV</button>
+    <button class="btn-exp" onclick="exportSICT()">📊 Generador SICT (Excel)</button>
+    <button class="btn-exp" onclick="exportCompleto()">📊 Reporte completo (Excel)</button>
     <button class="btn-exp ppt" onclick="setMode('ppt',document.querySelectorAll('.mode-btn')[1])">📽️ Modo presentación</button>
     <button class="btn-exp" onclick="window.print()">🖨️ Imprimir / PDF</button>
   </div>`;
@@ -1355,44 +1356,70 @@ function buildCharts(fechas,labels,acums,byDate){
     </svg>`;
   }
 }
-// ── EXPORTS ──
+// ── EXPORTS (Excel numérico + fórmulas) ──
+function xlsxDL(aoa, formulaFn, cols, sheetName, filename){
+  if(typeof XLSX==='undefined'){ alert('No cargó la librería de Excel; revisa tu conexión e intenta de nuevo'); return; }
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  if(formulaFn) formulaFn(ws);
+  if(cols) ws['!cols']=cols;
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,sheetName);
+  XLSX.writeFile(wb, filename);
+}
+const _n=(x,d=2)=>(x!=null&&x!==''&&!isNaN(+x))?+(+x).toFixed(d):'';
 window.exportPago=function(){
-  const ruta=RUTAS[rutaActual];
-  const h=['FECHA','PLACAS','VIAJE#','№_VALE','№_REMISION','TON_RECIBIDAS','AREA_M2','KM_INICIAL','KM_FINAL','CARRIL','TEMP_PROD','TEMP_TEND','GP','OBSERVACIONES'];
-  const rows=filtered.map(r=>{
-    const q=s=>`"${String(s||'').replace(/"/g,'""')}"`;
-    return [r.fecha,r.placas,r.num_viaje_dia||'',q(r.vale||''),q(r.remision||''),r.ton_recibidas.toFixed(2),r.area.toFixed(2),fmtKm(r.kde),fmtKm(r.ka),r.carril||'',r.temp_produccion||'',r.temp_tendido||'',r.gp,q(r.observaciones||'')].join(',');
-  });
-  const tot=filtered.reduce((s,r)=>s+r.ton_recibidas,0);
-  rows.push(['TOTAL','','','','',tot.toFixed(2),'','','','','','','',''].join(','));
-  dl([h.join(','),...rows].join('\n'),`PAGO_CAMIONES_N27_${new Date().toISOString().split('T')[0]}.csv`);
+  const h=['FECHA','PLACAS','VIAJE#','№ VALE','№ REMISION','TON','AREA_M2','KM_INI(m)','KM_FIN(m)','CARRIL','TEMP_PROD','TEMP_TEND','GP','OBSERVACIONES'];
+  const data=filtered.map(r=>[r.fecha,r.placas,r.num_viaje_dia||'',r.vale||'',r.remision||'',
+    _n(r.ton_recibidas), _n(r.area), r.kde!=null?+r.kde:'', r.ka!=null?+r.ka:'', r.carril||'',
+    _n(r.temp_produccion,0), _n(r.temp_tendido,0), r.gp, r.observaciones||'']);
+  const n=data.length;
+  const aoa=[h,...data,['TOTAL','','','','',0,'','','','','','','','']];
+  xlsxDL(aoa, ws=>{ ws['F'+(n+2)]={t:'n',f:`SUM(F2:F${n+1})`}; },
+    [{wch:11},{wch:10},{wch:7},{wch:9},{wch:11},{wch:9},{wch:10},{wch:11},{wch:11},{wch:9},{wch:9},{wch:9},{wch:9},{wch:24}],
+    'Pago camiones', `PAGO_CAMIONES_N27_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 window.exportSICT=function(){
   const bd={};
   filtered.forEach(r=>{if(!bd[r.fecha])bd[r.fecha]=[];bd[r.fecha].push(r);});
-  const q=s=>`"${String(s||'').replace(/"/g,'""')}"`;
-  const h=['CONTRATO','EMPRESA','FECHA','ACTIVIDAD','DE_KM','A_KM','UNID','VOL_DIA_M3','VOL_ACUM_M3','AREA_M2','LONG_M','ANCHO_PROM','ESP_T_CM','TON','VIAJES'];
-  let acum=0;
-  const rows=[];
+  const h=['CONTRATO','EMPRESA','FECHA','ACTIVIDAD','DE_KM(m)','A_KM(m)','UNID','VOL_DIA_M3','VOL_ACUM_M3','AREA_M2','LONG_M','ANCHO_PROM','ESP_T_CM','TON','VIAJES'];
+  const data=[];
   Object.keys(bd).sort().forEach(f=>{
     const rs=bd[f];
-    const dV=rs.reduce((s,r)=>s+r.volumen,0); acum+=dV;
-    const dT=rs.reduce((s,r)=>s+r.ton_recibidas,0);
-    const dA=rs.reduce((s,r)=>s+r.area,0);
-    const dL=rs.reduce((s,r)=>s+r.longitud,0);
-    const kmMin=Math.min(...rs.map(r=>r.kde));
-    const kmMax=Math.max(...rs.map(r=>r.ka));
-    rows.push([q(CONTRATO),q(EMPRESA),f,q('Renivelaciones con mezcla asfaltica en caliente'),fmtKm(kmMin),fmtKm(kmMax),'m3',dV.toFixed(4),acum.toFixed(4),dA.toFixed(2),dL.toFixed(0),(dA/dL||0).toFixed(2),(rs.reduce((s,r)=>s+r.esp_teorico,0)/rs.length).toFixed(1),dT.toFixed(2),rs.length].join(','));
+    const dV=_n(rs.reduce((s,r)=>s+r.volumen,0),4);
+    const dT=_n(rs.reduce((s,r)=>s+r.ton_recibidas,0));
+    const dA=_n(rs.reduce((s,r)=>s+r.area,0));
+    const dL=_n(rs.reduce((s,r)=>s+r.longitud,0),0);
+    const kmMin=Math.min(...rs.map(r=>r.kde)), kmMax=Math.max(...rs.map(r=>r.ka));
+    const espT=_n(rs.reduce((s,r)=>s+r.esp_teorico,0)/rs.length,1);
+    data.push([CONTRATO,EMPRESA,f,'Renivelaciones con mezcla asfaltica en caliente',+kmMin,+kmMax,'m3',dV,0,dA,dL,0,espT,dT,rs.length]);
   });
-  dl([h.join(','),...rows].join('\n'),`GENERADOR_SICT_N27_${new Date().toISOString().split('T')[0]}.csv`);
+  const n=data.length;
+  xlsxDL([h,...data], ws=>{
+    for(let i=0;i<n;i++){ const R=i+2;
+      ws['I'+R]=(R===2)?{t:'n',f:`H2`}:{t:'n',f:`I${R-1}+H${R}`};      // VOL_ACUM
+      ws['L'+R]={t:'n',f:`IF(K${R}>0,J${R}/K${R},0)`};                 // ANCHO_PROM = AREA/LONG
+    }
+  }, [{wch:24},{wch:30},{wch:11},{wch:42},{wch:10},{wch:10},{wch:6},{wch:11},{wch:12},{wch:10},{wch:9},{wch:11},{wch:9},{wch:9},{wch:7}],
+  'Generador SICT', `GENERADOR_SICT_N27_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 window.exportCompleto=function(){
-  const q=s=>`"${String(s||'').replace(/"/g,'""')}"`;
-  const h=['VJ#','FECHA','PLACAS','TON','MATERIAL','PG','TIPO','VALE','REMISION','DE_KM','A_KM','LONG','ANCHO','ESP_T','CARRIL','AREA','VOL','ESP_R_CM','GP','M3_FAV','TEMP_P','TEMP_T','KM_RECORRIDOS','OBS','CAPTURADO_POR'];
-  const rows=filtered.map(r=>[r.num_viaje_dia||'',r.fecha,r.placas,r.ton_recibidas.toFixed(2),r.material,r.pg,r.tipo,q(r.vale||''),q(r.remision||''),r.kde,r.ka,r.longitud,r.ancho.toFixed(2),r.esp_teorico,r.carril,r.area.toFixed(4),r.volumen.toFixed(4),(r.esp_real*100).toFixed(4),r.gp,r.m3_fav.toFixed(6),r.temp_produccion||'',r.temp_tendido||'',getKmRecorridos(r),q(r.observaciones||''),q(r.capturado_por||'')].join(','));
-  dl([h.join(','),...rows].join('\n'),`TENDIDO_039_COMPLETO_${new Date().toISOString().split('T')[0]}.csv`);
+  const h=['VJ#','FECHA','PLACAS','TON','MATERIAL','PG','TIPO','VALE','REMISION','DE_KM(m)','A_KM(m)','LONG','ANCHO','ESP_T','CARRIL','AREA','VOL','ESP_R_CM','GP','M3_FAV','TEMP_P','TEMP_T','KM_REC','OBS','CAPTURADO_POR'];
+  const data=filtered.map(r=>[r.num_viaje_dia||'',r.fecha,r.placas,_n(r.ton_recibidas),r.material||'',r.pg||'',r.tipo||'',
+    r.vale||'',r.remision||'',r.kde!=null?+r.kde:'',r.ka!=null?+r.ka:'',_n(r.longitud),_n(r.ancho),+r.esp_teorico,r.carril||'',
+    _n(r.area), _n(r.volumen,3), 0, '', 0, _n(r.temp_produccion,0), _n(r.temp_tendido,0), _n(getKmRecorridos(r),3), r.observaciones||'', r.capturado_por||'']);
+  // Columnas: D TON·L LONG·M ANCHO·N ESP_T·P AREA·Q VOL·R ESP_R_CM·S GP·T M3_FAV
+  xlsxDL([h,...data], ws=>{
+    data.forEach((row,i)=>{ const R=i+2;
+      const ton=+row[3]||0, esp=+row[13]||0, area=+row[15]||0, vol=+row[16]||0;
+      ws['P'+R]={t:'n',f:`L${R}*M${R}`, v:area};                              // AREA = LONG×ANCHO
+      ws['Q'+R]={t:'n',f:`P${R}*N${R}/100`, v:vol};                            // VOL = AREA×ESP_T/100
+      ws['R'+R]={t:'n',f:`IF(P${R}>0,D${R}/(P${R}*${DEN})*100,0)`, v:area>0?+(ton/(area*DEN)*100).toFixed(2):0}; // ESP_REAL cm
+      ws['T'+R]={t:'n',f:`Q${R}-D${R}/${DEN}`, v:+(vol-ton/DEN).toFixed(3)};   // M3_FAV = vol teórico − vol real
+      ws['S'+R]={t:'s',f:`IF(T${R}>=0,"GANANCIA","PERDIDA")`, v:(vol-ton/DEN)>=0?'GANANCIA':'PERDIDA'};
+    });
+  }, [{wch:6},{wch:11},{wch:10},{wch:8},{wch:9},{wch:5},{wch:6},{wch:9},{wch:10},{wch:11},{wch:11},{wch:8},{wch:8},{wch:7},{wch:9},{wch:9},{wch:9},{wch:10},{wch:9},{wch:9},{wch:7},{wch:7},{wch:8},{wch:18},{wch:18}],
+  'Reporte completo', `TENDIDO_039_COMPLETO_${new Date().toISOString().split('T')[0]}.xlsx`);
 };
 
 function dl(content,filename){
