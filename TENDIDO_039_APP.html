@@ -529,7 +529,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, setDoc, doc, getDoc, getDocFromServer, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -1806,15 +1806,35 @@ window.exportarCadExcel=function(){
     const sent=c.sentido||v.sentido||((c.ka!=null&&c.kde!=null&&c.ka<c.kde)?'baja':'sube');
     filas.push({ID:v._id,IDX:ci,Fecha:v.fecha,Viaje:v.num_viaje_dia||'',Placas:v.placas||'',
       Concepto:c.label||c.id||'',Carril:c.carril||v.carril||'',
-      'De KM':c.kde!=null?fmtCad(c.kde):'', ML:c.longitud!=null?+(+c.longitud).toFixed(2):'',
-      Sentido:sent, 'A KM (auto)':c.ka!=null?fmtCad(c.ka):'', Ton:c.ton!=null?+(+c.ton).toFixed(2):''});
+      'De KM':c.kde!=null?+(+c.kde).toFixed(2):'', ML:c.longitud!=null?+(+c.longitud).toFixed(2):'',
+      Sentido:sent, 'A KM (auto)':c.ka!=null?+(+c.ka).toFixed(2):'', Ton:c.ton!=null?+(+c.ton).toFixed(2):'',
+      'De KM (ref)':c.kde!=null?fmtCad(c.kde):''});
   }));
   if(!filas.length){ toast('No hay tiros en los días seleccionados','err'); return; }
-  const ws=XLSX.utils.json_to_sheet(filas,{header:['ID','IDX','Fecha','Viaje','Placas','Concepto','Carril','De KM','ML','Sentido','A KM (auto)','Ton']});
-  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:20},{wch:10},{wch:12},{wch:9},{wch:8},{wch:12},{wch:8}];
+  const header=['ID','IDX','Fecha','Viaje','Placas','Concepto','Carril','De KM','ML','Sentido','A KM (auto)','Ton','De KM (ref)'];
+  const ws=XLSX.utils.json_to_sheet(filas,{header});
+  // Columnas: H=De KM, I=ML, J=Sentido, K=A KM, M=De KM (ref)
+  filas.forEach((f,i)=>{
+    const R=i+2; // fila Excel (1 = encabezado)
+    if(typeof f['De KM']==='number' && typeof f.ML==='number'){
+      // A KM = fórmula viva: si Sentido empieza en 'b' (baja) → De KM - ML; si no → De KM + ML
+      ws['K'+R]={t:'n', f:`IF(LOWER(LEFT(J${R},1))="b",H${R}-I${R},H${R}+I${R})`, v:(typeof f['A KM (auto)']==='number'?f['A KM (auto)']:0)};
+      // Referencia "NN+NNN.NN" calculada desde De KM (solo lectura)
+      ws['M'+R]={t:'s', f:`TEXT(INT(H${R}/1000),"0")&"+"&TEXT(MOD(H${R},1000),"000.00")`, v:f['De KM (ref)']||''};
+    }
+  });
+  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:20},{wch:10},{wch:11},{wch:9},{wch:8},{wch:12},{wch:8},{wch:13}];
+  // Bloquear todo salvo las columnas editables (G=Carril, H=De KM, I=ML, J=Sentido)
+  const _unlock=(addr)=>{ if(!ws[addr]) ws[addr]={t:'s',v:''}; ws[addr].s=Object.assign({},ws[addr].s,{protection:{locked:false}}); };
+  filas.forEach((f,i)=>{ const R=i+2; ['G','H','I','J'].forEach(col=>_unlock(col+R)); });
+  ws['!protect']={ selectLockedCells:true, selectUnlockedCells:true,
+    formatCells:false, formatColumns:false, formatRows:false,
+    insertColumns:false, insertRows:false, deleteColumns:false, deleteRows:false,
+    sort:false, autoFilter:false };
+  ws['!freeze']={xSplit:2,ySplit:1,topLeftCell:'C2',activePane:'bottomRight',state:'frozen'};
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Cadenamientos');
   XLSX.writeFile(wb,`TENDIDO_039_CADENAMIENTOS_${new Date().toISOString().slice(0,10)}.xlsx`);
-  toast('Excel generado · edita SOLO De KM, ML, Sentido y Carril (NO borres ID ni IDX)','ok');
+  toast('Excel listo · De KM y ML son NÚMEROS (en metros) para fórmulas · A KM se calcula solo','ok');
 };
 window.leerCadExcel=function(file){
   if(!file) return;
@@ -3061,12 +3081,10 @@ window.exportVolumenCSV = function() {
 
 window.exportCSV = function() {
   if (!records.length) { toast('Sin datos','warn'); return; }
-  const h=['VJ#','FECHA','PLACAS','TON_CONCEPTO','MATERIAL','PG','TIPO','CONCEPTO','VALE','REMISION','DE_KM','A_KM','LONG','ANCHO','ESP_T_CM','CARRIL','AREA_M2','VOL_M3','TON_REALES','ESP_REAL_CM','GP','M3_FAV','TEMP_PROD','TEMP_TEND','OBS','CAPTURADO_POR'];
+  if (typeof XLSX==='undefined'){ toast('No cargó la librería de Excel; revisa tu conexión','err'); return; }
   const ord=[...records].sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||((a.num_viaje_dia||0)-(b.num_viaje_dia||0)));
-  const rows=[];
+  const filas=[];
   ord.forEach(r=>{
-    // UNA FILA POR CONCEPTO. Si el viaje no trae conceptos[], se arma uno con los datos del viaje
-    // (así los días viejos también muestran su concepto).
     const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{
       id:r.concepto, label:r.concepto, ton:(r.ton_concepto!=null?r.ton_concepto:r.ton_recibidas),
       kde:r.kde, ka:r.ka, longitud:r.longitud, ancho:r.ancho, esp_teorico:r.esp_teorico, carril:r.carril,
@@ -3075,31 +3093,46 @@ window.exportCSV = function() {
     cs.forEach(c=>{
       const cat=getCatItem(c.id)||{};
       const label=(c.label||cat.label||c.id||r.concepto||'(sin concepto)');
-      const lng=(c.longitud!=null?c.longitud:0);
-      const aw=(c.ancho!=null?c.ancho:(r.ancho||0));
-      const esp=(c.esp_teorico!=null?c.esp_teorico:(r.esp_teorico||0));
+      const lng=+(c.longitud!=null?c.longitud:0);
+      const aw=+(c.ancho!=null?c.ancho:(r.ancho||0));
+      const esp=+(c.esp_teorico!=null?c.esp_teorico:(r.esp_teorico||0));
       const area=(c.area!=null?c.area:lng*aw);
       const vol=(c.volumen!=null?c.volumen:area*esp/100);
-      const ton=(c.ton!=null?c.ton:0);
+      const ton=+(c.ton!=null?c.ton:0);
       const er=(ton&&area)?ton/(area*DEN):0;
       const mf=(ton&&area&&esp)?(((esp/100)-er)*area):0;
-      rows.push([
-        r.num_viaje_dia||'', r.fecha, r.placas, (+ton).toFixed(2),
-        r.material, r.pg, r.tipo, String(label).replace(/,/g,' '),
-        r.vale||'', r.remision||'',
-        cadOut(c.kde), cadOut(c.ka),
-        lng.toFixed(2), (+aw).toFixed(2), esp,
-        (c.carril||r.carril||'').replace(/,/g,' '),
-        area.toFixed(2), vol.toFixed(3),
-        (vol*DEN).toFixed(2), (er*100).toFixed(2),
-        mf>=0?'GANANCIA':'PERDIDA', mf.toFixed(3),
-        r.temp_produccion||'', r.temp_tendido||'',
-        (r.observaciones||'').replace(/,/g,' '), r.capturado_por||''
-      ].join(','));
+      const sent=c.sentido||r.sentido||((c.ka!=null&&c.kde!=null&&c.ka<c.kde)?'baja':'sube');
+      filas.push({
+        'VJ#':r.num_viaje_dia||'', FECHA:r.fecha||'', PLACAS:r.placas||'', MATERIAL:r.material||'',
+        CONCEPTO:label, CARRIL:(c.carril||r.carril||''), SENTIDO:sent,
+        DE_KM:c.kde!=null?+(+c.kde).toFixed(2):'', LONG:+lng.toFixed(2), A_KM:c.ka!=null?+(+c.ka).toFixed(2):'',
+        ANCHO:+aw.toFixed(2), ESP_T_CM:+esp, AREA_M2:+area.toFixed(2), VOL_M3:+vol.toFixed(3), TON:+ton.toFixed(2),
+        TON_REALES:+(vol*DEN).toFixed(2), ESP_REAL_CM:+(er*100).toFixed(2), M3_FAV:+mf.toFixed(3),
+        GP:mf>=0?'GANANCIA':'PERDIDA', TEMP_PROD:r.temp_produccion||'', TEMP_TEND:r.temp_tendido||'',
+        VALE:r.vale||'', REMISION:r.remision||'', OBS:(r.observaciones||''), CAPTURADO_POR:r.capturado_por||''
+      });
     });
   });
-  dl([h.join(','),...rows].join('\n'), `TENDIDO_039_COMPLETO_${hoyLocal()}.csv`);
-  toast('✓ CSV por concepto · '+rows.length+' filas');
+  if(!filas.length){ toast('Sin datos','warn'); return; }
+  const header=['VJ#','FECHA','PLACAS','MATERIAL','CONCEPTO','CARRIL','SENTIDO','DE_KM','LONG','A_KM','ANCHO','ESP_T_CM','AREA_M2','VOL_M3','TON','TON_REALES','ESP_REAL_CM','M3_FAV','GP','TEMP_PROD','TEMP_TEND','VALE','REMISION','OBS','CAPTURADO_POR'];
+  const ws=XLSX.utils.json_to_sheet(filas,{header});
+  // Columnas: G=SENTIDO H=DE_KM I=LONG J=A_KM K=ANCHO L=ESP M=AREA N=VOL O=TON P=TON_REALES Q=ESP_REAL R=M3_FAV S=GP
+  filas.forEach((f,i)=>{
+    const R=i+2;
+    if(typeof f.DE_KM==='number' && typeof f.LONG==='number')
+      ws['J'+R]={t:'n',f:`IF(LOWER(LEFT(G${R},1))="b",H${R}-I${R},H${R}+I${R})`,v:(typeof f.A_KM==='number'?f.A_KM:0)};
+    ws['M'+R]={t:'n',f:`I${R}*K${R}`,v:f.AREA_M2||0};
+    ws['N'+R]={t:'n',f:`M${R}*L${R}/100`,v:f.VOL_M3||0};
+    ws['P'+R]={t:'n',f:`N${R}*${DEN}`,v:f.TON_REALES||0};
+    ws['Q'+R]={t:'n',f:`IF(M${R}>0,O${R}/(M${R}*${DEN})*100,0)`,v:f.ESP_REAL_CM||0};
+    ws['R'+R]={t:'n',f:`N${R}-O${R}/${DEN}`,v:f.M3_FAV||0};
+    ws['S'+R]={t:'s',f:`IF(R${R}>=0,"GANANCIA","PERDIDA")`,v:f.GP||''};
+  });
+  ws['!cols']=header.map(h=>({wch: h==='CONCEPTO'?20 : (h==='CAPTURADO_POR'||h==='REMISION')?14 : h.length<6?8:11}));
+  ws['!freeze']={xSplit:0,ySplit:1,topLeftCell:'A2',activePane:'bottomLeft',state:'frozen'};
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tendido');
+  XLSX.writeFile(wb,`TENDIDO_039_COMPLETO_${hoyLocal()}.xlsx`);
+  toast('✓ Excel formulado · '+filas.length+' filas (números y fórmulas)');
 };
 
 function dl(content, filename) {
