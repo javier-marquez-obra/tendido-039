@@ -508,6 +508,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
     </div>
     <div id="tiroFiltro" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--green);color:var(--green)" onclick="exportarCadExcel()">⬇️ Exportar cadenamientos (Excel)</button>
+      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('cadExcelFile').click()">⬆️ Subir Excel de cadenamientos</button>
+      <input type="file" id="cadExcelFile" accept=".xlsx,.xls" style="display:none" onchange="leerCadExcel(this.files[0]);this.value=''">
+      <button class="bc" style="padding:6px 12px;font-size:12px" onclick="revisarTraslapes()">🔎 Revisar traslapes</button>
+    </div>
+    <div id="tiroCadPanel" style="display:none;margin-bottom:8px;border:1px solid var(--bord);border-radius:8px;padding:10px;background:var(--bg);max-height:40vh;overflow:auto"></div>
     <div id="tiroGraficoBox" style="height:300px;overflow:auto;-webkit-overflow-scrolling:touch;flex:none">
       <div id="tiroGrafico"></div>
     </div>
@@ -522,6 +529,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
 <div class="toast" id="toast"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, setDoc, doc, getDoc, getDocFromServer, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
@@ -1779,6 +1787,137 @@ window.toggleGraficoTiro=function(){
   box.style.display = oculto?'':'none';
   if(dr) dr.style.display = oculto?'':'none';
   if(b) b.textContent = oculto?'📉 Ocultar gráfico':'📈 Mostrar gráfico';
+};
+
+// ════════════ EXCEL DE CADENAMIENTOS (exportar · editar · re-subir · recalcular · traslapes) ════════════
+function _rsTiroSel(){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  let sel=_tiroDias; if(!(sel instanceof Set)) sel=_diasSelDefault(fechas);
+  return records.filter(r=>sel.has(r.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
+}
+function _conceptosDe(v){
+  return (v.conceptos&&v.conceptos.length)?v.conceptos
+    :[{id:v.concepto||null,label:v.concepto||'',ton:v.ton_concepto||v.ton_recibidas,kde:v.kde,ka:v.ka,longitud:v.longitud,ancho:v.ancho,esp_teorico:v.esp_teorico,carril:v.carril,sentido:v.sentido}];
+}
+window.exportarCadExcel=function(){
+  if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel; revisa tu conexión','err'); return; }
+  const rs=_rsTiroSel(); const filas=[];
+  rs.forEach(v=>_conceptosDe(v).forEach((c,ci)=>{
+    const sent=c.sentido||v.sentido||((c.ka!=null&&c.kde!=null&&c.ka<c.kde)?'baja':'sube');
+    filas.push({ID:v._id,IDX:ci,Fecha:v.fecha,Viaje:v.num_viaje_dia||'',Placas:v.placas||'',
+      Concepto:c.label||c.id||'',Carril:c.carril||v.carril||'',
+      'De KM':c.kde!=null?fmtCad(c.kde):'', ML:c.longitud!=null?+(+c.longitud).toFixed(2):'',
+      Sentido:sent, 'A KM (auto)':c.ka!=null?fmtCad(c.ka):'', Ton:c.ton!=null?+(+c.ton).toFixed(2):''});
+  }));
+  if(!filas.length){ toast('No hay tiros en los días seleccionados','err'); return; }
+  const ws=XLSX.utils.json_to_sheet(filas,{header:['ID','IDX','Fecha','Viaje','Placas','Concepto','Carril','De KM','ML','Sentido','A KM (auto)','Ton']});
+  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:20},{wch:10},{wch:12},{wch:9},{wch:8},{wch:12},{wch:8}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Cadenamientos');
+  XLSX.writeFile(wb,`TENDIDO_039_CADENAMIENTOS_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('Excel generado · edita SOLO De KM, ML, Sentido y Carril (NO borres ID ni IDX)','ok');
+};
+window.leerCadExcel=function(file){
+  if(!file) return;
+  if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel','err'); return; }
+  const fr=new FileReader();
+  fr.onload=(e)=>{ try{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});
+    _procesarCadExcel(rows);
+  }catch(err){ toast('No pude leer el Excel: '+err.message,'err'); } };
+  fr.readAsArrayBuffer(file);
+};
+let _cadPend=null;
+function _procesarCadExcel(rows){
+  const cambios=[], errores=[], porViaje={};
+  rows.forEach((row,n)=>{
+    const id=String(row.ID||'').trim(), idx=parseInt(row.IDX);
+    if(!id||isNaN(idx)){ errores.push(`Fila ${n+2}: falta ID o IDX`); return; }
+    const v=records.find(r=>r._id===id);
+    if(!v){ errores.push(`Fila ${n+2}: no existe el viaje (ID ${id.slice(0,6)}…)`); return; }
+    const kde=parseCad(String(row['De KM'])); const ml=parseFloat(row.ML);
+    let sent=String(row.Sentido||'').toLowerCase().trim(); sent=sent.startsWith('b')?'baja':'sube';
+    const carril=String(row.Carril||'').trim();
+    if(isNaN(kde)||isNaN(ml)||ml<=0){ errores.push(`Fila ${n+2} (viaje ${v.num_viaje_dia}): De KM o ML inválido`); return; }
+    if(!porViaje[id]) porViaje[id]={v,conceptos:JSON.parse(JSON.stringify(_conceptosDe(v))),tieneArr:!!(v.conceptos&&v.conceptos.length)};
+    const c=porViaje[id].conceptos[idx];
+    if(!c){ errores.push(`Fila ${n+2}: el viaje ${v.num_viaje_dia} no tiene concepto #${idx}`); return; }
+    const ka=sent==='sube'?kde+ml:kde-ml;
+    const ancho=c.ancho||0, esp=c.esp_teorico||0;
+    const antesK=c.kde, antesL=c.longitud, antesS=c.sentido;
+    c.kde=kde; c.ka=ka; c.longitud=+ml.toFixed(2); c.sentido=sent; if(carril) c.carril=carril;
+    c.area=+((c.longitud)*ancho).toFixed(4); c.volumen=+(c.area*(esp/100)).toFixed(4);
+    if(antesK!==kde||antesL!==c.longitud||antesS!==sent)
+      cambios.push(`Viaje ${v.num_viaje_dia} · ${c.label||c.id}: ${antesK!=null?fmtCad(antesK):'—'} → ${fmtCad(kde)} · ${ml.toFixed(2)} m · ${sent}`);
+  });
+  // Recalcular resumen del viaje (concepto principal) con la densidad oficial DEN
+  const updates=[];
+  Object.values(porViaje).forEach(pv=>{
+    const cs=pv.conceptos, pp=cs.reduce((a,b)=>((a.ton||0)>=(b.ton||0)?a:b),cs[0]);
+    const ton=pv.v.ton_recibidas||cs.reduce((s,c)=>s+(c.ton||0),0);
+    const area=pp.area||((pp.longitud||0)*(pp.ancho||0)), esp=pp.esp_teorico||0;
+    const er=area?ton/(area*DEN):0, vol=area*(esp/100), mf=area?((esp/100)-er)*area:0;
+    const upd={kde:pp.kde,ka:pp.ka,longitud:pp.longitud,area:+area.toFixed(4),volumen:+vol.toFixed(4),
+      ton_reales:+(vol*DEN).toFixed(4),esp_real:+er.toFixed(6),m3_fav:+mf.toFixed(6),gp:mf>=0?'GANANCIA':'PERDIDA'};
+    if(pv.tieneArr) upd.conceptos=cs; else { upd.carril=pp.carril; if(pp.sentido) upd.sentido=pp.sentido; }
+    updates.push({id:pv.v._id,num:pv.v.num_viaje_dia,upd});
+  });
+  const estado=records.map(r=>{ const pv=porViaje[r._id]; return pv?{...r,conceptos:pv.conceptos}:r; });
+  _cadPend=updates;
+  _panelCad(cambios,errores,_calcTraslapes(estado),updates.length);
+}
+function _calcTraslapes(recs){
+  const segs=[];
+  recs.forEach(v=>_conceptosDe(v).forEach(c=>{
+    if(c.kde==null||c.ka==null) return;
+    const txt=((c.id||'')+' '+(c.label||'')); if(/reniv/i.test(txt)) return; // la renivelación es otra capa
+    const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka); if(b-a<0.5) return;
+    segs.push({a,b,carril:c.carril||v.carril||'?',tramo:(c.kde>=247000?'O2':'O1'),num:v.num_viaje_dia});
+  }));
+  const grupos={}; segs.forEach(s=>{ const k=s.tramo+' · '+s.carril; (grupos[k]=grupos[k]||[]).push(s); });
+  const out=[];
+  Object.entries(grupos).forEach(([k,arr])=>{
+    arr.sort((x,y)=>x.a-y.a); let maxEnd=-Infinity, maxSeg=null;
+    for(const cur of arr){
+      if(maxSeg && cur.a < maxEnd-0.5){
+        const ov=Math.min(maxSeg.b,cur.b)-Math.max(maxSeg.a,cur.a);
+        if(ov>0.5) out.push(`${k}: viaje ${maxSeg.num} (${fmtCad(maxSeg.a)}–${fmtCad(maxSeg.b)}) ⟷ viaje ${cur.num} (${fmtCad(cur.a)}–${fmtCad(cur.b)}) ≈ ${ov.toFixed(1)} m`);
+      }
+      if(cur.b>maxEnd){ maxEnd=cur.b; maxSeg=cur; }
+    }
+  });
+  return out;
+}
+window.revisarTraslapes=function(){
+  const t=_calcTraslapes(records), p=document.getElementById('tiroCadPanel'); if(!p) return;
+  p.style.display='';
+  p.innerHTML=`<div style="font-weight:800;margin-bottom:6px">🔎 Traslapes de carpeta (mismo carril y tramo)</div>`
+    +(t.length?`<div style="color:var(--red);font-size:12px">${t.map(x=>'⚠️ '+x).join('<br>')}</div>`:`<div style="color:var(--green)">✓ Sin traslapes en carpeta.</div>`)
+    +`<div style="margin-top:6px;font-size:11px;color:var(--muted)">La renivelación no cuenta (es otra capa).</div>`
+    +`<button class="bc" style="margin-top:8px;padding:5px 10px;font-size:12px" onclick="document.getElementById('tiroCadPanel').style.display='none'">Cerrar</button>`;
+};
+function _panelCad(cambios,errores,traslapes,nv){
+  const p=document.getElementById('tiroCadPanel'); if(!p) return; p.style.display='';
+  let h=`<div style="font-weight:800;margin-bottom:6px">📋 Vista previa · cambios de cadenamiento</div>`;
+  h+=`<div style="font-size:12px;margin-bottom:6px">${cambios.length} cambio(s) en ${nv} viaje(s).</div>`;
+  if(errores.length) h+=`<div style="color:var(--red);font-size:12px;margin-bottom:6px"><b>Errores (esas filas NO se aplican):</b><br>${errores.slice(0,30).join('<br>')}${errores.length>30?'<br>…':''}</div>`;
+  if(cambios.length) h+=`<details style="margin-bottom:6px"><summary style="cursor:pointer;font-size:12px;color:var(--blue)">Ver los ${cambios.length} cambios</summary><div style="font-size:11px;margin-top:4px;line-height:1.5">${cambios.slice(0,100).join('<br>')}${cambios.length>100?'<br>…':''}</div></details>`;
+  h+=`<div style="margin:6px 0;font-size:12px"><b>Traslapes tras los cambios:</b> ${traslapes.length?`<span style="color:var(--red)">${traslapes.length} ⚠️</span>`:'<span style="color:var(--green)">ninguno ✓</span>'}</div>`;
+  if(traslapes.length) h+=`<div style="color:var(--red);font-size:11px;margin-bottom:6px;line-height:1.5">${traslapes.map(x=>'⚠️ '+x).join('<br>')}</div>`;
+  h+=`<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+    <button class="bc" style="padding:7px 14px;font-weight:700;border-color:var(--green);color:var(--green)" onclick="aplicarCadPend()" ${nv?'':'disabled'}>✓ Aplicar ${nv} cambio(s) a la obra</button>
+    <button class="bc" style="padding:7px 14px" onclick="_cadPend=null;document.getElementById('tiroCadPanel').style.display='none'">Cancelar</button></div>`;
+  p.innerHTML=h;
+}
+window.aplicarCadPend=async function(){
+  if(!_cadPend||!_cadPend.length){ toast('No hay cambios pendientes','err'); return; }
+  const p=document.getElementById('tiroCadPanel');
+  if(p) p.innerHTML='<div style="padding:10px">Aplicando cambios… no cierres la app.</div>';
+  let ok=0,fail=0;
+  for(const u of _cadPend){ try{ await updateDoc(doc(db,COL,u.id),u.upd); ok++; }catch(e){ fail++; } }
+  _cadPend=null;
+  if(p) p.innerHTML=`<div style="color:var(--green);font-weight:700">✓ ${ok} viaje(s) actualizado(s)${fail?` · <span style="color:var(--red)">${fail} con error</span>`:''}</div><button class="bc" style="margin-top:8px;padding:5px 10px" onclick="document.getElementById('tiroCadPanel').style.display='none'">Cerrar</button>`;
+  toast(`${ok} viaje(s) actualizado(s)`,fail?'err':'ok');
 };
 window.cerrarTiro=function(){ const o=document.getElementById('tiroOv'); if(o) o.classList.remove('open'); };
 window.toggleAmpliarTiro=function(){
