@@ -266,6 +266,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         style="background:var(--surf);border:1px solid var(--bord);color:var(--muted);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap">⎋ Salir</button>
     </div>
   </header>
+  <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surf);border-bottom:1px solid var(--bord);flex-wrap:wrap">
+    <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em">🏗️ OBRA:</span>
+    <select id="obraSelect" onchange="cambiarObra(this.value)" style="background:var(--bg);border:1px solid var(--bord);color:var(--gold);border-radius:8px;padding:5px 10px;font-size:13px;font-weight:700;flex:1;min-width:140px;max-width:320px"></select>
+    <button class="be" onclick="nuevaObra()" title="Dar de alta una obra nueva" style="padding:5px 10px;font-size:12px;white-space:nowrap">➕ Nueva obra</button>
+  </div>
 
   <div class="tabs" id="tabBar">
     <div class="tab active" onclick="switchTab('captura',this)">📋 CAPTURA</div>
@@ -299,13 +304,36 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
             <button type="button" class="jhoy" onclick="resetJornadaHoy()" title="Capturar con la fecha de hoy">Hoy</button>
           </div>
         </div>
-        <div class="field"><label>Placas</label><input type="text" id="f_placas" list="placasList" placeholder="HW9792A" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" autocomplete="off"><datalist id="placasList"></datalist></div>
+        <div class="field"><label>Tipo de camión</label>
+          <select id="f_camion" onchange="aplicarTipoCamion()">
+            <option value="">— elegir (opcional) —</option>
+            <option value="10">Volteo (7 m³) · ~10 ton</option>
+            <option value="22">Tortón (14 m³) · ~22 ton</option>
+            <option value="45">Góndola · ~45 ton</option>
+            <option value="manual">Otro / manual</option>
+          </select>
+        </div>
+        <div class="field"><label>Placas</label>
+          <input type="text" id="f_placas" list="placasList" placeholder="HW9792A" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" autocomplete="off"><datalist id="placasList"></datalist>
+          <label style="font-size:11px;display:flex;gap:6px;align-items:center;margin-top:5px;color:var(--gold);cursor:pointer"><input type="checkbox" id="f_sinplaca" onchange="toggleSinPlaca()"> Sin placa (volumen sin camión)</label>
+        </div>
         <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist();autoAsignarTon()"></div>
         <div class="field"><label>Material</label>
           <select id="f_mat"><option>MEZCLA</option><option>BASE HIDRÁULICA</option><option>SELLO 3A</option></select>
         </div>
         <div class="field"><label>PG</label>
-          <select id="f_pg"><option>PG 64-22</option><option>PG 70-22</option></select>
+          <div style="display:flex;gap:4px">
+            <select id="f_pg" style="flex:1"><option>PG 64-22</option><option>PG 70-22</option><option>PG 70-16</option><option>PG 70-22 mod. polímero</option><option>PG 70-16 mod. polímero</option></select>
+            <button type="button" class="be" onclick="agregarOpcion('f_pg','t039_pg_extra','Nuevo PG (ej. PG 76-22)')" title="Agregar PG a la lista" style="padding:0 10px">➕</button>
+          </div>
+          <input type="text" id="f_pg_libre" placeholder='o escribe el PG a la medida (ej. "PG 76-28 mod.")' style="margin-top:4px;width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;color:var(--txt);padding:6px;font-size:12px">
+          <div style="font-size:9px;color:var(--muted);margin-top:2px">Si escribes aquí, manda este PG; si lo dejas vacío, usa el de la lista.</div>
+        </div>
+        <div class="field"><label>Tipo de mezcla</label>
+          <div style="display:flex;gap:4px">
+            <select id="f_tipomezcla" style="flex:1"><option>Fina (3/8&quot; a finos)</option><option>Media (1/2&quot; a finos)</option><option>3/4&quot; a finos</option><option>Base negra (1½&quot; a finos)</option></select>
+            <button type="button" class="be" onclick="agregarOpcion('f_tipomezcla','t039_mezcla_extra','Nuevo tipo de mezcla')" title="Agregar mezcla" style="padding:0 10px">➕</button>
+          </div>
         </div>
         <!-- SENTIDO DEL TENDIDO -->
         <div class="field" style="grid-column:1/-1">
@@ -509,9 +537,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     </div>
     <div id="tiroFiltro" style="font-size:11px;color:var(--muted);margin-bottom:8px"></div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--gold);color:var(--gold)" onclick="exportarTablaExcel()">📊 Exportar tabla (Excel formulado)</button>
-      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--green);color:var(--green)" onclick="exportarCadExcel()">⬇️ Exportar cadenamientos (Excel)</button>
-      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('cadExcelFile').click()">⬆️ Subir Excel de cadenamientos</button>
+      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--gold);color:var(--gold)" onclick="exportarTablaExcel()">📊 Exportar tabla (Excel)</button>
+      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('cadExcelFile').click()">⬆️ Subir Excel (actualizar datos)</button>
       <input type="file" id="cadExcelFile" accept=".xlsx,.xls" style="display:none" onchange="leerCadExcel(this.files[0]);this.value=''">
       <button class="bc" style="padding:6px 12px;font-size:12px" onclick="revisarTraslapes()">🔎 Revisar traslapes</button>
     </div>
@@ -558,6 +585,52 @@ const CATALOGO_E7 = [
 let catalogoActivo = [...CATALOGO_E7];
 function getCatItem(id){ return catalogoActivo.find(x=>x.id===id)||null; }
 function importe(id, m3){ const ci=getCatItem(id); return ci ? ci.pu*m3 : 0; }
+
+// ═══ MULTI-OBRA (Etapa 1: selector + se guarda la obra en cada viaje; NO filtra todavía) ═══
+const OBRA_DEFAULT={ clave:'039', nombre:'TENDIDO 039 · N-27', conceptos:CATALOGO_E7 };
+function cargarObras(){
+  let obras={};
+  try{ obras=JSON.parse(localStorage.getItem('t039_obras')||'{}'); }catch(e){ obras={}; }
+  if(!obras['039']) obras['039']={ clave:'039', nombre:'TENDIDO 039 · N-27' }; // 039 siempre presente
+  return obras;
+}
+function guardarObras(o){ try{ localStorage.setItem('t039_obras',JSON.stringify(o)); }catch(e){} }
+let OBRAS=cargarObras();
+let obraActiva=localStorage.getItem('t039_obra_activa')||'039';
+if(!OBRAS[obraActiva]) obraActiva='039';
+function conceptosDeObra(clave){
+  // 039 usa el catálogo cargado; otras obras usan sus conceptos guardados (o el de 039 como base inicial)
+  if(clave==='039') return [...CATALOGO_E7];
+  const o=OBRAS[clave];
+  return (o&&Array.isArray(o.conceptos)&&o.conceptos.length)?o.conceptos:[...CATALOGO_E7];
+}
+function aplicarObraActiva(){
+  catalogoActivo=conceptosDeObra(obraActiva);
+  const lbl=document.getElementById('obraNombre');
+  if(lbl) lbl.textContent=(OBRAS[obraActiva]&&OBRAS[obraActiva].nombre)||obraActiva;
+}
+window.cambiarObra=function(v){
+  if(!OBRAS[v]) return;
+  obraActiva=v; localStorage.setItem('t039_obra_activa',v);
+  aplicarObraActiva();
+  if(typeof renderObraSelect==='function') renderObraSelect();
+  toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
+};
+window.nuevaObra=function(){
+  const clave=(prompt('Clave de la nueva obra (ej. 040):')||'').trim();
+  if(!clave) return;
+  if(OBRAS[clave]){ toast('Ya existe una obra con esa clave','err'); return; }
+  const nombre=(prompt('Nombre de la obra (ej. TENDIDO 040 · Carretera X):')||'').trim()||('Obra '+clave);
+  OBRAS[clave]={ clave, nombre, conceptos:[...CATALOGO_E7] }; // arranca con los conceptos de la 039 como base; los ajustas después
+  guardarObras(OBRAS);
+  cambiarObra(clave);
+  toast('Obra "'+nombre+'" creada · ya puedes capturar en ella','ok');
+};
+function renderObraSelect(){
+  const sel=document.getElementById('obraSelect'); if(!sel) return;
+  sel.innerHTML=Object.values(OBRAS).map(o=>`<option value="${o.clave}" ${o.clave===obraActiva?'selected':''}>${o.nombre||o.clave}</option>`).join('');
+}
+renderObraSelect(); aplicarObraActiva();
 
 // ═══ AUTENTICACIÓN SEGURA ═══
 // Contraseñas validadas por hash SHA-256. El código fuente NO expone las contraseñas.
@@ -1186,11 +1259,44 @@ window.resetJornadaHoy = function(){
 };
 
 // ═══ GUARDAR ═══
+window.aplicarTipoCamion=function(){
+  const sel=document.getElementById('f_camion'); if(!sel) return;
+  const v=sel.value;
+  if(v && v!=='manual'){
+    const t=document.getElementById('f_ton');
+    if(t){ t.value=v; if(typeof calc==='function')calc(); if(typeof actualizarHintDist==='function')actualizarHintDist(); if(typeof autoAsignarTon==='function')autoAsignarTon(); }
+  }
+};
+window.toggleSinPlaca=function(){
+  const c=document.getElementById('f_sinplaca'), p=document.getElementById('f_placas');
+  if(!c||!p) return;
+  if(c.checked){ p.value='SIN PLACA'; p.disabled=true; p.style.opacity='.6'; }
+  else { if(p.value==='SIN PLACA') p.value=''; p.disabled=false; p.style.opacity='1'; }
+};
+window.agregarOpcion=function(selId, lsKey, promptTxt){
+  const v=(prompt(promptTxt)||'').trim(); if(!v) return;
+  const sel=document.getElementById(selId); if(!sel) return;
+  if(![...sel.options].some(o=>o.value===v||o.text===v)){
+    const o=document.createElement('option'); o.text=v; o.value=v; sel.add(o);
+    try{ const arr=JSON.parse(localStorage.getItem(lsKey)||'[]'); arr.push(v); localStorage.setItem(lsKey,JSON.stringify(arr)); }catch(e){}
+  }
+  sel.value=v;
+};
+function restaurarOpcionesExtra(){
+  [['f_pg','t039_pg_extra'],['f_tipomezcla','t039_mezcla_extra']].forEach(([selId,lsKey])=>{
+    const sel=document.getElementById(selId); if(!sel) return;
+    try{ JSON.parse(localStorage.getItem(lsKey)||'[]').forEach(v=>{
+      if(![...sel.options].some(o=>o.value===v||o.text===v)){ const o=document.createElement('option'); o.text=v; o.value=v; sel.add(o); }
+    }); }catch(e){}
+  });
+}
+restaurarOpcionesExtra();
 window.guardar = async function() {
-  const placas=normPlacas(document.getElementById('f_placas').value);
+  const sinPlaca=!!(document.getElementById('f_sinplaca')||{}).checked;
+  const placas=sinPlaca?'SIN PLACA':normPlacas(document.getElementById('f_placas').value);
   const ton=parseFloat(document.getElementById('f_ton').value);
   const fecha=document.getElementById('f_fecha').value;
-  if (!placas) { toast('Captura las placas del camión','err'); return; }
+  if (!placas) { toast('Captura las placas del camión (o marca "Sin placa")','err'); return; }
   if (!ton||isNaN(ton)) { toast('Captura las toneladas recibidas','err'); return; }
   if (!fecha) {
     // Intentar asignar fecha automática antes de bloquear
@@ -1243,11 +1349,13 @@ window.guardar = async function() {
   const area=lng*aw, vol=area*et, tr=vol*DEN;
   const er=ton&&area?(ton/(area*DEN)):0;
   const mf=ton&&area&&et?((et)-(ton/(area*DEN)))*area:0;
-  if (ton<5||ton>45) { if(!confirm('Toneladas: '+ton+'. Fuera del rango normal (5-45 ton). ¿Es correcto?')) return; }
+  if (ton<5||ton>60) { if(!confirm('Toneladas: '+ton+'. Fuera del rango normal (5-60 ton). ¿Es correcto?')) return; }
   const rec={
-    fecha, placas, ton_recibidas:ton,
+    fecha, placas, ton_recibidas:ton, sin_placa:sinPlaca, obra:obraActiva,
     material:document.getElementById('f_mat').value,
-    pg:document.getElementById('f_pg').value,
+    pg:((document.getElementById('f_pg_libre')||{}).value||'').trim()||document.getElementById('f_pg').value,
+    tipo_mezcla:(document.getElementById('f_tipomezcla')||{}).value||'',
+    tipo_camion:(()=>{const s=document.getElementById('f_camion');return (s&&s.selectedIndex>0&&s.value!=='manual')?s.options[s.selectedIndex].text:(s&&s.value==='manual'?'Otro / manual':'');})(),
     concepto:concPpal.label, ton_concepto:concPpal.ton,
     conceptos:conceptosGuardar,
     importe_viaje:+conceptosGuardar.reduce((s,cv)=>s+cv.importe,0).toFixed(2),
@@ -1322,6 +1430,11 @@ function resetForm(kaAnterior) {
   renderConceptosContainer();
   // Solo limpiar campos globales que SÍ existen (los de cadenamiento/ML viven por concepto)
   ['f_placas','f_ton','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  // limpiar tipo de camión y "sin placa" para el siguiente viaje
+  const _sp=document.getElementById('f_sinplaca'); if(_sp) _sp.checked=false;
+  const _pl=document.getElementById('f_placas'); if(_pl){ _pl.disabled=false; _pl.style.opacity='1'; }
+  const _cam=document.getElementById('f_camion'); if(_cam) _cam.value='';
+  const _pgl=document.getElementById('f_pg_libre'); if(_pgl) _pgl.value='';
   localStorage.removeItem('t039_draft');
   const _ff2=document.getElementById('f_fecha'); if(_ff2){ const _ja=localStorage.getItem('t039_jornada'); _ff2.value=_ja||fechaJornada(); _ff2.dataset.auto=_ja?'':'1'; }
   actualizarLockJornada();
@@ -1914,12 +2027,17 @@ function _procesarCadExcel(rows){
     const c=porViaje[id].conceptos[idx];
     if(!c){ errores.push(`Fila ${n+2}: el viaje ${v.num_viaje_dia} no tiene concepto #${idx}`); return; }
     const ka=sent==='sube'?kde+ml:kde-ml;
-    const ancho=c.ancho||0, esp=c.esp_teorico||0;
-    const antesK=c.kde, antesL=c.longitud, antesS=c.sentido;
+    // Ancho y espesor: si vienen en el archivo (tabla formulada) se aplican; si no, se conservan los guardados
+    const anchoEd=(row['Ancho']!=null&&row['Ancho']!==''&&!isNaN(+row['Ancho']))?+row['Ancho']:null;
+    const espEd=(row['Esp.teó(cm)']!=null&&row['Esp.teó(cm)']!==''&&!isNaN(+row['Esp.teó(cm)']))?+row['Esp.teó(cm)']:null;
+    const ancho=anchoEd!=null?anchoEd:(c.ancho||0), esp=espEd!=null?espEd:(c.esp_teorico||0);
+    const antesK=c.kde, antesL=c.longitud, antesS=c.sentido, antesA=c.ancho, antesE=c.esp_teorico;
     c.kde=kde; c.ka=ka; c.longitud=+ml.toFixed(2); c.sentido=sent; if(carril) c.carril=carril;
+    if(anchoEd!=null){ c.ancho=+anchoEd.toFixed(3); c.ancho_ini=c.ancho; c.ancho_fin=c.ancho; }
+    if(espEd!=null) c.esp_teorico=espEd;
     c.area=+((c.longitud)*ancho).toFixed(4); c.volumen=+(c.area*(esp/100)).toFixed(4);
-    if(antesK!==kde||antesL!==c.longitud||antesS!==sent)
-      cambios.push(`Viaje ${v.num_viaje_dia} · ${c.label||c.id}: ${antesK!=null?fmtCad(antesK):'—'} → ${fmtCad(kde)} · ${ml.toFixed(2)} m · ${sent}`);
+    if(antesK!==kde||antesL!==c.longitud||antesS!==sent||(anchoEd!=null&&antesA!==anchoEd)||(espEd!=null&&antesE!==espEd))
+      cambios.push(`Viaje ${v.num_viaje_dia} · ${c.label||c.id}: ${antesK!=null?fmtCad(antesK):'—'} → ${fmtCad(kde)} · ${ml.toFixed(2)} m · ${sent}${(anchoEd!=null&&antesA!==anchoEd)?` · ancho ${anchoEd}`:''}${(espEd!=null&&antesE!==espEd)?` · esp ${espEd}cm`:''}`);
   });
   // Recalcular resumen del viaje (concepto principal) con la densidad oficial DEN
   const updates=[];
