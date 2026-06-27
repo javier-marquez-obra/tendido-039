@@ -333,6 +333,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
             <button type="button" class="be" onclick="agregarOpcion('f_tipomezcla','t039_mezcla_extra','Nuevo tipo de mezcla')" title="Agregar mezcla" style="padding:0 10px">➕</button>
           </div>
         </div>
+        <div class="field"><label>№ Vale mezcla</label><input type="text" id="f_vale" placeholder="V-001"></div>
+        <div class="field"><label>№ Remisión báscula</label><input type="text" id="f_remision" placeholder="R-0001"></div>
         <!-- SENTIDO DEL TENDIDO -->
         <div class="field" style="grid-column:1/-1">
           <label style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)">SENTIDO DEL TENDIDO</label>
@@ -349,15 +351,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
           <button type="button" onclick="agregarConcepto()" style="margin-top:10px;padding:8px 16px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);font-size:12px;font-weight:700;cursor:pointer">+ Agregar otro concepto</button>
           <div id="ton_dist_hint" style="font-size:10px;margin-top:6px"></div>
         </div>
-        <div class="field"><label>Tipo mezcla</label>
-          <select id="f_tipo">
-            <option value='MEZCLA DE 3/4" A FINOS'>3/4" A FINOS</option>
-            <option value='MEZCLA DE 1/2" A FINOS'>1/2" A FINOS</option>
-            <option value='MEZCLA DE 3/8" A FINOS'>3/8" A FINOS</option>
-          </select>
-        </div>
-        <div class="field"><label>№ Vale mezcla</label><input type="text" id="f_vale" placeholder="V-001"></div>
-        <div class="field"><label>№ Remisión báscula</label><input type="text" id="f_remision" placeholder="R-0001"></div>
       </div>
     </div>
 
@@ -1391,7 +1384,6 @@ window.guardar = async function() {
     area_total:+conceptosGuardar.reduce((s,cv)=>s+cv.area,0).toFixed(4),
     vol_total:+conceptosGuardar.reduce((s,cv)=>s+cv.volumen,0).toFixed(4),
     long_total:+conceptosGuardar.reduce((s,cv)=>s+cv.longitud,0).toFixed(2),
-    tipo:document.getElementById('f_tipo').value,
     vale:document.getElementById('f_vale').value.trim(),
     remision:document.getElementById('f_remision').value.trim(),
     kde, ka, longitud:lng,
