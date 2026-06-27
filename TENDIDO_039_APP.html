@@ -3140,14 +3140,14 @@ window.exportPagoCSV = function() {
   const rs=records.filter(r=>sel.has(r.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
   if(!rs.length){ toast('Sin datos en los días elegidos','err'); return; }
   const _n=(x,d=2)=>(x!=null&&x!==''&&!isNaN(+x))?+(+x).toFixed(d):'';
-  const h=['FECHA','PLACAS','VIAJE#','№ VALE','№ REMISION','TON','AREA_M2','LONG_M','ESP_REAL_CM','TEMP_PROD','TEMP_TEND','GP','M3_FAV','OBSERVACIONES'];
-  const data=rs.map(r=>[r.fecha,r.placas,r.num_viaje_dia||'',r.vale||'',r.remision||'',_n(r.ton_recibidas),_n(r.area),_n(r.longitud,0),_n((r.esp_real||0)*100),_n(r.temp_produccion,0),_n(r.temp_tendido,0),r.gp||'',_n(r.m3_fav,3),(r.observaciones||'')]);
+  const h=['FECHA','PLACAS','VIAJE#','№ VALE','№ REMISION','TON','AREA_M2','LONG_M','VOL_M3','GP','M3_FAV','OBSERVACIONES'];
+  const data=rs.map(r=>[r.fecha,r.placas,r.num_viaje_dia||'',r.vale||'',r.remision||'',_n(r.ton_recibidas),_n(r.area),_n(r.longitud,0),_n(r.volumen,3),r.gp||'',_n(r.m3_fav,3),(r.observaciones||'')]);
   const n=data.length;
-  const aoa=[h,...data,['TOTAL','','','','',0,0,0,'','','','',0,'']];
+  const aoa=[h,...data,['TOTAL','','','','',0,0,0,0,'',0,'']];
   const ws=XLSX.utils.aoa_to_sheet(aoa);
-  // Totales con fórmula SUMA (F=Ton, G=Área, H=Long, M=m³ a favor)
-  ['F','G','H','M'].forEach(col=>{ ws[col+(n+2)]={t:'n',f:`SUM(${col}2:${col}${n+1})`}; });
-  ws['!cols']=[{wch:11},{wch:10},{wch:7},{wch:9},{wch:11},{wch:9},{wch:10},{wch:9},{wch:11},{wch:9},{wch:9},{wch:9},{wch:9},{wch:22}];
+  // Totales con fórmula SUMA (F=Ton, G=Área, H=Long, I=Vol m³, K=m³ a favor)
+  ['F','G','H','I','K'].forEach(col=>{ ws[col+(n+2)]={t:'n',f:`SUM(${col}2:${col}${n+1})`}; });
+  ws['!cols']=[{wch:11},{wch:10},{wch:7},{wch:9},{wch:11},{wch:9},{wch:10},{wch:9},{wch:10},{wch:9},{wch:9},{wch:22}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Pago camiones');
   const dias=[...new Set(rs.map(r=>r.fecha))].sort();
   const fn=dias.length===1?dias[0]:(dias[0]+'_a_'+dias[dias.length-1]);
