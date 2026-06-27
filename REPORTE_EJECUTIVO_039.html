@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<script>try{var _t=localStorage.getItem('rep039_theme');if(_t&&_t!=='light')document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TENDIDO 039 · Reporte Ejecutivo</title>
@@ -21,6 +22,28 @@
   --shadow3:0 10px 25px rgba(0,0,0,.1);
   --rad:12px;--rad2:8px;
 }
+/* ── TEMAS ── (Claro = por defecto arriba) */
+html[data-theme="dark"]{
+  --bg:#0d0f12;--white:#161a22;--surf:#1e2330;
+  --navy:#0b1c33;--blue:#60a5fa;--blue2:#3b82f6;--blue3:#1e3a5f;--blue4:#15273d;
+  --green:#3ecf8e;--green2:#10362a;--green3:#0d2620;
+  --gold:#f0b429;--gold2:#3a2e10;--gold3:#241c0a;
+  --red:#f87171;--red2:#3a1818;--red3:#2a1010;
+  --purple:#a78bfa;--purple2:#241a3a;
+  --gray:#8b98a8;--gray2:#2a3040;--gray3:#1e2330;--gray4:#3a4252;
+  --txt:#e8ecf0;--txt2:#c2ccd6;--txt3:#8b98a8;
+  --shadow:0 1px 3px rgba(0,0,0,.4);--shadow2:0 4px 12px rgba(0,0,0,.5);--shadow3:0 10px 25px rgba(0,0,0,.6);
+}
+html[data-theme="slate"]{
+  --bg:#dde3ea;--white:#f7f9fc;--surf:#eef2f6;
+  --gray2:#c2cbd6;--gray3:#e4e9ef;--gray4:#aab6c4;
+  --txt:#1a2531;--txt2:#3a4654;--txt3:#54616f;
+}
+html[data-theme="sepia"]{
+  --bg:#efe5d2;--white:#fff9ee;--surf:#f7eede;
+  --gold:#9c6b0f;--gray2:#ddcdb1;--gray3:#f0e7d6;--gray4:#c8b48f;
+  --txt:#392e20;--txt2:#5a4a35;--txt3:#7a6a52;
+}
 html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;font-size:14px;min-height:100vh}
 
 /* ── HEADER ── */
@@ -37,7 +60,7 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .sync-chip.err{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.1)}
 .mode-toggle{display:flex;background:rgba(255,255,255,.08);border-radius:99px;padding:3px}
 .mode-btn{padding:5px 14px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:rgba(255,255,255,.6);letter-spacing:.04em;transition:all .2s}
-.mode-btn.active{background:#fff;color:var(--navy)}
+.mode-btn.active{background:var(--white);color:var(--navy)}
 
 /* ── FILTERS ── */
 .filters{background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:100%}
@@ -114,13 +137,13 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .zoom-btn{background:var(--blue4);border:1px solid var(--blue);color:var(--blue);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
 .zoom-btn:active{transform:scale(.96)}
 .zoom-modal{display:none;position:fixed;inset:0;background:rgba(15,23,42,.78);z-index:9999;align-items:center;justify-content:center;padding:12px}
-.zoom-box{background:#fff;border-radius:14px;width:100%;max-width:1100px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.zoom-box{background:var(--white);border-radius:14px;width:100%;max-width:1100px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.4)}
 .zoom-hdr{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-bottom:1px solid var(--gray2);font-weight:700;font-size:14px;color:var(--navy)}
 .zoom-ctrls{display:flex;gap:6px}
 .zoom-ctrls button{width:34px;height:34px;border:1px solid var(--gray2);background:var(--surf);border-radius:8px;font-size:17px;font-weight:700;cursor:pointer;color:var(--navy);display:flex;align-items:center;justify-content:center}
 .zoom-ctrls button:active{transform:scale(.94)}
 .zoom-ctrls .zclose{background:var(--red);color:#fff;border-color:var(--red)}
-.zoom-scroll{flex:1;overflow:auto;padding:14px;background:#fff;-webkit-overflow-scrolling:touch}
+.zoom-scroll{flex:1;overflow:auto;padding:14px;background:var(--white);-webkit-overflow-scrolling:touch}
 .zoom-foot{padding:8px 16px;border-top:1px solid var(--gray2);font-size:11px;color:var(--gray);text-align:center}
 .cmp-tbl th,.cmp-tbl td{padding:6px 9px}
 .cmp-tbl td.r{font-size:11px}
@@ -224,9 +247,10 @@ body.ppt-mode .ppt-watermark{display:block}
 .sec-btn{padding:6px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid var(--blue2);background:var(--blue);color:#fff;transition:all .15s;font-family:'Inter',sans-serif}
 .sec-btn.off{background:var(--white);color:var(--blue2)}
 @media print{
+  html[data-theme]{--bg:#fff;--white:#fff;--surf:#f8fafc;--txt:#0f172a;--txt2:#334155;--txt3:#64748b;--gray2:#e2e8f0;--gray3:#f1f5f9;--gray4:#cbd5e1;--blue3:#dbeafe;--blue4:#eff6ff;--green2:#d1fae5;--green3:#ecfdf5;--gold2:#fef3c7;--gold3:#fffbeb;--red2:#fee2e2;--red3:#fef2f2;--purple2:#ede9fe}
   .filters,.export-bar,.sync-chip,.mode-toggle{display:none!important}
   .main{padding:10px}
-  body{background:#fff}
+  body{background:var(--white)}
   .card{box-shadow:none;border:1px solid #ddd}
   /* El header es "sticky" en pantalla; al imprimir eso lo repite fijo sobre el
      contenido (tapa la primera gráfica). Lo volvemos un bloque normal. */
@@ -244,7 +268,7 @@ body.ppt-mode .ppt-watermark{display:block}
 
 <!-- LOGIN (lectura blindada · mismo Auth que la app de campo) -->
 <div id="repLogin" style="position:fixed;inset:0;z-index:99999;background:#0d0f12;display:flex;align-items:center;justify-content:center;padding:24px">
-  <div style="background:#fff;border-radius:16px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.5)">
+  <div style="background:var(--white);border-radius:16px;padding:28px 24px;max-width:360px;width:100%;box-shadow:0 12px 48px rgba(0,0,0,.5)">
     <div style="font-size:20px;font-weight:800;color:#1e293b;margin-bottom:4px">REPORTE EJECUTIVO · 039</div>
     <div style="font-size:12px;color:#64748b;margin-bottom:20px">Acceso restringido · inicia sesión</div>
     <input id="rl_user" type="email" placeholder="Correo" autocomplete="username" onkeydown="if(event.key==='Enter')repLogin()" style="width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font-size:15px;margin-bottom:10px;box-sizing:border-box">
@@ -272,7 +296,13 @@ body.ppt-mode .ppt-watermark{display:block}
         <span id="syncDot" style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block"></span>
         <span id="syncLabel">Conectando...</span>
       </div>
-      <button id="repLogoutBtn" onclick="repLogout()" title="Cerrar sesión" style="display:none;background:#fff;border:1px solid #cbd5e1;color:#64748b;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px">⎋ Salir</button>
+      <select id="themeSel" onchange="setTheme(this.value)" title="Tema de color" style="background:var(--white);color:var(--txt);border:1px solid var(--gray2);border-radius:8px;padding:6px 8px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px">
+        <option value="light">☀️ Claro</option>
+        <option value="dark">🌙 Oscuro</option>
+        <option value="slate">📄 Gris</option>
+        <option value="sepia">🟤 Sepia</option>
+      </select>
+      <button id="repLogoutBtn" onclick="repLogout()" title="Cerrar sesión" style="display:none;background:var(--white);border:1px solid var(--gray4);color:var(--txt3);border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-left:8px">⎋ Salir</button>
     </div>
   </div>
 </div>
@@ -282,10 +312,8 @@ body.ppt-mode .ppt-watermark{display:block}
   <button class="f-chip active" id="fc-all" onclick="setFilter('obra','all',this)">Toda la obra</button>
   <button class="f-chip" id="fc-o1" onclick="setFilter('obra','obra1',this)">Obra 1 · MEX-200</button>
   <button class="f-chip" id="fc-o2" onclick="setFilter('obra','obra2',this)">Obra 2 · MEX-80</button>
-  <span class="f-label" style="margin-left:8px">Fecha:</span>
-  <select class="f-sel" id="filtFecha" onchange="setFilter('fecha',this.value,null)">
-    <option value="all">Todas las fechas</option>
-  </select>
+  <span class="f-label" style="margin-left:8px">Fechas:</span>
+  <span id="filtFechas" style="display:inline-flex;flex-wrap:wrap;gap:3px;vertical-align:middle"></span>
   <span class="f-label" style="margin-left:8px">Ruta:</span>
   <button class="f-chip active" id="fr-1" onclick="setRuta(1,this)">Provisional</button>
   <button class="f-chip" id="fr-2" onclick="setRuta(2,this)">Libramiento</button>
@@ -294,10 +322,11 @@ body.ppt-mode .ppt-watermark{display:block}
 </div>
 
 <!-- PANEL DE SECCIONES -->
-<div id="secPanel" style="display:none;background:#fff;border-bottom:1px solid var(--gray2);padding:10px 24px">
+<div id="secPanel" style="display:none;background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px">
   <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Selecciona qué mostrar en el reporte:</div>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
     <button id="sec-kpis"     onclick="toggleSec('kpis')"     class="sec-btn">📈 Producción del día</button>
+    <button id="sec-emulsion" onclick="toggleSec('emulsion')" class="sec-btn">🛢️ Análisis de emulsión</button>
     <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
     <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
     <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
@@ -445,6 +474,7 @@ let allRecs=[], filtered=[], records=[], charts={}, rutaActual=1, filtros={obra:
 // Secciones visibles — todas activadas por defecto
 let secciones={
   kpis:true,
+  emulsion:true,
   avance:true,
   financiero:true,
   programa:true,
@@ -541,15 +571,26 @@ function setSyncErr(){
 
 function buildFechaFilter(){
   const fechas=[...new Set(allRecs.map(r=>r.fecha))].sort((a,b)=>b.localeCompare(a));
-  const sel=document.getElementById('filtFecha');
-  const cur=sel.value;
-  sel.innerHTML='<option value="all">Todas las fechas</option>';
+  const cont=document.getElementById('filtFechas'); if(!cont) return;
+  const sel=filtros.fecha, todas=(sel==='all');
+  const chip=(active,onclick,txt)=>`<button class="f-chip${active?' active':''}" onclick="${onclick}">${txt}</button>`;
+  let html=chip(todas,'setFechasTodas()','Todas');
   fechas.forEach(f=>{
     const d=new Date(f+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
-    sel.innerHTML+=`<option value="${f}" ${f===cur?'selected':''}>${lb}</option>`;
+    const on=Array.isArray(sel)&&sel.includes(f);
+    html+=chip(on,`toggleFechaFiltro('${f}')`,lb);
   });
+  cont.innerHTML=html;
 }
+window.setFechasTodas=function(){ filtros.fecha='all'; buildFechaFilter(); applyFilters(); };
+window.toggleFechaFiltro=function(f){
+  if(!Array.isArray(filtros.fecha)) filtros.fecha=[];
+  const i=filtros.fecha.indexOf(f);
+  if(i>=0) filtros.fecha.splice(i,1); else filtros.fecha.push(f);
+  if(filtros.fecha.length===0) filtros.fecha='all';
+  buildFechaFilter(); applyFilters();
+};
 
 window.setFilter=function(key,val,el){
   filtros[key]=val;
@@ -566,6 +607,16 @@ window.setRuta=function(n,el){
   el.classList.add('active');
   applyFilters();
 };
+window.setTheme=function(t){
+  if(t==='light') document.documentElement.removeAttribute('data-theme');
+  else document.documentElement.setAttribute('data-theme',t);
+  try{ localStorage.setItem('rep039_theme',t); }catch(e){}
+  const s=document.getElementById('themeSel'); if(s) s.value=t;
+};
+(function initTheme(){
+  let t='light'; try{ t=localStorage.getItem('rep039_theme')||'light'; }catch(e){}
+  window.setTheme(t);
+})();
 window.setMode=function(m,el){
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
@@ -578,7 +629,7 @@ function applyFilters(){
   filtered=allRecs.filter(r=>{
     if(filtros.obra==='obra1' && !(r.kde>=46000&&r.kde<=59000)) return false;
     if(filtros.obra==='obra2' && !(r.kde>=247000&&r.kde<=252000)) return false;
-    if(filtros.fecha!=='all' && r.fecha!==filtros.fecha) return false;
+    if(filtros.fecha!=='all' && Array.isArray(filtros.fecha) && !filtros.fecha.includes(r.fecha)) return false;
     return true;
   });
   render();
@@ -613,6 +664,48 @@ const _fmtMXNc = v => { // compacto: $23.6M / $263K / $850
   if(a>=1e3) return '$'+(v/1e3).toFixed(0)+'K';
   return '$'+Math.round(v);
 };
+function buildEmulsion(recs){
+  if(!recs.length) return '';
+  const bd={};
+  recs.forEach(r=>{ if(!r.fecha) return; if(!bd[r.fecha]) bd[r.fecha]={lts:0,area:0}; bd[r.fecha].lts+=(r.emulsion_lts||0); bd[r.fecha].area+=(r.area||0); });
+  const dias=Object.keys(bd).sort();
+  const totalLts=recs.reduce((s,r)=>s+(r.emulsion_lts||0),0);
+  const totalArea=recs.reduce((s,r)=>s+(r.area||0),0);
+  if(totalLts<=0) return `<div class="section-hdr">🛢️ Análisis de emulsión ECR-65</div>
+    <div class="card"><div class="card-body" style="padding:18px;text-align:center;color:var(--txt3);font-size:13px">Aún no hay litros de emulsión registrados en los días filtrados.</div></div>`;
+  const ltsM2G=totalArea>0?totalLts/totalArea:0;
+  const diasE=dias.filter(f=>bd[f].lts>0);
+  const ult=diasE[diasE.length-1];
+  const ltsUlt=ult?bd[ult].lts:0;
+  const promDia=diasE.length?totalLts/diasE.length:0;
+  const colorN=v=>!v?'var(--txt3)':(v<0.8||v>1.2)?'var(--red)':'var(--green)';
+  const maxLts=Math.max(...dias.map(f=>bd[f].lts),1);
+  const W=700,H=190,pL=46,pB=30,pT=12,pR=10,cw=W-pL-pR,ch=H-pT-pB,n=dias.length,gap=cw/n,bw=Math.max(6,Math.min(40,gap*0.6));
+  let bars='',xl='';
+  dias.forEach((f,i)=>{ const v=bd[f].lts,x=pL+gap*i+gap/2,bh=v/maxLts*ch,y=pT+ch-bh;
+    bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,bh).toFixed(1)}" rx="3" fill="var(--purple)"/>`;
+    if(n<=18&&v>0) bars+=`<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="9" fill="var(--txt3)" text-anchor="middle">${v.toFixed(0)}</text>`;
+    if(n<=14||i%Math.ceil(n/14)===0) xl+=`<text x="${x.toFixed(1)}" y="${(H-pB+14).toFixed(1)}" font-size="9" fill="var(--txt3)" text-anchor="middle">${f.slice(8,10)}/${f.slice(5,7)}</text>`;
+  });
+  let yr='';
+  for(let g=0;g<=2;g++){ const v=maxLts*g/2,y=pT+ch-(v/maxLts*ch); yr+=`<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W-pR}" y2="${y.toFixed(1)}" stroke="var(--gray2)"/><text x="${pL-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="var(--txt3)" text-anchor="end">${v.toFixed(0)}</text>`; }
+  const svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:'Inter',sans-serif">${yr}${bars}${xl}</svg>`;
+  let rows='';
+  dias.forEach(f=>{ const e=bd[f]; const lm=e.area>0?e.lts/e.area:0; const lb=new Date(f+'T12:00:00').toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
+    rows+=`<tr><td>${lb}</td><td style="text-align:right">${e.lts.toFixed(0)}</td><td style="text-align:right">${e.area.toFixed(0)}</td><td style="text-align:right;color:${colorN(lm)};font-weight:700">${lm?lm.toFixed(3):'—'}</td></tr>`; });
+  return `<div class="section-hdr">🛢️ Análisis de emulsión ECR-65</div>
+  <div class="kpi-grid">
+    <div class="kpi purple"><span class="kpi-icon">🛢️</span><div class="kpi-label">Litros acumulados</div><div class="kpi-value">${totalLts.toFixed(0)}</div><div class="kpi-sub">${diasE.length} día(s) regados</div></div>
+    <div class="kpi purple"><span class="kpi-icon">📅</span><div class="kpi-label">Litros último día</div><div class="kpi-value">${ltsUlt.toFixed(0)}</div><div class="kpi-sub">${ult?new Date(ult+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'}):'—'}</div></div>
+    <div class="kpi ${ltsM2G&&(ltsM2G<0.8||ltsM2G>1.2)?'red':'green'}"><span class="kpi-icon">📐</span><div class="kpi-label">Lts/m² promedio</div><div class="kpi-value">${ltsM2G?ltsM2G.toFixed(3):'—'}</div><div class="kpi-sub">norma 0.8–1.2</div></div>
+    <div class="kpi gold"><span class="kpi-icon">📊</span><div class="kpi-label">Promedio por día</div><div class="kpi-value">${promDia.toFixed(0)}</div><div class="kpi-sub">lts/día regado</div></div>
+  </div>
+  <div class="two-col">
+    <div class="card"><div class="card-hdr"><h4>🛢️ Litros de emulsión por día</h4></div><div class="card-body" style="padding:12px 8px">${svg}</div></div>
+    <div class="card"><div class="card-hdr"><h4>📐 Lts/m² por día (norma 0.8–1.2)</h4></div><div class="card-body" style="padding:4px"><div style="overflow-x:auto"><table><thead><tr><th>FECHA</th><th style="text-align:right">LTS</th><th style="text-align:right">ÁREA m²</th><th style="text-align:right">LTS/m²</th></tr></thead><tbody>${rows}</tbody></table></div></div></div>
+  </div>`;
+}
+
 function buildFinanciero(exec){
   const keys=['reniv','carp3','bach1','carp5','bach2'];
   const rows=keys.map(k=>{
@@ -986,7 +1079,7 @@ function renderCadHTML(){
     if(!ss.length) return;
     out+=`<div style="margin-bottom:14px">
       <div style="font-weight:700;color:#1e293b;font-size:13px;margin-bottom:6px">${nom} <span style="font-weight:400;color:var(--gray);font-size:11px">· ${fmtKm(lo)} → ${fmtKm(hi)}</span></div>
-      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--gray2);border-radius:10px;background:#fff;padding:8px">${_svgTramo(lo,hi,ss,_cadScale)}</div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--gray2);border-radius:10px;background:var(--white);padding:8px">${_svgTramo(lo,hi,ss,_cadScale)}</div>
     </div>`;
   });
   if(!out) out='<div style="color:var(--gray);padding:16px;text-align:center">Aún no hay tiros con cadenamiento capturado</div>';
@@ -1169,6 +1262,9 @@ function render(){
     <div class="card"><div class="card-hdr"><h4>📅 Toneladas por día</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartDia" style="width:100%;height:180px"></div></div></div>
     <div class="card"><div class="card-hdr"><h4>📈 Volumen acumulado vs catálogo</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartAcum" style="width:100%;height:180px"></div></div></div>
   </div>` : ''}
+
+  <!-- ANÁLISIS DE EMULSIÓN -->
+  ${secciones.emulsion ? buildEmulsion(filtered) : ''}
 
   <!-- FÍSICO-FINANCIERO -->
   ${secciones.financiero ? buildFinanciero(exec) : ''}
