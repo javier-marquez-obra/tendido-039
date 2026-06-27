@@ -378,6 +378,16 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="font-size:11px;color:var(--muted);margin-top:6px">SCT: prod ≥ 150°C · tend ≥ 130°C · Δ máx 30°C</div>
     </div>
 
+    <div class="card">
+      <h3>⏱️ Tiempo de descarga</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="be" id="btnIniTend" onclick="marcarInicioTendido()" style="border-color:var(--green);color:var(--green);font-weight:700">▶ Inicia tendido</button>
+        <button type="button" class="be" id="btnFinTend" onclick="marcarFinTendido()" style="border-color:var(--blue);color:var(--blue);font-weight:700">⏹ Termina</button>
+        <button type="button" class="be" id="btnResetTend" onclick="resetTendido()" style="font-size:11px;padding:6px 10px">↺</button>
+      </div>
+      <div id="tendInfo" style="font-family:var(--mono);font-size:13px;font-weight:700;margin-top:8px;color:var(--muted)">Toca ▶ cuando el camión empieza a descargar y ⏹ cuando termina.</div>
+    </div>
+
     <!-- Resumen totales del camión -->
     <div class="fc" id="resumenViaje" style="display:none">
       <h3>📊 Resumen del camión</h3>
@@ -1257,6 +1267,24 @@ window.resetJornadaHoy = function(){
 };
 
 // ═══ GUARDAR ═══
+let _horaIni=null, _horaFin=null;
+function _hhmmss(d){ return d.toTimeString().slice(0,8); }
+function _durMin(ini,fin){
+  if(!ini||!fin) return null;
+  const p=s=>{ const a=s.split(':').map(Number); return a[0]*3600+a[1]*60+(a[2]||0); };
+  let d=p(fin)-p(ini); if(d<0) d+=86400; // cruzó medianoche
+  return +(d/60).toFixed(2);
+}
+function _updTendInfo(){
+  const el=document.getElementById('tendInfo'); if(!el) return;
+  const bi=document.getElementById('btnIniTend'), bf=document.getElementById('btnFinTend');
+  if(_horaIni&&_horaFin){ const d=_durMin(_horaIni,_horaFin); el.textContent=`${_horaIni} → ${_horaFin}  ·  ${d} min de descarga`; el.style.color='var(--green)'; if(bi)bi.style.opacity='.6'; if(bf)bf.style.opacity='.6'; }
+  else if(_horaIni){ el.textContent=`Inició ${_horaIni} · esperando ⏹ término…`; el.style.color='var(--gold)'; if(bi)bi.style.opacity='.6'; if(bf)bf.style.opacity='1'; }
+  else { el.textContent='Toca ▶ cuando el camión empieza a descargar y ⏹ cuando termina.'; el.style.color='var(--muted)'; if(bi)bi.style.opacity='1'; if(bf)bf.style.opacity='1'; }
+}
+window.marcarInicioTendido=function(){ _horaIni=_hhmmss(new Date()); _horaFin=null; _updTendInfo(); };
+window.marcarFinTendido=function(){ if(!_horaIni){ toast('Primero marca ▶ Inicia','warn'); return; } _horaFin=_hhmmss(new Date()); _updTendInfo(); };
+window.resetTendido=function(){ _horaIni=null; _horaFin=null; _updTendInfo(); };
 window.aplicarTipoCamion=function(){
   const sel=document.getElementById('f_camion'); if(!sel) return;
   const v=sel.value;
@@ -1350,6 +1378,8 @@ window.guardar = async function() {
   if (ton<5||ton>60) { if(!confirm('Toneladas: '+ton+'. Fuera del rango normal (5-60 ton). ¿Es correcto?')) return; }
   const rec={
     fecha, placas, ton_recibidas:ton, sin_placa:sinPlaca, obra:obraActiva,
+    hora_captura:_hhmmss(new Date()), hora_inicio_tendido:_horaIni||'', hora_fin_tendido:_horaFin||'',
+    duracion_descarga_min:(_durMin(_horaIni,_horaFin)!=null?_durMin(_horaIni,_horaFin):''),
     material:document.getElementById('f_mat').value,
     pg:((document.getElementById('f_pg_libre')||{}).value||'').trim()||document.getElementById('f_pg').value,
     tipo_mezcla:(document.getElementById('f_tipomezcla')||{}).value||'',
@@ -1432,6 +1462,7 @@ function resetForm(kaAnterior) {
   const _sp=document.getElementById('f_sinplaca'); if(_sp) _sp.checked=false;
   const _pl=document.getElementById('f_placas'); if(_pl){ _pl.disabled=false; _pl.style.opacity='1'; }
   const _cam=document.getElementById('f_camion'); if(_cam) _cam.value='';
+  _horaIni=null; _horaFin=null; _updTendInfo();
   const _pgl=document.getElementById('f_pg_libre'); if(_pgl) _pgl.value='';
   localStorage.removeItem('t039_draft');
   const _ff2=document.getElementById('f_fecha'); if(_ff2){ const _ja=localStorage.getItem('t039_jornada'); _ff2.value=_ja||fechaJornada(); _ff2.dataset.auto=_ja?'':'1'; }
@@ -1497,7 +1528,7 @@ function renderEditConceptos(){
             oninput="editConceptos[${i}].aw2=parseFloat(this.value)||0"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:13px;font-weight:700">
         </div>
-        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Esp. (cm)</div>
+        <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Espesor (cm)</div>
           <input type="number" id="e_conc_et_${i}" value="${cv.et!=null?cv.et:3}" placeholder="3.0" step="0.1" inputmode="decimal"
             oninput="editConceptos[${i}].et=parseFloat(this.value)||3"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:13px;font-weight:700;color:var(--gold)">
@@ -1929,12 +1960,12 @@ window.exportarTablaExcel=function(){
     filas.push({ID:v._id,IDX:ci,Fecha:v.fecha,Viaje:v.num_viaje_dia||'',Placas:v.placas||'',
       Material:v.material||'',Concepto:c.label||c.id||'',Carril:c.carril||v.carril||'',Sentido:sent,
       'De KM':c.kde!=null?+(+c.kde).toFixed(2):'', ML:ml, 'A KM':c.ka!=null?+(+c.ka).toFixed(2):'',
-      Ancho:aw, 'm²':area, 'Esp.teó(cm)':esp, 'm³':vol, Ton:ton, 'Esp.real(cm)':er,
+      Ancho:aw, 'm²':area, 'Espesor (cm)':esp, 'm³':vol, Ton:ton, 'Esp.real(cm)':er,
       'T.Prod':v.temp_produccion!=null&&v.temp_produccion!==''?+v.temp_produccion:'',
       'T.Tend':v.temp_tendido!=null&&v.temp_tendido!==''?+v.temp_tendido:''});
   }));
   if(!filas.length){ toast('No hay tiros en los días seleccionados','err'); return; }
-  const header=['ID','IDX','Fecha','Viaje','Placas','Material','Concepto','Carril','Sentido','De KM','ML','A KM','Ancho','m²','Esp.teó(cm)','m³','Ton','Esp.real(cm)','T.Prod','T.Tend'];
+  const header=['ID','IDX','Fecha','Viaje','Placas','Material','Concepto','Carril','Sentido','De KM','ML','A KM','Ancho','m²','Espesor (cm)','m³','Ton','Esp.real(cm)','T.Prod','T.Tend'];
   const ws=XLSX.utils.json_to_sheet(filas,{header});
   filas.forEach((f,i)=>{
     const R=i+2;
@@ -2027,7 +2058,8 @@ function _procesarCadExcel(rows){
     const ka=sent==='sube'?kde+ml:kde-ml;
     // Ancho y espesor: si vienen en el archivo (tabla formulada) se aplican; si no, se conservan los guardados
     const anchoEd=(row['Ancho']!=null&&row['Ancho']!==''&&!isNaN(+row['Ancho']))?+row['Ancho']:null;
-    const espEd=(row['Esp.teó(cm)']!=null&&row['Esp.teó(cm)']!==''&&!isNaN(+row['Esp.teó(cm)']))?+row['Esp.teó(cm)']:null;
+    const _espCell = (row['Espesor (cm)']!=null&&row['Espesor (cm)']!=='') ? row['Espesor (cm)'] : row['Esp.teó(cm)'];
+    const espEd=(_espCell!=null&&_espCell!==''&&!isNaN(+_espCell))?+_espCell:null;
     const ancho=anchoEd!=null?anchoEd:(c.ancho||0), esp=espEd!=null?espEd:(c.esp_teorico||0);
     const antesK=c.kde, antesL=c.longitud, antesS=c.sentido, antesA=c.ancho, antesE=c.esp_teorico;
     c.kde=kde; c.ka=ka; c.longitud=+ml.toFixed(2); c.sentido=sent; if(carril) c.carril=carril;
@@ -2473,7 +2505,7 @@ function renderConceptosContainer(){
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
         </div>
         <div>
-          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Esp. teórico (cm)</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Espesor (cm)</div>
           <input type="number" id="f_et_${i}" value="${cv.et||3}" placeholder="3.0" step="0.1" inputmode="decimal"
             oninput="conceptosViaje[${i}].et=parseFloat(this.value)||3;calcResumenViaje()"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
@@ -3067,10 +3099,11 @@ const REP_COLS=[
   {k:'camion',t:'Tipo camión'},{k:'material',t:'Material'},{k:'pg',t:'PG'},{k:'mezcla',t:'Tipo mezcla'},
   {k:'concepto',t:'Concepto'},{k:'carril',t:'Carril'},{k:'sentido',t:'Sentido'},
   {k:'dekm',t:'De KM',cad:1},{k:'akm',t:'A KM',cad:1},
-  {k:'ml',t:'ML',d:2,sum:1},{k:'ancho',t:'Ancho',d:3},{k:'esp',t:'Esp.teó(cm)',d:1},
+  {k:'ml',t:'ML',d:2,sum:1},{k:'ancho',t:'Ancho',d:3},{k:'esp',t:'Espesor (cm)',d:1},
   {k:'area',t:'m²',d:2,sum:1},{k:'vol',t:'m³',d:3,sum:1},{k:'ton',t:'Ton',d:2,sum:1},
   {k:'espreal',t:'Esp.real(cm)',d:2},{k:'m3fav',t:'m³ favor',d:3},{k:'gp',t:'Result.'},
   {k:'tprod',t:'Temp.prod',d:0},{k:'ttend',t:'Temp.tend',d:0},
+  {k:'hcap',t:'Hora captura'},{k:'hini',t:'Inicia tendido'},{k:'hfin',t:'Termina tendido'},{k:'dur',t:'Min descarga',d:1},
   {k:'vale',t:'№ Vale'},{k:'remision',t:'№ Remisión'},{k:'capturado',t:'Capturó'},{k:'obs',t:'Observac.'}
 ];
 const REP_DEFAULT=['fecha','concepto','carril','dekm','akm','ml','ancho','esp','area','vol','ton'];
@@ -3127,7 +3160,10 @@ function _repRows(){
       camion:v.tipo_camion||'', material:v.material||'', pg:v.pg||'', mezcla:v.tipo_mezcla||'',
       concepto:c.label||c.id||'', carril:c.carril||v.carril||'', sentido:(c.sentido||v.sentido||'sube'),
       dekm:c.kde, akm:c.ka, ml, ancho:aw, esp, area, vol, ton, espreal, m3fav:mf, gp:(mf>=0?'GANANCIA':'PERDIDA'),
-      tprod:v.temp_produccion, ttend:v.temp_tendido, vale:v.vale||'', remision:v.remision||'', capturado:v.capturado_por||'', obs:v.observaciones||'' });
+      tprod:v.temp_produccion, ttend:v.temp_tendido,
+      hcap:v.hora_captura||'', hini:v.hora_inicio_tendido||'', hfin:v.hora_fin_tendido||'',
+      dur:(v.duracion_descarga_min!=null&&v.duracion_descarga_min!=='')?+v.duracion_descarga_min:'',
+      vale:v.vale||'', remision:v.remision||'', capturado:v.capturado_por||'', obs:v.observaciones||'' });
   }));
   return rows;
 }
@@ -3380,7 +3416,7 @@ window.recalcularTodos = async function() {
   if (!records.length) { toast('Sin registros para recalcular','warn'); return; }
 
   const total = records.length;
-  if (!confirm(`¿Recalcular ${total} viajes con la fórmula correcta?\n\nFórmula nueva:\n  Esp. real = Ton / (Área × 2.20)\n  m³ favor = (Esp. teórico − Esp. real) × Área\n\nSi (teórico > real) → GANANCIA\nSi (teórico < real) → PÉRDIDA\n\nEsta acción actualiza Firebase. ¿Continuar?`)) return;
+  if (!confirm(`¿Recalcular ${total} viajes con la fórmula correcta?\n\nFórmula nueva:\n  Esp. real = Ton / (Área × 2.20)\n  m³ favor = (Espesor − Esp. real) × Área\n\nSi (espesor > real) → GANANCIA\nSi (espesor < real) → PÉRDIDA\n\nEsta acción actualiza Firebase. ¿Continuar?`)) return;
 
   const btn = document.getElementById('btnRecalc');
   btn.disabled = true;
