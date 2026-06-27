@@ -3196,59 +3196,65 @@ function _repRows(){
 }
 function _repGrafVisible(){ try{ return localStorage.getItem('t039_rep_graf')!=='0'; }catch(e){ return true; } }
 window.repToggleGraf=function(){ try{ localStorage.setItem('t039_rep_graf', _repGrafVisible()?'0':'1'); }catch(e){} renderReporte(); };
+function _repUnidad(){ try{ return localStorage.getItem('t039_rep_unidad')==='m3'?'m3':'ton'; }catch(e){ return 'ton'; } }
+window.repSetUnidad=function(u){ try{ localStorage.setItem('t039_rep_unidad', u==='m3'?'m3':'ton'); }catch(e){} renderReporte(); };
 function _repGraficos(){
   if(!records.length) return '';
+  const esM3=_repUnidad()==='m3', uLbl=esM3?'m³':'ton';
   const bd={};
-  records.forEach(r=>{ if(!r.fecha) return; bd[r.fecha]=(bd[r.fecha]||0)+(r.ton_recibidas||0); });
+  records.forEach(r=>{ if(!r.fecha) return; bd[r.fecha]=(bd[r.fecha]||0)+(esM3?(r.volumen||0):(r.ton_recibidas||0)); });
   const dias=Object.keys(bd).sort();
   if(!dias.length) return '';
-  const tonDia=dias.map(f=>+bd[f].toFixed(2));
-  const maxDia=Math.max(...tonDia,1);
-  let ac=0; const acum=dias.map(f=>{ ac+=bd[f]; return +ac.toFixed(2); });
-  const tonTotal=ac;
+  const valDia=dias.map(f=>+bd[f].toFixed(esM3?3:2));
+  const maxDia=Math.max(...valDia,1);
+  let ac=0; const acum=dias.map(f=>{ ac+=bd[f]; return +ac.toFixed(esM3?3:2); });
+  const totalVal=ac;
   const cat=(typeof catalogoActivo!=='undefined'&&catalogoActivo.length)?catalogoActivo:CATALOGO_E7;
   const metaM3=cat.filter(c=>c.id!=='OTRO').reduce((s,c)=>s+(c.cantidad||0),0);
-  const metaTon=+(metaM3*DEN).toFixed(2);
-  const faltTon=Math.max(0,+(metaTon-tonTotal).toFixed(2));
-  const pct=metaTon>0?Math.min(tonTotal/metaTon*100,100):0;
-  const vjFalt=Math.ceil(faltTon/22);
+  const metaVal=+(esM3?metaM3:metaM3*DEN).toFixed(2);
+  const faltVal=Math.max(0,+(metaVal-totalVal).toFixed(2));
+  const pct=metaVal>0?Math.min(totalVal/metaVal*100,100):0;
+  const faltTonEq=esM3?faltVal*DEN:faltVal;
+  const vjFalt=Math.ceil(faltTonEq/22);
+  const fmt=v=>esM3?v.toFixed(1):v.toFixed(0);
   const W=700,H=200,padL=46,padB=34,padT=14,padR=12, cw=W-padL-padR, ch=H-padT-padB, n=dias.length, gap=cw/n, bw=Math.max(6,Math.min(46,gap*0.62));
   // G1 barras por día
   let bars='',xlab='';
-  tonDia.forEach((t,i)=>{ const x=padL+gap*i+gap/2, bh=t/maxDia*ch, y=padT+ch-bh;
+  valDia.forEach((t,i)=>{ const x=padL+gap*i+gap/2, bh=t/maxDia*ch, y=padT+ch-bh;
     bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,bh).toFixed(1)}" rx="3" fill="var(--gold)"/>`;
-    if(n<=18) bars+=`<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${t.toFixed(0)}</text>`;
+    if(n<=18) bars+=`<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${fmt(t)}</text>`;
     if(n<=14||i%Math.ceil(n/14)===0) xlab+=`<text x="${x.toFixed(1)}" y="${(H-padB+15).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${dias[i].slice(8,10)+'/'+dias[i].slice(5,7)}</text>`;
   });
   let yr1='';
-  for(let g=0;g<=2;g++){ const v=maxDia*g/2, y=padT+ch-(v/maxDia*ch); yr1+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--bord)"/><text x="${padL-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end">${v.toFixed(0)}</text>`; }
+  for(let g=0;g<=2;g++){ const v=maxDia*g/2, y=padT+ch-(v/maxDia*ch); yr1+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--bord)"/><text x="${padL-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end">${fmt(v)}</text>`; }
   const g1=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:var(--mono)" xmlns="http://www.w3.org/2000/svg">${yr1}${bars}${xlab}</svg>`;
   // G2 acumulado
-  const maxAc=Math.max(metaTon,tonTotal,1);
+  const maxAc=Math.max(metaVal,totalVal,1);
   const pts=acum.map((v,i)=>[padL+(n===1?cw/2:cw*i/(n-1)), padT+ch-(v/maxAc*ch)]);
   const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
   const area=`M${pts[0][0].toFixed(1)} ${(padT+ch).toFixed(1)} `+pts.map(p=>'L'+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ')+` L${pts[n-1][0].toFixed(1)} ${(padT+ch).toFixed(1)} Z`;
-  const yMeta=padT+ch-(metaTon/maxAc*ch);
+  const yMeta=padT+ch-(metaVal/maxAc*ch);
   let yr2='';
-  for(let g=0;g<=2;g++){ const v=maxAc*g/2, y=padT+ch-(v/maxAc*ch); yr2+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--bord)"/><text x="${padL-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end">${v.toFixed(0)}</text>`; }
+  for(let g=0;g<=2;g++){ const v=maxAc*g/2, y=padT+ch-(v/maxAc*ch); yr2+=`<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="var(--bord)"/><text x="${padL-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="end">${fmt(v)}</text>`; }
   const dots=pts.map(p=>`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.5" fill="var(--blue)"/>`).join('');
-  const g2=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:var(--mono)" xmlns="http://www.w3.org/2000/svg">${yr2}<path d="${area}" fill="var(--blue)" opacity="0.15"/><path d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5"/>${dots}<line x1="${padL}" y1="${yMeta.toFixed(1)}" x2="${W-padR}" y2="${yMeta.toFixed(1)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${(W-padR).toFixed(1)}" y="${(yMeta-4).toFixed(1)}" font-size="9" fill="var(--green)" text-anchor="end">META ${metaTon.toFixed(0)}</text></svg>`;
+  const g2=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:var(--mono)" xmlns="http://www.w3.org/2000/svg">${yr2}<path d="${area}" fill="var(--blue)" opacity="0.15"/><path d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5"/>${dots}<line x1="${padL}" y1="${yMeta.toFixed(1)}" x2="${W-padR}" y2="${yMeta.toFixed(1)}" stroke="var(--green)" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${(W-padR).toFixed(1)}" y="${(yMeta-4).toFixed(1)}" font-size="9" fill="var(--green)" text-anchor="end">META ${fmt(metaVal)}</text></svg>`;
   // G3 faltante
   const g3=`<div style="display:flex;flex-direction:column;gap:10px">
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-      <div class="cb"><div class="cl">Meta ton</div><div class="cv">${metaTon.toFixed(0)}</div></div>
-      <div class="cb"><div class="cl">Colocadas</div><div class="cv" style="color:var(--gold)">${tonTotal.toFixed(0)}</div></div>
-      <div class="cb"><div class="cl">Faltan ton</div><div class="cv" style="color:var(--blue)">${faltTon.toFixed(0)}</div></div>
-      <div class="cb"><div class="cl">Viajes falt.</div><div class="cv">${faltTon>0?vjFalt:'✓'}</div></div>
+      <div class="cb"><div class="cl">Meta ${uLbl}</div><div class="cv">${fmt(metaVal)}</div></div>
+      <div class="cb"><div class="cl">Colocado ${uLbl}</div><div class="cv" style="color:var(--gold)">${fmt(totalVal)}</div></div>
+      <div class="cb"><div class="cl">Faltan ${uLbl}</div><div class="cv" style="color:var(--blue)">${fmt(faltVal)}</div></div>
+      <div class="cb"><div class="cl">Viajes falt.</div><div class="cv">${faltVal>0?vjFalt:'✓'}</div></div>
     </div>
     <div style="background:var(--bord);border-radius:99px;height:18px;overflow:hidden;position:relative">
       <div style="height:100%;width:${pct.toFixed(1)}%;background:linear-gradient(90deg,var(--gold),var(--green))"></div>
       <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--txt)">${pct.toFixed(1)}% colocado</span>
     </div>
-    <div style="font-size:10px;color:var(--muted)">Meta = catálogo E-7 (${metaM3.toLocaleString('es-MX')} m³) × densidad ${DEN}</div>
+    <div style="font-size:10px;color:var(--muted)">Meta = catálogo E-7 (${metaM3.toLocaleString('es-MX')} m³)${esM3?'':' × densidad '+DEN}</div>
   </div>`;
   const card=(t,c)=>`<div style="background:var(--surf);border:1px solid var(--bord);border-radius:12px;padding:10px 10px 6px;margin-bottom:10px"><div style="font-size:12px;font-weight:800;color:var(--txt);margin-bottom:6px">${t}</div>${c}</div>`;
-  return card('📅 Toneladas por día',g1)+card('📈 Toneladas acumuladas vs meta',g2)+card('⏳ Toneladas faltantes',g3);
+  const titU=esM3?'m³':'Toneladas';
+  return card('📅 '+titU+' por día',g1)+card('📈 '+titU+' acumulado vs meta',g2)+card('⏳ '+titU+' faltantes',g3);
 }
 function _repCell(col,val){
   if(col.cad) return (val!=null&&val!=='')?fmtCad(val):'';
@@ -3292,8 +3298,11 @@ function renderReporte() {
     totRow='<tr class="tot-row">'+cols.map((c,i)=>{ if(i===0) return '<td>TOTAL</td>'; if(c.sum){ const s=rows.reduce((a,r)=>a+(+r[c.k]||0),0); return `<td>${s.toFixed(c.d)}</td>`; } return '<td>—</td>'; }).join('')+'</tr>';
   }
   dc.innerHTML=`
-    <div style="margin-bottom:8px">
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:8px">
       <button onclick="repToggleGraf()" style="${cb};background:var(--bg);color:var(--txt);font-size:12px">${_repGrafVisible()?'📊 Ocultar gráficos':'📊 Ver gráficos'}</button>
+      ${_repGrafVisible()?`<span style="font-size:11px;color:var(--muted);font-weight:700;margin-left:4px">Ver en:</span>
+      <button onclick="repSetUnidad('ton')" style="${cb};font-size:12px;background:${_repUnidad()==='ton'?'var(--gold)':'var(--bg)'};color:${_repUnidad()==='ton'?'#1a1a1a':'var(--txt)'};border-color:${_repUnidad()==='ton'?'var(--gold)':'var(--bord)'}">Toneladas</button>
+      <button onclick="repSetUnidad('m3')" style="${cb};font-size:12px;background:${_repUnidad()==='m3'?'var(--gold)':'var(--bg)'};color:${_repUnidad()==='m3'?'#1a1a1a':'var(--txt)'};border-color:${_repUnidad()==='m3'?'var(--gold)':'var(--bord)'}">m³</button>`:''}
     </div>
     ${_repGrafVisible()?_repGraficos():''}
     <div style="margin-bottom:10px">
