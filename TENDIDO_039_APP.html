@@ -275,8 +275,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
   <div class="tabs" id="tabBar">
     <div class="tab active" onclick="switchTab('captura',this)">📋 CAPTURA</div>
     <div class="tab" onclick="switchTab('viajes',this)">📄 VIAJES</div>
-    <div class="tab locked" id="tab-rep1" onclick="switchTab('rep-camiones',this)">🚛 CAMIONES</div>
-    <div class="tab locked" id="tab-rep2" onclick="switchTab('rep-volumen',this)">📐 VOLUMEN</div>
     <div class="tab locked" id="tab-reporte" onclick="switchTab('reporte',this)">📊 REPORTE</div>
   </div>
 
@@ -789,7 +787,7 @@ async function cargarSesion(user) {
   const hi=document.getElementById('hInfo'); if(hi) hi.textContent = session.nombre+' · N-27';
   const rt=document.getElementById('roleTag');
   if(rt){ rt.textContent = (perfil.rol||'').toUpperCase()||'—'; rt.className='role-tag '+(isEditor?'admin':'op'); }
-  if (isEditor) ['tab-rep1','tab-rep2','tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
+  if (isEditor) ['tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
   startListener();
 }
 
@@ -3063,72 +3061,149 @@ function filasConcepto(r){
   });
 }
 
+// ═══ REPORTE UNIVERSAL · columnas a elegir · cadenamiento 0+000.00 ═══
+const REP_COLS=[
+  {k:'fecha',t:'Fecha'},{k:'obra',t:'Obra'},{k:'viaje',t:'Viaje#'},{k:'placas',t:'Placas'},
+  {k:'camion',t:'Tipo camión'},{k:'material',t:'Material'},{k:'pg',t:'PG'},{k:'mezcla',t:'Tipo mezcla'},
+  {k:'concepto',t:'Concepto'},{k:'carril',t:'Carril'},{k:'sentido',t:'Sentido'},
+  {k:'dekm',t:'De KM',cad:1},{k:'akm',t:'A KM',cad:1},
+  {k:'ml',t:'ML',d:2,sum:1},{k:'ancho',t:'Ancho',d:3},{k:'esp',t:'Esp.teó(cm)',d:1},
+  {k:'area',t:'m²',d:2,sum:1},{k:'vol',t:'m³',d:3,sum:1},{k:'ton',t:'Ton',d:2,sum:1},
+  {k:'espreal',t:'Esp.real(cm)',d:2},{k:'m3fav',t:'m³ favor',d:3},{k:'gp',t:'Result.'},
+  {k:'tprod',t:'Temp.prod',d:0},{k:'ttend',t:'Temp.tend',d:0},
+  {k:'vale',t:'№ Vale'},{k:'remision',t:'№ Remisión'},{k:'capturado',t:'Capturó'},{k:'obs',t:'Observac.'}
+];
+const REP_DEFAULT=['fecha','concepto','carril','dekm','akm','ml','ancho','esp','area','vol','ton'];
+let _repDias=null; // null=todos · Set de fechas
+function _repColsSel(){
+  let s; try{ s=JSON.parse(localStorage.getItem('t039_rep_cols')||'null'); }catch(e){ s=null; }
+  if(!Array.isArray(s)||!s.length) s=REP_DEFAULT.slice();
+  return new Set(s);
+}
+window.repToggleCol=function(k){
+  const s=_repColsSel(); if(s.has(k)) s.delete(k); else s.add(k);
+  if(s.size===0) s.add('concepto');
+  localStorage.setItem('t039_rep_cols',JSON.stringify([...s])); renderReporte();
+};
+window.repColsPreset=function(p){
+  let s;
+  if(p==='generador') s=['fecha','concepto','carril','sentido','dekm','akm','ml','ancho','esp','area','vol'];
+  else if(p==='pago') s=['fecha','viaje','placas','concepto','ton','vale','remision'];
+  else if(p==='volumen') s=['fecha','concepto','dekm','akm','ml','ancho','esp','vol','ton'];
+  else if(p==='todo') s=REP_COLS.map(c=>c.k);
+  else s=REP_DEFAULT.slice();
+  localStorage.setItem('t039_rep_cols',JSON.stringify(s)); renderReporte();
+};
+window.repSetDia=function(f){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
+  if(!(_repDias instanceof Set)) _repDias=new Set(fechas);
+  if(_repDias.has(f)) _repDias.delete(f); else _repDias.add(f);
+  if(_repDias.size===0) _repDias=new Set(fechas);
+  renderReporte();
+};
+window.repTodos=function(){ _repDias=null; renderReporte(); };
+function _repRows(){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
+  const sel=(_repDias instanceof Set && _repDias.size)?_repDias:new Set(fechas);
+  const rs=records.filter(r=>sel.has(r.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
+  const rows=[];
+  rs.forEach(v=>_conceptosDe(v).forEach(c=>{
+    const ml=+(+c.longitud||0), aw=+(+c.ancho||0), esp=+(c.esp_teorico||0), ton=+(+c.ton||0);
+    const area=c.area!=null?+c.area:+(ml*aw);
+    const vol=c.volumen!=null?+c.volumen:+(area*esp/100);
+    const espreal=area>0?ton/(area*DEN)*100:0;
+    const mf=(ton&&area&&esp)?(((esp/100)-(ton/(area*DEN)))*area):0;
+    rows.push({ fecha:v.fecha||'', obra:v.obra||'039', viaje:v.num_viaje_dia||'', placas:v.placas||'',
+      camion:v.tipo_camion||'', material:v.material||'', pg:v.pg||'', mezcla:v.tipo_mezcla||'',
+      concepto:c.label||c.id||'', carril:c.carril||v.carril||'', sentido:(c.sentido||v.sentido||'sube'),
+      dekm:c.kde, akm:c.ka, ml, ancho:aw, esp, area, vol, ton, espreal, m3fav:mf, gp:(mf>=0?'GANANCIA':'PERDIDA'),
+      tprod:v.temp_produccion, ttend:v.temp_tendido, vale:v.vale||'', remision:v.remision||'', capturado:v.capturado_por||'', obs:v.observaciones||'' });
+  }));
+  return rows;
+}
+function _repCell(col,val){
+  if(col.cad) return (val!=null&&val!=='')?fmtCad(val):'';
+  if(col.d!=null) return (val!=null&&val!==''&&!isNaN(+val))?(+val).toFixed(col.d):'';
+  return val!=null?String(val):'';
+}
 function renderReporte() {
   const dc=document.getElementById('dashContent');
   const lm=document.getElementById('lockMsg');
   if (!esEditor()) { lm.style.display='block'; dc.innerHTML=''; return; }
   lm.style.display='none';
   if (!records.length) { dc.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Sin datos</div>'; return; }
-  // Aplanar a filas por concepto (totales consistentes con la tabla separada)
-  const allFilas=[]; records.forEach(r=>filasConcepto(r).forEach(f=>allFilas.push(f)));
-  const tt=allFilas.reduce((s,f)=>s+f.ton,0);
-  const ta=allFilas.reduce((s,f)=>s+f.area,0);
-  const tv=allFilas.reduce((s,f)=>s+f.volumen,0);
-  const tf=allFilas.reduce((s,f)=>s+f.m3_fav,0);
-  const ng=allFilas.filter(f=>f.gp==='GANANCIA').length;
-  const nTot=allFilas.length||1;
-  const bd={};
-  records.forEach(r=>{ if(!bd[r.fecha]) bd[r.fecha]=[]; bd[r.fecha].push(r); });
-  let sh='';
-  Object.keys(bd).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
-    const rs=[...bd[date]].sort((a,b)=>(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
-    const filas=[]; rs.forEach(r=>filasConcepto(r).forEach(f=>filas.push(f)));
-    const dt=filas.reduce((s,f)=>s+f.ton,0), df=filas.reduce((s,f)=>s+f.m3_fav,0);
-    const d=new Date(date+'T12:00:00');
-    const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
-    sh+=`<div class="ds">
-      <div class="dsh" onclick="toggleDay('${date}')">
-        <div class="dsd">${lb}</div>
-        <div class="dss"><div class="dst t">${dt.toFixed(1)}t</div><div class="dst c">${rs.length}vj · ${filas.length}c</div></div>
-      </div>
-      <div class="dsb" id="day-${date}">
-        <table class="dtbl" style="margin-top:8px">
-          <thead><tr><th>Placa</th><th>Concepto</th><th>Cuerpo</th><th>#</th><th>Ton</th><th>Esp.r</th><th>m³fav</th><th>P°/T°</th></tr></thead>
-          <tbody>
-          ${filas.map(f=>`<tr>
-            <td>${f.r.placas}</td>
-            <td style="font-size:10px;color:var(--gold);font-weight:600">${f.label}</td>
-            <td style="font-size:10px;color:var(--muted)">${f.carril||'—'}</td>
-            <td>${f.r.num_viaje_dia||'—'}</td>
-            <td>${f.ton.toFixed(1)}</td>
-            <td>${(f.esp_real*100).toFixed(2)}</td>
-            <td class="${f.gp==='GANANCIA'?'G':'P'}">${f.m3_fav>=0?'+':''}${f.m3_fav.toFixed(3)}</td>
-            <td style="color:var(--muted);font-size:10px">${f.r.temp_produccion||'—'}/${f.r.temp_tendido||'—'}</td>
-          </tr>`).join('')}
-          <tr style="border-top:1px solid var(--gold)">
-            <td>TOT</td><td>—</td><td>—</td><td>${rs.length}</td><td>${dt.toFixed(1)}</td><td>—</td>
-            <td class="${df>=0?'G':'P'}">${df>=0?'+':''}${df.toFixed(3)}</td><td>—</td>
-          </tr>
-          </tbody>
-        </table>
-      </div>
-    </div>`;
-  });
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
+  const selD=(_repDias instanceof Set && _repDias.size)?_repDias:new Set(fechas);
+  const todosD=selD.size===fechas.length;
+  const selC=_repColsSel();
+  const cols=REP_COLS.filter(c=>selC.has(c.k));
+  const rows=_repRows();
+  const cb='padding:5px 11px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord);white-space:nowrap';
+  const chipsDia=fechas.map(f=>{ const on=selD.has(f); return `<button onclick="repSetDia('${f}')" style="${cb};background:${on?'var(--gold)':'var(--bg)'};color:${on?'#1a1a1a':'var(--txt)'};border-color:${on?'var(--gold)':'var(--bord)'}">${f.split('-').reverse().join('/').slice(0,5)}</button>`; }).join('');
+  const chipsCol=REP_COLS.map(c=>{ const on=selC.has(c.k); return `<button onclick="repToggleCol('${c.k}')" style="padding:4px 9px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${on?'var(--blue)':'var(--bord)'};background:${on?'var(--blue)':'var(--bg)'};color:${on?'#fff':'var(--muted)'}">${on?'✓ ':''}${c.t}</button>`; }).join('');
+  let th=cols.map(c=>`<th>${c.t}</th>`).join('');
+  let body='';
+  rows.forEach(r=>{ body+='<tr>'+cols.map(c=>`<td>${_repCell(c,r[c.k])}</td>`).join('')+'</tr>'; });
+  const sumCols=cols.filter(c=>c.sum);
+  let totRow='';
+  if(sumCols.length){
+    totRow='<tr class="tot-row">'+cols.map((c,i)=>{ if(i===0) return '<td>TOTAL</td>'; if(c.sum){ const s=rows.reduce((a,r)=>a+(+r[c.k]||0),0); return `<td>${s.toFixed(c.d)}</td>`; } return '<td>—</td>'; }).join('')+'</tr>';
+  }
   dc.innerHTML=`
-    <div class="kg">
-      <div class="kc ac"><div class="kl">Ton totales</div><div class="kv">${tt.toFixed(1)}</div><div class="ks">${records.length} viajes</div></div>
-      <div class="kc gr"><div class="kl">m³ a favor</div><div class="kv">${tf>=0?'+':''}${tf.toFixed(2)}</div><div class="ks">${(ng/nTot*100).toFixed(0)}% ganancia</div></div>
-      <div class="kc"><div class="kl">Área m²</div><div class="kv">${(ta/1000).toFixed(1)}k</div><div class="ks">${(ta/8000*100).toFixed(1)}% meta</div></div>
-      <div class="kc"><div class="kl">Volumen m³</div><div class="kv">${tv.toFixed(1)}</div><div class="ks">cat: ${CATALOGO_E7.filter(c=>c.id!=='OTRO').reduce((s,c)=>s+c.cantidad,0)} m³</div></div>
+    <div style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+        <span style="font-weight:700;color:var(--gold);font-size:12px">📅 Días:</span>
+        <button onclick="repTodos()" style="${cb};background:${todosD?'var(--blue)':'var(--bg)'};color:${todosD?'#fff':'var(--txt)'};border-color:${todosD?'var(--blue)':'var(--bord)'}">📋 Todos</button>
+        ${chipsDia}
+      </div>
+      <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:8px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+          <span style="font-weight:700;color:var(--blue);font-size:12px">📋 Columnas:</span>
+          <button onclick="repColsPreset('generador')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Generador</button>
+          <button onclick="repColsPreset('pago')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Pago camiones</button>
+          <button onclick="repColsPreset('volumen')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Volumen</button>
+          <button onclick="repColsPreset('todo')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Todas</button>
+          <button onclick="repColsPreset('')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Reset</button>
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${chipsCol}</div>
+      </div>
+      <span style="color:var(--muted);font-size:11px">${rows.length} fila(s) · ${cols.length} columna(s) · cadenamientos en 0+000.00</span>
     </div>
-    ${renderFisicoFinanciero()}
-    ${sh}
-    <div class="er">
-      <button class="be" onclick="exportCSV()">📥 CSV completo</button>
+    <div style="overflow:auto;border:1px solid var(--bord);border-radius:10px;max-height:50vh">
+      <table class="dtbl" style="font-size:11px"><thead><tr>${th}</tr></thead><tbody>${body}${totRow}</tbody></table>
+    </div>
+    <div class="er" style="margin-top:10px">
+      <button class="be" onclick="exportReporteUniversal()" style="border-color:var(--gold);color:var(--gold);font-weight:700">📥 Exportar Excel (columnas elegidas)</button>
+    </div>
+    <div class="er" style="margin-top:6px;border-top:1px solid var(--bord);padding-top:8px">
+      <button class="be full" id="btnRecalc" onclick="recalcularTodos()" style="border-color:var(--gold);color:var(--gold)">🔄 Recalcular TODOS los viajes</button>
       <button class="be danger" onclick="confirmClear()">🗑 Limpiar todo</button>
-      <button class="be full" id="btnRecalc" onclick="recalcularTodos()" style="border-color:var(--gold);color:var(--gold);margin-top:4px">🔄 Recalcular TODOS los viajes con fórmula correcta</button>
     </div>`;
 }
+window.exportReporteUniversal=function(){
+  if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel; revisa tu conexión','err'); return; }
+  const selC=_repColsSel(); const cols=REP_COLS.filter(c=>selC.has(c.k));
+  if(!cols.length){ toast('Elige al menos una columna','err'); return; }
+  const rows=_repRows();
+  if(!rows.length){ toast('Sin datos en los días elegidos','err'); return; }
+  const aoa=[cols.map(c=>c.t)];
+  rows.forEach(r=>aoa.push(cols.map(c=>{
+    const val=r[c.k];
+    if(c.cad) return (val!=null&&val!=='')?fmtCad(val):'';
+    if(c.d!=null) return (val!=null&&val!==''&&!isNaN(+val))?+(+val).toFixed(c.d):'';
+    return val!=null?val:'';
+  })));
+  const n=rows.length;
+  aoa.push(cols.map((c,i)=>i===0?'TOTAL':(c.sum?0:'')));
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  cols.forEach((c,ci)=>{ if(c.sum){ const L=XLSX.utils.encode_col(ci); ws[L+(n+2)]={t:'n',f:`SUM(${L}2:${L}${n+1})`}; } });
+  ws['!cols']=cols.map(c=>({wch:c.cad?12:(c.d!=null?10:14)}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Reporte');
+  const dias=[...new Set(rows.map(r=>r.fecha))].sort();
+  const fn=dias.length===1?dias[0]:(dias[0]+'_a_'+dias[dias.length-1]);
+  XLSX.writeFile(wb,`REPORTE_039_${fn}.xlsx`);
+  toast('Reporte exportado · '+rows.length+' filas · '+cols.length+' col.','ok');
+};
 
 window.toggleDay=function(d){ document.getElementById('day-'+d)?.classList.toggle('open'); };
 
