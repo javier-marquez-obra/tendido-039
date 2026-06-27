@@ -3075,15 +3075,25 @@ const REP_COLS=[
 ];
 const REP_DEFAULT=['fecha','concepto','carril','dekm','akm','ml','ancho','esp','area','vol','ton'];
 let _repDias=null; // null=todos · Set de fechas
-function _repColsSel(){
+function _repColsArr(){
   let s; try{ s=JSON.parse(localStorage.getItem('t039_rep_cols')||'null'); }catch(e){ s=null; }
   if(!Array.isArray(s)||!s.length) s=REP_DEFAULT.slice();
-  return new Set(s);
+  const valid=new Set(REP_COLS.map(c=>c.k)), seen=new Set(), out=[];
+  s.forEach(k=>{ if(valid.has(k)&&!seen.has(k)){ seen.add(k); out.push(k); } });
+  return out.length?out:['concepto'];
 }
+function _repColsSel(){ return new Set(_repColsArr()); }
 window.repToggleCol=function(k){
-  const s=_repColsSel(); if(s.has(k)) s.delete(k); else s.add(k);
-  if(s.size===0) s.add('concepto');
-  localStorage.setItem('t039_rep_cols',JSON.stringify([...s])); renderReporte();
+  let a=_repColsArr(); const i=a.indexOf(k);
+  if(i>=0) a.splice(i,1); else a.push(k);
+  if(a.length===0) a=['concepto'];
+  localStorage.setItem('t039_rep_cols',JSON.stringify(a)); renderReporte();
+};
+window.repMoveCol=function(k,dir){
+  const a=_repColsArr(), i=a.indexOf(k); if(i<0) return;
+  const j=i+dir; if(j<0||j>=a.length) return;
+  [a[i],a[j]]=[a[j],a[i]];
+  localStorage.setItem('t039_rep_cols',JSON.stringify(a)); renderReporte();
 };
 window.repColsPreset=function(p){
   let s;
@@ -3135,12 +3145,25 @@ function renderReporte() {
   const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
   const selD=(_repDias instanceof Set && _repDias.size)?_repDias:new Set(fechas);
   const todosD=selD.size===fechas.length;
-  const selC=_repColsSel();
-  const cols=REP_COLS.filter(c=>selC.has(c.k));
+  const colArr=_repColsArr();
+  const selC=new Set(colArr);
+  const cols=colArr.map(k=>REP_COLS.find(c=>c.k===k)).filter(Boolean);
   const rows=_repRows();
   const cb='padding:5px 11px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord);white-space:nowrap';
   const chipsDia=fechas.map(f=>{ const on=selD.has(f); return `<button onclick="repSetDia('${f}')" style="${cb};background:${on?'var(--gold)':'var(--bg)'};color:${on?'#1a1a1a':'var(--txt)'};border-color:${on?'var(--gold)':'var(--bord)'}">${f.split('-').reverse().join('/').slice(0,5)}</button>`; }).join('');
-  const chipsCol=REP_COLS.map(c=>{ const on=selC.has(c.k); return `<button onclick="repToggleCol('${c.k}')" style="padding:4px 9px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${on?'var(--blue)':'var(--bord)'};background:${on?'var(--blue)':'var(--bg)'};color:${on?'#fff':'var(--muted)'}">${on?'✓ ':''}${c.t}</button>`; }).join('');
+  const colMap=Object.fromEntries(REP_COLS.map(c=>[c.k,c.t]));
+  const chipsSel=colArr.map((k,idx)=>{
+    const t=colMap[k]||k;
+    const lft = idx===0 ? 'opacity:.25;pointer-events:none' : '';
+    const rgt = idx===colArr.length-1 ? 'opacity:.25;pointer-events:none' : '';
+    return `<span style="display:inline-flex;align-items:center;gap:1px;border:1px solid var(--blue);background:var(--blue);color:#fff;border-radius:7px;padding:2px 3px;font-size:11px;font-weight:600;white-space:nowrap">`+
+      `<button onclick="repMoveCol('${k}',-1)" style="background:none;border:none;color:#fff;cursor:pointer;font-size:13px;padding:0 3px;${lft}">◀</button>`+
+      `<span style="padding:0 2px">${t}</span>`+
+      `<button onclick="repMoveCol('${k}',1)" style="background:none;border:none;color:#fff;cursor:pointer;font-size:13px;padding:0 3px;${rgt}">▶</button>`+
+      `<button onclick="repToggleCol('${k}')" style="background:none;border:none;color:#ffe;cursor:pointer;font-size:12px;padding:0 3px">✕</button>`+
+    `</span>`;
+  }).join('');
+  const chipsAdd=REP_COLS.filter(c=>!selC.has(c.k)).map(c=>`<button onclick="repToggleCol('${c.k}')" style="border:1px dashed var(--bord);background:var(--bg);color:var(--muted);border-radius:7px;padding:3px 9px;font-size:11px;font-weight:600;cursor:pointer">+ ${c.t}</button>`).join('');
   let th=cols.map(c=>`<th>${c.t}</th>`).join('');
   let body='';
   rows.forEach(r=>{ body+='<tr>'+cols.map(c=>`<td>${_repCell(c,r[c.k])}</td>`).join('')+'</tr>'; });
@@ -3165,7 +3188,10 @@ function renderReporte() {
           <button onclick="repColsPreset('todo')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Todas</button>
           <button onclick="repColsPreset('')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Reset</button>
         </div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">${chipsCol}</div>
+        <div style="font-size:10px;color:var(--muted);margin:2px 0 3px">En el reporte · ordena con ◀ ▶ · quita con ✕:</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${chipsSel}</div>
+        <div style="font-size:10px;color:var(--muted);margin:2px 0 3px">Agregar columna:</div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">${chipsAdd}</div>
       </div>
       <span style="color:var(--muted);font-size:11px">${rows.length} fila(s) · ${cols.length} columna(s) · cadenamientos en 0+000.00</span>
     </div>
@@ -3182,7 +3208,7 @@ function renderReporte() {
 }
 window.exportReporteUniversal=function(){
   if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel; revisa tu conexión','err'); return; }
-  const selC=_repColsSel(); const cols=REP_COLS.filter(c=>selC.has(c.k));
+  const cols=_repColsArr().map(k=>REP_COLS.find(c=>c.k===k)).filter(Boolean);
   if(!cols.length){ toast('Elige al menos una columna','err'); return; }
   const rows=_repRows();
   if(!rows.length){ toast('Sin datos en los días elegidos','err'); return; }
