@@ -485,6 +485,9 @@ const RUTAS = {
 };
 
 const DEN=2.20, CONTRATO='2026-14-CB-D-039-W-00-2026', EMPRESA='Grupo Urbanizador Inmobiliario Yenter S.A. de C.V. y Sístole Consultoría y Obras S.A. de C.V.';
+// Volumen REAL colocado = toneladas recibidas ÷ densidad (no el geométrico área×espesor).
+// El "m³ a favor" es la diferencia geométrico − real, que se guarda aparte en r.m3_fav.
+const _volR = r => (r.ton_recibidas||0)/DEN;
 let allRecs=[], filtered=[], records=[], charts={}, rutaActual=1, filtros={obra:'all',fecha:'all'};
 
 // Secciones visibles — todas activadas por defecto
@@ -687,8 +690,9 @@ function calcExec(recs){
   recs.forEach(r=>{
     const isO2=r.kde>=247000&&r.kde<=252000;
     const et=r.esp_teorico||3.5;
-    if(isO2){if(et>=4.5)e.carp5+=r.volumen;else e.bach2+=r.volumen;}
-    else{if(et<=3.5)e.carp3+=r.volumen;else if(et>=4.8)e.bach1+=r.volumen;else e.reniv+=r.volumen;}
+    const vR=_volR(r);
+    if(isO2){if(et>=4.5)e.carp5+=vR;else e.bach2+=vR;}
+    else{if(et<=3.5)e.carp3+=vR;else if(et>=4.8)e.bach1+=vR;else e.reniv+=vR;}
   });
   return e;
 }
@@ -746,10 +750,10 @@ function buildEmulsion(recs){
 function buildTendencia(recs){
   if(!recs.length) return '';
   const bd={};
-  recs.forEach(r=>{ if(!r.fecha) return; if(!bd[r.fecha]) bd[r.fecha]={vol:0,ton:0}; bd[r.fecha].vol+=(r.volumen||0); bd[r.fecha].ton+=(r.ton_recibidas||0); });
+  recs.forEach(r=>{ if(!r.fecha) return; if(!bd[r.fecha]) bd[r.fecha]={vol:0,ton:0}; bd[r.fecha].vol+=_volR(r); bd[r.fecha].ton+=(r.ton_recibidas||0); });
   const dias=Object.keys(bd).sort();
   const nReal=dias.length;
-  const volAcum=recs.reduce((s,r)=>s+(r.volumen||0),0);
+  const volAcum=recs.reduce((s,r)=>s+_volR(r),0);
   const tonAcum=recs.reduce((s,r)=>s+(r.ton_recibidas||0),0);
   if(nReal===0||volAcum<=0) return '';
   const volProm=volAcum/nReal, tonProm=tonAcum/nReal;
@@ -944,7 +948,8 @@ function _realPorMes(recs, PER){
     let idx=PER.findIndex(p=>dia<=p.dia); if(idx<0)idx=n-1; if(dia<1)idx=0;
     const isO2=r.kde>=247000&&r.kde<=252000, et=r.esp_teorico||3.5;
     let key; if(isO2){key=et>=4.5?'carp5':'bach2';} else {key=et<=3.5?'carp3':(et>=4.8?'bach1':'reniv');}
-    bk[idx].vol+=r.volumen||0; bk[idx].fin+=(r.volumen||0)*CAT[key].pu;
+    const vR=_volR(r);
+    bk[idx].vol+=vR; bk[idx].fin+=vR*CAT[key].pu;
   });
   return bk;
 }
@@ -1452,9 +1457,9 @@ function render(){
 
   const tonHoy=hoyR.reduce((s,r)=>s+r.ton_recibidas,0);
   const tonAyer=ayerR.reduce((s,r)=>s+r.ton_recibidas,0);
-  const volHoy=hoyR.reduce((s,r)=>s+r.volumen,0);
+  const volHoy=hoyR.reduce((s,r)=>s+_volR(r),0);
   const tonAcum=filtered.reduce((s,r)=>s+r.ton_recibidas,0);
-  const volAcum=filtered.reduce((s,r)=>s+r.volumen,0);
+  const volAcum=filtered.reduce((s,r)=>s+_volR(r),0);
   const areaAcum=filtered.reduce((s,r)=>s+r.area,0);
   const longAcum=filtered.reduce((s,r)=>s+r.longitud,0);
   const m3FavAcum=filtered.reduce((s,r)=>s+r.m3_fav,0);
@@ -1466,7 +1471,7 @@ function render(){
 
   // By date for charts
   const byDate={};
-  filtered.forEach(r=>{if(!byDate[r.fecha])byDate[r.fecha]={ton:0,vol:0,vj:0,area:0};byDate[r.fecha].ton+=r.ton_recibidas;byDate[r.fecha].vol+=r.volumen;byDate[r.fecha].vj++;byDate[r.fecha].area+=r.area;});
+  filtered.forEach(r=>{if(!byDate[r.fecha])byDate[r.fecha]={ton:0,vol:0,vj:0,area:0};byDate[r.fecha].ton+=r.ton_recibidas;byDate[r.fecha].vol+=_volR(r);byDate[r.fecha].vj++;byDate[r.fecha].area+=r.area;});
   const fechas=Object.keys(byDate).sort();
   const fLabels=fechas.map(f=>{const d=new Date(f+'T12:00:00');return d.toLocaleDateString('es-MX',{day:'numeric',month:'short'});});
 
