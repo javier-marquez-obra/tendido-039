@@ -333,6 +333,7 @@ body.ppt-mode .ppt-watermark{display:block}
     <button id="sec-kpis"     onclick="toggleSec('kpis')"     class="sec-btn">📈 Producción del día</button>
     <button id="sec-emulsion" onclick="toggleSec('emulsion')" class="sec-btn">🛢️ Análisis de emulsión</button>
     <button id="sec-tendencia" onclick="toggleSec('tendencia')" class="sec-btn">📈 Tendencia de volúmenes</button>
+    <button id="sec-horarios" onclick="toggleSec('horarios')" class="sec-btn">⏱️ Horarios de tendido</button>
     <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
     <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
     <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
@@ -484,6 +485,7 @@ let secciones={
   kpis:true,
   emulsion:true,
   tendencia:true,
+  horarios:true,
   avance:true,
   financiero:true,
   programa:true,
@@ -773,6 +775,82 @@ function buildTendencia(recs){
     <div class="kpi"><span class="kpi-icon">🏁</span><div class="kpi-label">Término estimado</div><div class="kpi-value" style="font-size:18px">${fechaFin}</div><div class="kpi-sub">${faltVol.toFixed(0)} m³ · ${faltTon.toFixed(0)} ton faltan</div></div>
   </div>
   <div style="font-size:10px;color:var(--txt3);margin:-4px 0 4px;padding-left:2px">La curva de proyección al ritmo actual está integrada en la <b>Curva S</b> de abajo (programado vs real vs proyección).</div>`;
+}
+
+function buildHorarios(recs){
+  if(!recs.length) return '';
+  const dur=r=> +r.duracion_descarga_min;
+  const conDur=recs.filter(r=> r.duracion_descarga_min!=null && r.duracion_descarga_min!=='' && +r.duracion_descarga_min>0);
+  if(!conDur.length) return `<div class="section-hdr">⏱️ Horarios de tendido y tiempo de descarga</div>
+    <div class="card"><div class="card-body" style="padding:18px;text-align:center;color:var(--txt3);font-size:13px">Aún no hay viajes con hora de descarga registrada en los días filtrados.<br>En la app de captura usa <b>▶ Inicia</b> / <b>⏹ Termina</b> al descargar cada camión.</div></div>`;
+  const hhmm=s=>(s||'').slice(0,5);
+  const totalN=conDur.length;
+  const durProm=conDur.reduce((s,r)=>s+dur(r),0)/totalN;
+  const durMin=Math.min(...conDur.map(dur)), durMax=Math.max(...conDur.map(dur));
+  // por día (promedio)
+  const bd={}; conDur.forEach(r=>{ const f=r.fecha; if(!bd[f])bd[f]={sum:0,n:0}; bd[f].sum+=dur(r); bd[f].n++; });
+  const dias=Object.keys(bd).sort();
+  const promDia=dias.map(f=>bd[f].sum/bd[f].n);
+  // tendencia: primer tercio vs último tercio
+  let tendTxt='—', tendCol='var(--txt3)';
+  if(dias.length>=2){ const k=Math.max(1,Math.floor(dias.length/3));
+    const ini=promDia.slice(0,k).reduce((a,b)=>a+b,0)/k;
+    const fin=promDia.slice(-k).reduce((a,b)=>a+b,0)/k;
+    const dif=fin-ini;
+    if(Math.abs(dif)<0.5){ tendTxt='estable'; tendCol='var(--txt3)'; }
+    else if(dif<0){ tendTxt=`↓ mejorando ${Math.abs(dif).toFixed(1)} min`; tendCol='var(--green)'; }
+    else { tendTxt=`↑ subiendo ${dif.toFixed(1)} min`; tendCol='var(--red)'; }
+  }
+  // por camión
+  const bc={}; conDur.forEach(r=>{ const p=r.placas||'—'; if(!bc[p])bc[p]={sum:0,n:0,min:1e9,max:0}; bc[p].sum+=dur(r); bc[p].n++; bc[p].min=Math.min(bc[p].min,dur(r)); bc[p].max=Math.max(bc[p].max,dur(r)); });
+  const cams=Object.keys(bc).sort((a,b)=>(bc[a].sum/bc[a].n)-(bc[b].sum/bc[b].n));
+  const camAgil=cams[0], camLento=cams[cams.length-1];
+  const colDur=v=> v<=durProm?'var(--green)':(v>durProm*1.3?'var(--red)':'var(--gold)');
+  // gráfico línea: duración promedio por día
+  const W=700,H=200,pL=44,pB=32,pT=14,pR=12,cw=W-pL-pR,ch=H-pT-pB,n=dias.length;
+  const maxY=Math.max(...promDia,durProm)*1.15||1;
+  const X=i=>pL+(n<=1?cw/2:cw*i/(n-1));
+  const Y=v=>pT+ch-(v/maxY*ch);
+  let yr='';
+  for(let g=0;g<=3;g++){ const v=maxY*g/3,y=Y(v); yr+=`<line x1="${pL}" y1="${y.toFixed(1)}" x2="${W-pR}" y2="${y.toFixed(1)}" stroke="var(--gray2)"/><text x="${pL-6}" y="${(y+3).toFixed(1)}" font-size="9" fill="var(--txt3)" text-anchor="end">${v.toFixed(0)}</text>`; }
+  const pts=promDia.map((v,i)=>[X(i),Y(v)]);
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const prY=Y(durProm);
+  let dots='',xl='';
+  const step=Math.max(1,Math.ceil(n/14));
+  dias.forEach((f,i)=>{ const p=pts[i];
+    dots+=`<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3.4" fill="var(--blue)" stroke="var(--white)" stroke-width="1.5"/>`;
+    if(n<=14) dots+=`<text x="${p[0].toFixed(1)}" y="${(p[1]-7).toFixed(1)}" font-size="9" fill="var(--blue)" text-anchor="middle" font-weight="700">${promDia[i].toFixed(0)}</text>`;
+    if(i%step===0||i===n-1) xl+=`<text x="${p[0].toFixed(1)}" y="${(H-pB+14).toFixed(1)}" font-size="9" fill="var(--txt3)" text-anchor="middle">${f.slice(8,10)}/${f.slice(5,7)}</text>`;
+  });
+  const svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block;font-family:'Inter',sans-serif">${yr}
+    <line x1="${pL}" y1="${prY.toFixed(1)}" x2="${W-pR}" y2="${prY.toFixed(1)}" stroke="var(--gold)" stroke-width="1.3" stroke-dasharray="4 4"/>
+    <text x="${(W-pR).toFixed(1)}" y="${(prY-4).toFixed(1)}" font-size="9" fill="var(--gold)" text-anchor="end">prom ${durProm.toFixed(0)} min</text>
+    <path d="${line}" fill="none" stroke="var(--blue)" stroke-width="2.5"/>${dots}${xl}</svg>`;
+  // tabla por camión
+  let filasCam='';
+  cams.forEach(p=>{ const c=bc[p],prom=c.sum/c.n;
+    filasCam+=`<tr><td style="font-family:'JetBrains Mono',monospace;font-weight:700">${p}</td><td style="text-align:right">${c.n}</td><td style="text-align:right;color:${colDur(prom)};font-weight:700">${prom.toFixed(1)}</td><td style="text-align:right">${c.min}</td><td style="text-align:right">${c.max}</td></tr>`; });
+  // detalle por día/camión (orden fecha + hora inicio)
+  const det=conDur.slice().sort((a,b)=> (a.fecha||'').localeCompare(b.fecha||'') || (a.hora_inicio_tendido||'').localeCompare(b.hora_inicio_tendido||''));
+  let filasDet='';
+  det.forEach(r=>{ const lb=new Date(r.fecha+'T12:00:00').toLocaleDateString('es-MX',{day:'2-digit',month:'short'});
+    filasDet+=`<tr><td>${lb}</td><td style="font-family:'JetBrains Mono',monospace">${r.placas||'—'}</td><td style="text-align:center">${hhmm(r.hora_inicio_tendido)||'—'}</td><td style="text-align:center">${hhmm(r.hora_fin_tendido)||'—'}</td><td style="text-align:right;color:${colDur(dur(r))};font-weight:700">${dur(r)}</td></tr>`; });
+  return `<div class="section-hdr">⏱️ Horarios de tendido y tiempo de descarga</div>
+  <div class="kpi-grid">
+    <div class="kpi blue"><span class="kpi-icon">⏱️</span><div class="kpi-label">Descarga promedio</div><div class="kpi-value">${durProm.toFixed(1)}</div><div class="kpi-sub">min · ${totalN} viajes con hora</div></div>
+    <div class="kpi green"><span class="kpi-icon">⚡</span><div class="kpi-label">Camión más ágil</div><div class="kpi-value" style="font-size:16px;font-family:'JetBrains Mono',monospace">${camAgil}</div><div class="kpi-sub">${(bc[camAgil].sum/bc[camAgil].n).toFixed(1)} min prom</div></div>
+    <div class="kpi ${camLento!==camAgil?'red':'green'}"><span class="kpi-icon">🐢</span><div class="kpi-label">Mayor tiempo</div><div class="kpi-value" style="font-size:16px;font-family:'JetBrains Mono',monospace">${camLento}</div><div class="kpi-sub">${(bc[camLento].sum/bc[camLento].n).toFixed(1)} min prom</div></div>
+    <div class="kpi gold"><span class="kpi-icon">📉</span><div class="kpi-label">Tendencia del tiempo</div><div class="kpi-value" style="font-size:15px;color:${tendCol}">${tendTxt}</div><div class="kpi-sub">rango ${durMin}–${durMax} min</div></div>
+  </div>
+  <div class="card"><div class="card-hdr"><h4>⏱️ Tendencia del tiempo de descarga por día (min)</h4><div class="meta" style="color:${tendCol}">${tendTxt}</div></div>
+    <div class="card-body" style="padding:12px 8px">${svg}
+      <div style="font-size:11px;color:var(--txt3);margin-top:4px;padding:0 6px">Línea azul = promedio de descarga del día · línea dorada = promedio general. Si baja, el equipo descarga más rápido.</div>
+    </div></div>
+  <div class="two-col">
+    <div class="card"><div class="card-hdr"><h4>🚛 Tiempo de descarga por camión</h4></div><div class="card-body" style="padding:4px"><div style="overflow-x:auto"><table><thead><tr><th>CAMIÓN</th><th style="text-align:right">VIAJES</th><th style="text-align:right">PROM min</th><th style="text-align:right">MÍN</th><th style="text-align:right">MÁX</th></tr></thead><tbody>${filasCam}</tbody></table></div></div></div>
+    <div class="card"><div class="card-hdr"><h4>📋 Detalle por camión y día</h4><div class="meta">${det.length} viajes</div></div><div class="card-body" style="padding:4px"><div style="max-height:340px;overflow-y:auto"><table><thead><tr><th>DÍA</th><th>CAMIÓN</th><th style="text-align:center">INICIO</th><th style="text-align:center">FIN</th><th style="text-align:right">MIN</th></tr></thead><tbody>${filasDet}</tbody></table></div></div></div>
+  </div>`;
 }
 
 function buildFinanciero(exec){
@@ -1431,6 +1509,9 @@ function render(){
 
   <!-- ANÁLISIS DE TENDENCIA -->
   ${secciones.tendencia ? buildTendencia(filtered) : ''}
+
+  <!-- ANÁLISIS DE HORARIOS DE TENDIDO -->
+  ${secciones.horarios ? buildHorarios(filtered) : ''}
 
   <!-- FÍSICO-FINANCIERO -->
   ${secciones.financiero ? buildFinanciero(exec) : ''}
