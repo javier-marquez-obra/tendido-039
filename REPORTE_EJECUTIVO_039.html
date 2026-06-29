@@ -317,13 +317,21 @@ body.ppt-mode .ppt-watermark{display:block}
   <button class="f-chip active" id="fc-all" onclick="setFilter('obra','all',this)">Toda la obra</button>
   <button class="f-chip" id="fc-o1" onclick="setFilter('obra','obra1',this)">Obra 1 · MEX-200</button>
   <button class="f-chip" id="fc-o2" onclick="setFilter('obra','obra2',this)">Obra 2 · MEX-80</button>
-  <span class="f-label" style="margin-left:8px">Fechas:</span>
-  <span id="filtFechas" style="display:inline-flex;flex-wrap:wrap;gap:3px;vertical-align:middle"></span>
+  <button class="f-chip" id="btnFechas" onclick="toggleFechaPanel()" style="margin-left:8px;border-color:#60a5fa;color:var(--blue)">📅 Fechas</button>
   <span class="f-label" style="margin-left:8px">Ruta:</span>
   <button class="f-chip active" id="fr-1" onclick="setRuta(1,this)">Provisional</button>
   <button class="f-chip" id="fr-2" onclick="setRuta(2,this)">Libramiento</button>
   <button class="f-chip" onclick="toggleSecciones()" style="margin-left:8px;border-color:#a78bfa;color:#7c3aed">⚙️ Secciones</button>
   <span class="f-time" id="lastTime">—</span>
+</div>
+
+<!-- PANEL DE FECHAS -->
+<div id="fechaPanel" style="display:none;background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">Selecciona uno o varios días para filtrar:</span>
+    <span id="fechaResumen" style="font-size:11px;color:var(--txt3)"></span>
+  </div>
+  <div id="filtFechas" style="display:flex;flex-wrap:wrap;gap:6px"></div>
 </div>
 
 <!-- PANEL DE SECCIONES -->
@@ -593,7 +601,26 @@ function buildFechaFilter(){
     html+=chip(on,`toggleFechaFiltro('${f}')`,lb);
   });
   cont.innerHTML=html;
+  // Etiqueta del botón + resumen según selección
+  const nSel=Array.isArray(sel)?sel.length:0;
+  const btn=document.getElementById('btnFechas');
+  if(btn){
+    btn.innerHTML = todas ? '📅 Fechas' : `📅 Fechas · ${nSel}`;
+    btn.classList.toggle('active', !todas);
+  }
+  const res=document.getElementById('fechaResumen');
+  if(res){
+    if(todas) res.textContent=`Mostrando todos los días (${fechas.length})`;
+    else {
+      const ord=sel.slice().sort((a,b)=>a.localeCompare(b)).map(f=>new Date(f+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'}));
+      res.textContent=`${nSel} día(s): ${ord.join(', ')}`;
+    }
+  }
 }
+window.toggleFechaPanel=function(){
+  const p=document.getElementById('fechaPanel');
+  if(p) p.style.display = p.style.display==='none' ? 'block' : 'none';
+};
 window.setFechasTodas=function(){ filtros.fecha='all'; buildFechaFilter(); applyFilters(); };
 window.toggleFechaFiltro=function(f){
   if(!Array.isArray(filtros.fecha)) filtros.fecha=[];
