@@ -982,7 +982,7 @@ function buildAvanceProgramado(recs){
 
   // Guardar para dibujar las curvas tras insertar el DOM
   _sdata={labels:PER.map(m=>m.label),progVol,realVol,progFin,realFin,cur,TOT_VOL,TOT_FIN,progM,realM,
-    diaHoy,perDias:PER.map(p=>p.dia),perFin:PER.map(p=>p.fin),ratioFV:(TOT_VOL>0?TOT_FIN/TOT_VOL:0)};
+    diaHoy,perDias:PER.map(p=>p.dia),perFin:PER.map(p=>p.fin),perDur:PER.map((p,i)=>p.dia-(i>0?PER[i-1].dia:0)),ratioFV:(TOT_VOL>0?TOT_FIN/TOT_VOL:0)};
 
   // Seccionador de granularidad
   const selBtns=['dia','semana','quincena','mes'].map(g=>`<button class="gran-btn${g===_sGran?' on':''}" onclick="setGran('${g}')">${_granLabel[g]}</button>`).join('');
@@ -1060,15 +1060,27 @@ function buildAvanceProgramado(recs){
     <div class="card-hdr"><h4>📋 Programación de obra — tu plan por periodo (línea cian)</h4>
       <button class="zoom-btn" onclick="togglePlanTabla()" style="font-size:11px">▼ Mostrar/ocultar</button></div>
     <div id="planTablaBody" class="card-body" style="padding:12px;display:none">
+      <div style="padding:10px;background:var(--surf);border-radius:8px;border:1px solid var(--gray2);margin-bottom:10px;font-size:12px;color:var(--txt2)">
+        📌 Para la meta de <b>${TOT_VOL} m³</b> en <b>${PLAZO_DIAS} días</b> necesitas colocar en promedio:
+        <b style="color:#0891b2">${(TOT_VOL/PLAZO_DIAS).toFixed(1)} m³/día</b> ·
+        <b style="color:#0891b2">${(TOT_VOL/PLAZO_DIAS*7).toFixed(0)} m³/semana</b> ·
+        <b style="color:#0891b2">${(TOT_VOL/PLAZO_DIAS*DEN).toFixed(1)} ton/día</b>.
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
-        <span style="font-size:11px;color:var(--txt3)">Captura el <b>volumen meta (m³)</b> que planeas tender en cada periodo. La granularidad (día/semana/quincena) se cambia con los botones de arriba. Tu plan se guarda en este dispositivo.</span>
+        <span style="font-size:11px;color:var(--txt3)">Escribe el <b>volumen meta (m³)</b> de cada periodo (o usa el botón para llenar lo necesario). La columna <b style="color:#0891b2">NECESARIO</b> te dice cuánto colocar para ir parejo a la meta; <b>TU CAPTURA</b> te traduce lo que escribes a m³/día y toneladas. Cambia la granularidad con los botones de arriba. Se guarda en este dispositivo.</span>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-        <button onclick="distribuirPlan()" class="zoom-btn" style="font-size:11px;border-color:#0891b2;color:#0891b2">↔ Repartir parejo a la meta (${TOT_VOL} m³)</button>
+        <button onclick="distribuirPlan()" class="zoom-btn" style="font-size:11px;border-color:#0891b2;color:#0891b2">↔ Llenar con lo necesario (meta ${TOT_VOL} m³)</button>
         <button onclick="resetPlan()" class="zoom-btn" style="font-size:11px">🗑 Limpiar plan</button>
       </div>
-      <div style="max-height:300px;overflow-y:auto"><table class="rep-sticky"><thead><tr><th>PERIODO</th><th style="text-align:center">META m³</th><th style="text-align:right">ACUMULADO</th></tr></thead><tbody>
-        ${PER.map((p,i)=>`<tr><td style="white-space:nowrap">${p.label}</td><td style="text-align:center"><input type="number" min="0" step="1" value="${_sPlan[p.fin]||''}" onchange="setPlanPeriodo('${p.fin}',this.value)" style="width:84px;padding:4px 6px;border:1px solid var(--gray4);border-radius:5px;background:var(--white);color:var(--txt);font-size:12px;text-align:right"></td><td id="plan-ac-${i}" style="text-align:right;color:var(--txt3);font-size:11px">—</td></tr>`).join('')}
+      <div style="max-height:320px;overflow-y:auto"><table class="rep-sticky"><thead><tr><th>PERIODO</th><th style="text-align:right">NECESARIO</th><th style="text-align:center">META m³</th><th style="text-align:right">TU CAPTURA</th><th style="text-align:right">ACUM</th></tr></thead><tbody>
+        ${PER.map((p,i)=>{ const dPer=p.dia-(i>0?PER[i-1].dia:0); const nec=TOT_VOL*dPer/PLAZO_DIAS;
+          return `<tr><td style="white-space:nowrap">${p.label}<br><span style="font-size:9px;color:var(--txt3)">${dPer} día(s)</span></td>`+
+          `<td style="text-align:right;color:#0891b2;font-size:11px;font-weight:700">${nec.toFixed(0)}<br><span style="font-weight:400">${(nec/dPer).toFixed(1)}/d</span></td>`+
+          `<td style="text-align:center"><input type="number" min="0" step="1" value="${_sPlan[p.fin]||''}" onchange="setPlanPeriodo('${p.fin}',this.value)" style="width:82px;padding:4px 6px;border:1px solid var(--gray4);border-radius:5px;background:var(--white);color:var(--txt);font-size:12px;text-align:right"></td>`+
+          `<td id="plan-md-${i}" style="text-align:right;font-size:11px;color:var(--txt3)">—</td>`+
+          `<td id="plan-ac-${i}" style="text-align:right;font-size:11px;color:var(--txt3)">—</td></tr>`;
+        }).join('')}
       </tbody></table></div>
       <div id="planStatus" style="margin-top:10px;font-size:12px;color:var(--txt2)">Captura el volumen meta por periodo para ver tu línea de plan.</div>
     </div>
@@ -1332,8 +1344,13 @@ window.setPlanPeriodo=function(fin,v){
 function refreshPlanTabla(){
   const d=_sdata; if(!d||!d.perFin) return;
   let ac=0;
-  d.perFin.forEach((f,i)=>{ ac+=(+_sPlan[f]||0); const e=document.getElementById('plan-ac-'+i);
-    if(e) e.textContent = ac>0 ? `${ac.toFixed(0)} (${Math.min(ac/d.TOT_VOL*100,100).toFixed(0)}%)` : '—'; });
+  d.perFin.forEach((f,i)=>{ const v=+_sPlan[f]||0; ac+=v;
+    const dPer=(d.perDur&&d.perDur[i])||1;
+    const md=document.getElementById('plan-md-'+i);
+    if(md) md.innerHTML = v>0 ? `<b style="color:var(--txt2)">${(v/dPer).toFixed(1)}</b> m³/d<br>${(v*DEN).toFixed(0)} ton` : '—';
+    const e=document.getElementById('plan-ac-'+i);
+    if(e) e.textContent = ac>0 ? `${ac.toFixed(0)} (${Math.min(ac/d.TOT_VOL*100,100).toFixed(0)}%)` : '—';
+  });
   const ps=_planSerie(), st=document.getElementById('planStatus');
   if(st){
     if(ps&&ps.hasAny) st.innerHTML=`Plan total: <b>${ps.total.toFixed(0)} m³</b> de ${d.TOT_VOL} · terminas <b style="color:#0891b2">${ps.finFecha}</b> · cobro <b>${_fmtMXNc(ps.cobro)}</b> ${ps.finDia!=null?`<span style="color:${ps.onTime?'var(--green)':'var(--red)'}">(${ps.onTime?'dentro del plazo':'fuera del plazo'})</span>`:'<span style="color:var(--gold)">(aún no suma la meta)</span>'}`;
