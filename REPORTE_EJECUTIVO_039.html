@@ -131,6 +131,7 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .s-leyenda .li.real{border-color:#1d4ed8}
 .s-leyenda .li.proj{border-top-style:dashed;border-color:#d97706}
 .s-leyenda .li.repro{border-top-style:dashed;border-color:#7c3aed}
+.s-leyenda .li.plan{border-top-style:dashed;border-color:#0891b2}
 .sln-btn{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:20px;border:1px solid var(--gray4);background:var(--white);color:var(--txt2);font-size:12px;font-weight:700;cursor:pointer;transition:.12s}
 .sln-btn .sln-c{width:11px;height:11px;border-radius:50%;flex:none}
 .sln-btn.off{opacity:.4;background:var(--gray3);text-decoration:line-through}
@@ -440,8 +441,10 @@ function _periodos(gran){
 }
 const TOT_FIN = Object.keys(CAT).reduce((s,k)=>s+CAT[k].pu*CAT[k].vol,0); // 23,627,283 (pavimentos)
 let _sdata = null; // datos para las curvas S (se llenan en buildAvanceProgramado)
-let _sVis={prog:true,real:true,proj:true,repro:false}; // líneas visibles en Curva S
+let _sVis={prog:true,real:true,proj:true,repro:false,plan:false}; // líneas visibles en Curva S
 let _sVolDia=null; // m³/día reprogramado; null = auto (lo necesario para terminar a tiempo)
+// Plan de obra del superintendente: volumen meta por periodo {fechaFinISO: m³}. Editable a mano, persiste.
+let _sPlan={}; try{ _sPlan=JSON.parse(localStorage.getItem('rep039_plan')||'{}')||{}; }catch(e){ _sPlan={}; }
 
 // ── RUTAS ──
 // Planta: km 10 MEX-80 San Patricio (19.225°N, 104.701°W)
@@ -979,7 +982,7 @@ function buildAvanceProgramado(recs){
 
   // Guardar para dibujar las curvas tras insertar el DOM
   _sdata={labels:PER.map(m=>m.label),progVol,realVol,progFin,realFin,cur,TOT_VOL,TOT_FIN,progM,realM,
-    diaHoy,perDias:PER.map(p=>p.dia),ratioFV:(TOT_VOL>0?TOT_FIN/TOT_VOL:0)};
+    diaHoy,perDias:PER.map(p=>p.dia),perFin:PER.map(p=>p.fin),ratioFV:(TOT_VOL>0?TOT_FIN/TOT_VOL:0)};
 
   // Seccionador de granularidad
   const selBtns=['dia','semana','quincena','mes'].map(g=>`<button class="gran-btn${g===_sGran?' on':''}" onclick="setGran('${g}')">${_granLabel[g]}</button>`).join('');
@@ -1039,6 +1042,7 @@ function buildAvanceProgramado(recs){
         <button id="sln-real"  onclick="toggleSLine('real')"  class="sln-btn${_sVis.real?'':' off'}"><i class="sln-c" style="background:#1d4ed8"></i>Real</button>
         <button id="sln-proj"  onclick="toggleSLine('proj')"  class="sln-btn${_sVis.proj?'':' off'}"><i class="sln-c" style="background:#d97706"></i>Proyección</button>
         <button id="sln-repro" onclick="toggleSLine('repro')" class="sln-btn${_sVis.repro?'':' off'}"><i class="sln-c" style="background:#7c3aed"></i>Reprogramado</button>
+        <button id="sln-plan"  onclick="toggleSLine('plan')"  class="sln-btn${_sVis.plan?'':' off'}"><i class="sln-c" style="background:#0891b2"></i>Plan de obra</button>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px;background:var(--surf);border-radius:8px;border:1px solid var(--gray2)">
         <span style="font-size:12px;font-weight:700;color:var(--purple)">↻ Volumen diario a cumplir:</span>
@@ -1052,8 +1056,25 @@ function buildAvanceProgramado(recs){
       </div>
     </div>
   </div>
-  <div class="card"><div class="card-hdr"><h4>💵 Curva S financiera · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('fin')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSFin" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span><span><i class="li proj"></i>Proyección</span><span><i class="li repro"></i>Reprogramado</span></div></div></div>
-  <div class="card"><div class="card-hdr"><h4>📦 Curva S volumen (m³) · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('vol')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSVol" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span><span><i class="li proj"></i>Proyección</span><span><i class="li repro"></i>Reprogramado</span></div></div></div>
+  <div class="card" style="margin-bottom:0">
+    <div class="card-hdr"><h4>📋 Programación de obra — tu plan por periodo (línea cian)</h4>
+      <button class="zoom-btn" onclick="togglePlanTabla()" style="font-size:11px">▼ Mostrar/ocultar</button></div>
+    <div id="planTablaBody" class="card-body" style="padding:12px;display:none">
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px">
+        <span style="font-size:11px;color:var(--txt3)">Captura el <b>volumen meta (m³)</b> que planeas tender en cada periodo. La granularidad (día/semana/quincena) se cambia con los botones de arriba. Tu plan se guarda en este dispositivo.</span>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <button onclick="distribuirPlan()" class="zoom-btn" style="font-size:11px;border-color:#0891b2;color:#0891b2">↔ Repartir parejo a la meta (${TOT_VOL} m³)</button>
+        <button onclick="resetPlan()" class="zoom-btn" style="font-size:11px">🗑 Limpiar plan</button>
+      </div>
+      <div style="max-height:300px;overflow-y:auto"><table class="rep-sticky"><thead><tr><th>PERIODO</th><th style="text-align:center">META m³</th><th style="text-align:right">ACUMULADO</th></tr></thead><tbody>
+        ${PER.map((p,i)=>`<tr><td style="white-space:nowrap">${p.label}</td><td style="text-align:center"><input type="number" min="0" step="1" value="${_sPlan[p.fin]||''}" onchange="setPlanPeriodo('${p.fin}',this.value)" style="width:84px;padding:4px 6px;border:1px solid var(--gray4);border-radius:5px;background:var(--white);color:var(--txt);font-size:12px;text-align:right"></td><td id="plan-ac-${i}" style="text-align:right;color:var(--txt3);font-size:11px">—</td></tr>`).join('')}
+      </tbody></table></div>
+      <div id="planStatus" style="margin-top:10px;font-size:12px;color:var(--txt2)">Captura el volumen meta por periodo para ver tu línea de plan.</div>
+    </div>
+  </div>
+  <div class="card"><div class="card-hdr"><h4>💵 Curva S financiera · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('fin')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSFin" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span><span><i class="li proj"></i>Proyección</span><span><i class="li repro"></i>Reprogramado</span><span><i class="li plan"></i>Plan obra</span></div></div></div>
+  <div class="card"><div class="card-hdr"><h4>📦 Curva S volumen (m³) · programado vs real</h4><button class="zoom-btn" onclick="abrirZoom('vol')">🔍 Ampliar</button></div><div class="card-body" style="padding:12px 8px"><div id="chartSVol" style="width:100%;height:230px"></div><div class="s-leyenda"><span><i class="li prog"></i>Programado</span><span><i class="li real"></i>Real</span><span><i class="li proj"></i>Proyección</span><span><i class="li repro"></i>Reprogramado</span><span><i class="li plan"></i>Plan obra</span></div></div></div>
   <div class="card">
     <div class="card-hdr"><h4>📊 Avance financiero POR PERIODO · % del contrato ejecutado (no acumulado)</h4><button class="zoom-btn" onclick="abrirZoom('barras')">🔍 Ampliar</button></div>
     <div class="card-body" style="padding:12px 8px"><div id="chartBarras" style="width:100%;height:230px"></div><div style="font-size:10px;color:var(--gray);text-align:center;margin-top:4px">Cada barra = lo ejecutado en ESE periodo (no acumulado). El % es respecto al contrato total. Azul = real · Gris = programado.</div></div>
@@ -1065,7 +1086,7 @@ function _sCurva(elId, labels, prog, real, maxVal, cur, fmt, color, total, H, fs
   const el=document.getElementById(elId); if(!el) return;
   H=H||200; fs=fs||1; const det=!!detail;
   opts=opts||{}; const vis=opts.vis||{prog:true,real:true,proj:false,repro:false};
-  const proj=opts.proj||null, repro=opts.repro||null;
+  const proj=opts.proj||null, repro=opts.repro||null, plan=opts.plan||null;
   const W=el.offsetWidth||400, PAD=44*fs;
   const X=i=>PAD+(i/Math.max(labels.length-1,1))*(W-PAD*1.4);
   const Y=v=>H-PAD-(v/maxVal)*(H-PAD*1.6);
@@ -1081,6 +1102,7 @@ function _sCurva(elId, labels, prog, real, maxVal, cur, fmt, color, total, H, fs
   const pathFrom=(arr,from)=>{ const segs=[]; for(let i=from;i<arr.length;i++){ if(arr[i]==null) continue; segs.push(`${X(i)},${Y(Math.min(arr[i],maxVal))}`); } return segs.length?('M'+segs.join(' L')):''; };
   const projPath = (vis.proj&&proj)?pathFrom(proj,cur):'';
   const reproPath = (vis.repro&&repro)?pathFrom(repro,cur):'';
+  const planPath = (vis.plan&&plan)?('M'+plan.map((v,i)=>`${X(i)},${Y(Math.min(v,maxVal))}`).join(' L')):'';
   const gap=12*fs, lh=9*fs;
   const n=prog.length;
   const showVal = det && n<=8;
@@ -1117,6 +1139,7 @@ function _sCurva(elId, labels, prog, real, maxVal, cur, fmt, color, total, H, fs
     ${yl}
     ${vis.prog?`<path d="${pp}" fill="none" stroke="#94a3b8" stroke-width="${2*fs}" stroke-dasharray="${5*fs},${4*fs}" stroke-linejoin="round"/>`:''}
     ${vis.prog?progCir:''}
+    ${planPath?`<path d="${planPath}" fill="none" stroke="#0891b2" stroke-width="${2.2*fs}" stroke-dasharray="${4*fs},${2*fs}" stroke-linejoin="round"/>`:''}
     ${reproPath?`<path d="${reproPath}" fill="none" stroke="#7c3aed" stroke-width="${2.4*fs}" stroke-dasharray="${2*fs},${3*fs}" stroke-linejoin="round"/>`:''}
     ${projPath?`<path d="${projPath}" fill="none" stroke="#d97706" stroke-width="${2.4*fs}" stroke-dasharray="${7*fs},${4*fs}" stroke-linejoin="round"/>`:''}
     ${vis.real?`<path d="${rp}" fill="none" stroke="${color}" stroke-width="${2.8*fs}" stroke-linejoin="round"/>`:''}
@@ -1199,14 +1222,27 @@ function _sProyecciones(){
 }
 function _fmtDiaYr(dt){ try{ return dt.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return _fmtDia(dt); } }
 
+// Serie acumulada del PLAN de obra (capturado a mano por periodo)
+function _planSerie(){
+  const d=_sdata; if(!d||!d.perFin) return null;
+  let ac=0, hasAny=false; const planVol=[], planFin=[];
+  for(let i=0;i<d.perFin.length;i++){ const v=+(_sPlan[d.perFin[i]]||0); if(v>0)hasAny=true; ac+=v; planVol.push(ac); planFin.push(ac*d.ratioFV); }
+  let finIdx=planVol.findIndex(v=>v>=d.TOT_VOL-0.5);
+  const finDia = finIdx>=0 ? d.perDias[finIdx] : null;
+  const finFecha = finDia!=null ? _fmtDiaYr(_addDays(PROG_INICIO, finDia-1)) : (hasAny?'no llega a meta':'—');
+  return {planVol:hasAny?planVol:null, planFin:hasAny?planFin:null, total:ac, finDia, finFecha,
+    cobro:Math.min(ac,d.TOT_VOL)*d.ratioFV, onTime:finDia!=null&&finDia<=PLAZO_DIAS, hasAny};
+}
+
 function buildSCharts(){
   if(!_sdata) return;
   const d=_sdata;
   const fMXN=(v,axis)=>_fmtMXNc(v);
   const fM3=(v,axis)=>axis?(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0)):v.toFixed(0);
   const pr=_sProyecciones();
-  const optFin = pr?{vis:_sVis, proj:pr.projFin, repro:pr.reproFin}:{vis:_sVis};
-  const optVol = pr?{vis:_sVis, proj:pr.projVol, repro:pr.reproVol}:{vis:_sVis};
+  const ps=_planSerie();
+  const optFin = {vis:_sVis, proj:pr?pr.projFin:null, repro:pr?pr.reproFin:null, plan:ps?ps.planFin:null};
+  const optVol = {vis:_sVis, proj:pr?pr.projVol:null, repro:pr?pr.reproVol:null, plan:ps?ps.planVol:null};
   _sCurva('chartSFin', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8', d.TOT_FIN, 230, 1, false, optFin);
   _sCurva('chartSVol', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669', d.TOT_VOL, 230, 1, false, optVol);
   _sBarras('chartBarras', d.labels, d.progM, d.realM, d.cur, 230, 1, d.TOT_FIN);
@@ -1218,6 +1254,7 @@ function buildSCharts(){
     const inp=document.getElementById('sVolDiaInput');
     if(inp && document.activeElement!==inp) inp.value = (_sVolDia!=null&&_sVolDia>0)?_sVolDia:pr.volDiaAuto.toFixed(1);
   }
+  refreshPlanTabla();
 }
 
 // ── ZOOM de gráficas (modal a pantalla grande con % + montos) ──
@@ -1240,8 +1277,9 @@ function _renderZoom(){
   const fMXN=(v)=>_fmtMXNc(v), fM3=(v,axis)=>axis?(v>=1000?(v/1000).toFixed(1)+'k':v.toFixed(0)):v.toFixed(0);
   const H=Math.round(440*_zoomScale), fs=1.5*_zoomScale;
   const pr=_sProyecciones();
-  const optFin = pr?{vis:_sVis, proj:pr.projFin, repro:pr.reproFin}:{vis:_sVis};
-  const optVol = pr?{vis:_sVis, proj:pr.projVol, repro:pr.reproVol}:{vis:_sVis};
+  const ps=_planSerie();
+  const optFin = {vis:_sVis, proj:pr?pr.projFin:null, repro:pr?pr.reproFin:null, plan:ps?ps.planFin:null};
+  const optVol = {vis:_sVis, proj:pr?pr.projVol:null, repro:pr?pr.reproVol:null, plan:ps?ps.planVol:null};
   if(_zoomTipo==='fin') _sCurva('zoomChart', d.labels, d.progFin, d.realFin, d.TOT_FIN*1.1, d.cur, fMXN, '#1d4ed8', d.TOT_FIN, H, fs, true, optFin);
   else if(_zoomTipo==='vol') _sCurva('zoomChart', d.labels, d.progVol, d.realVol, d.TOT_VOL*1.1, d.cur, fM3, '#059669', d.TOT_VOL, H, fs, true, optVol);
   else _sBarras('zoomChart', d.labels, d.progM, d.realM, d.cur, H, fs, d.TOT_FIN);
@@ -1276,6 +1314,46 @@ window.resetVolDia=function(){
   _sVolDia=null; _sVis.repro=true;
   const b=document.getElementById('sln-repro'); if(b) b.classList.remove('off');
   buildSCharts();
+};
+
+// ── PLAN DE OBRA (capturado por periodo, persiste en este dispositivo) ──
+window.togglePlanTabla=function(){
+  const b=document.getElementById('planTablaBody');
+  if(b) b.style.display = b.style.display==='none' ? 'block' : 'none';
+};
+window.setPlanPeriodo=function(fin,v){
+  const n=parseFloat(v);
+  if(isFinite(n)&&n>0) _sPlan[fin]=n; else delete _sPlan[fin];
+  try{ localStorage.setItem('rep039_plan', JSON.stringify(_sPlan)); }catch(e){}
+  _sVis.plan=true;
+  const b=document.getElementById('sln-plan'); if(b) b.classList.remove('off');
+  buildSCharts();
+};
+function refreshPlanTabla(){
+  const d=_sdata; if(!d||!d.perFin) return;
+  let ac=0;
+  d.perFin.forEach((f,i)=>{ ac+=(+_sPlan[f]||0); const e=document.getElementById('plan-ac-'+i);
+    if(e) e.textContent = ac>0 ? `${ac.toFixed(0)} (${Math.min(ac/d.TOT_VOL*100,100).toFixed(0)}%)` : '—'; });
+  const ps=_planSerie(), st=document.getElementById('planStatus');
+  if(st){
+    if(ps&&ps.hasAny) st.innerHTML=`Plan total: <b>${ps.total.toFixed(0)} m³</b> de ${d.TOT_VOL} · terminas <b style="color:#0891b2">${ps.finFecha}</b> · cobro <b>${_fmtMXNc(ps.cobro)}</b> ${ps.finDia!=null?`<span style="color:${ps.onTime?'var(--green)':'var(--red)'}">(${ps.onTime?'dentro del plazo':'fuera del plazo'})</span>`:'<span style="color:var(--gold)">(aún no suma la meta)</span>'}`;
+    else st.innerHTML='Captura el volumen meta por periodo para ver tu línea de plan.';
+  }
+}
+window.resetPlan=function(){
+  if(!confirm('¿Borrar tu programación de obra?')) return;
+  _sPlan={}; try{ localStorage.removeItem('rep039_plan'); }catch(e){}
+  const w=document.getElementById('avanceProgWrap'); if(w){ w.innerHTML=buildAvanceProgramado(_sRecs||[]); setTimeout(()=>{ const b=document.getElementById('planTablaBody'); if(b)b.style.display='block'; buildSCharts(); },30); }
+};
+window.distribuirPlan=function(){
+  const d=_sdata; if(!d||!d.perFin) return;
+  let prevDia=0, acum=0; const n=d.perFin.length;
+  d.perFin.forEach((f,i)=>{ const dias=d.perDias[i]-prevDia; prevDia=d.perDias[i];
+    let v=(i===n-1)?(d.TOT_VOL-acum):+(d.TOT_VOL*dias/PLAZO_DIAS).toFixed(1);
+    v=Math.max(0,+(+v).toFixed(1)); acum+=v; _sPlan[f]=v; });
+  try{ localStorage.setItem('rep039_plan', JSON.stringify(_sPlan)); }catch(e){}
+  _sVis.plan=true;
+  const w=document.getElementById('avanceProgWrap'); if(w){ w.innerHTML=buildAvanceProgramado(_sRecs||[]); setTimeout(()=>{ const b=document.getElementById('planTablaBody'); if(b)b.style.display='block'; buildSCharts(); },30); }
 };
 
 
