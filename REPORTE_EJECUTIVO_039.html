@@ -491,6 +491,37 @@ const DEN=2.20, CONTRATO='2026-14-CB-D-039-W-00-2026', EMPRESA='Grupo Urbanizado
 // Volumen REAL colocado = toneladas recibidas ÷ densidad (no el geométrico área×espesor).
 // El "m³ a favor" es la diferencia geométrico − real, que se guarda aparte en r.m3_fav.
 const _volR = r => (r.ton_recibidas||0)/DEN;
+// Mapeo del concepto capturado (id del catálogo) a la clave del reporte
+const _ID2KEY={ 'RENIV-O1':'reniv','CARPETA3-O1':'carp3','BACHEO-O1':'bach1','CARPETA5-O2':'carp5','BACHEO-O2':'bach2' };
+function _keyFromLabel(s){ s=(s||'').toUpperCase();
+  if(s.indexOf('RENIV')>=0) return 'reniv';
+  if(s.indexOf('CARPETA 5')>=0||s.indexOf('CARPETA5')>=0||s.indexOf('5CM')>=0||s.indexOf('5 CM')>=0) return 'carp5';
+  if(s.indexOf('CARPETA')>=0||s.indexOf('3CM')>=0||s.indexOf('3 CM')>=0) return 'carp3';
+  if(s.indexOf('BACHEO')>=0&&s.indexOf('O2')>=0) return 'bach2';
+  if(s.indexOf('BACHEO')>=0) return 'bach1';
+  return null;
+}
+function _keyDeConcepto(c){ return _ID2KEY[c.id] || _keyFromLabel(c.label||c.id) || null; }
+function _keyHeur(r){ const isO2=r.kde>=247000&&r.kde<=252000, et=r.esp_teorico||3.5;
+  return isO2?(et>=4.5?'carp5':'bach2'):(et<=3.5?'carp3':(et>=4.8?'bach1':'reniv')); }
+// Reparte el volumen REAL del viaje (ton÷densidad) entre los conceptos capturados según su id.
+function _conceptosReales(r){
+  const totVol=_volR(r);
+  const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
+  if(cs){
+    const val=cs.map(c=>({key:_keyDeConcepto(c), ton:+(c.ton||0)})).filter(x=>x.key);
+    const sumTon=val.reduce((s,x)=>s+x.ton,0);
+    if(val.length&&sumTon>0) return val.map(x=>({key:x.key, vol:totVol*x.ton/sumTon}));
+  }
+  return [{key:(_keyFromLabel(r.concepto)||_keyHeur(r)), vol:totVol}];
+}
+// m³ a favor REAL: solo carpeta (geométrico − real). Reniv/bacheo se miden por volumen real → favor 0.
+function _favDe(r){
+  const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
+  if(cs){ let f=0; cs.forEach(c=>{ const k=_keyDeConcepto(c); if(k==='carp3'||k==='carp5') f+=((+(c.volumen||0))-(+(c.ton||0))/DEN); }); return f; }
+  const key=_keyFromLabel(r.concepto)||_keyHeur(r);
+  return (key==='carp3'||key==='carp5')?(r.m3_fav||0):0;
+}
 let allRecs=[], filtered=[], records=[], charts={}, rutaActual=1, filtros={obra:'all',fecha:'all'};
 
 // Secciones visibles — todas activadas por defecto
@@ -690,13 +721,7 @@ function getKmRecorridos(r){
 // ── CALC EXEC ──
 function calcExec(recs){
   const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
-  recs.forEach(r=>{
-    const isO2=r.kde>=247000&&r.kde<=252000;
-    const et=r.esp_teorico||3.5;
-    const vR=_volR(r);
-    if(isO2){if(et>=4.5)e.carp5+=vR;else e.bach2+=vR;}
-    else{if(et<=3.5)e.carp3+=vR;else if(et>=4.8)e.bach1+=vR;else e.reniv+=vR;}
-  });
+  recs.forEach(r=>{ _conceptosReales(r).forEach(({key,vol})=>{ if(e[key]!=null) e[key]+=vol; }); });
   return e;
 }
 
@@ -949,10 +974,7 @@ function _realPorMes(recs, PER){
     const f=new Date(String(r.fecha||PROG_INICIO)+'T12:00:00');
     let dia=Math.floor((f-ini)/86400000)+1;
     let idx=PER.findIndex(p=>dia<=p.dia); if(idx<0)idx=n-1; if(dia<1)idx=0;
-    const isO2=r.kde>=247000&&r.kde<=252000, et=r.esp_teorico||3.5;
-    let key; if(isO2){key=et>=4.5?'carp5':'bach2';} else {key=et<=3.5?'carp3':(et>=4.8?'bach1':'reniv');}
-    const vR=_volR(r);
-    bk[idx].vol+=vR; bk[idx].fin+=vR*CAT[key].pu;
+    _conceptosReales(r).forEach(({key,vol})=>{ bk[idx].vol+=vol; bk[idx].fin+=vol*CAT[key].pu; });
   });
   return bk;
 }
@@ -1557,7 +1579,7 @@ function render(){
   const volAcum=filtered.reduce((s,r)=>s+_volR(r),0);
   const areaAcum=filtered.reduce((s,r)=>s+r.area,0);
   const longAcum=filtered.reduce((s,r)=>s+r.longitud,0);
-  const m3FavAcum=filtered.reduce((s,r)=>s+r.m3_fav,0);
+  const m3FavAcum=filtered.reduce((s,r)=>s+_favDe(r),0);
   const favTon=m3FavAcum*DEN;
   const emulAcum=filtered.reduce((s,r)=>s+(r.emulsion_lts||0),0);
   const exec=calcExec(filtered);
