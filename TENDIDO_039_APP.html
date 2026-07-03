@@ -288,12 +288,27 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em">🏗️ OBRA:</span>
     <select id="obraSelect" onchange="cambiarObra(this.value)" style="background:var(--bg);border:1px solid var(--bord);color:var(--gold);border-radius:8px;padding:5px 10px;font-size:13px;font-weight:700;flex:1;min-width:140px;max-width:320px"></select>
     <button class="be" onclick="nuevaObra()" title="Dar de alta una obra nueva" style="padding:5px 10px;font-size:12px;white-space:nowrap">➕ Nueva obra</button>
+    <button class="be" onclick="abrirConfigCarriles()" title="Definir carriles y ancho sugerido por tramo" style="padding:5px 10px;font-size:12px;white-space:nowrap">🛣️ Carriles</button>
     <select id="themeSel" onchange="setTheme(this.value)" title="Cambiar tema de color" style="background:var(--bg);border:1px solid var(--bord);color:var(--txt);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap">
       <option value="dark">🌙 Oscuro</option>
       <option value="light">☀️ Claro</option>
       <option value="slate">📄 Gris</option>
       <option value="sepia">🟤 Sepia</option>
     </select>
+  </div>
+  <div id="carrilesModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px">🛣️ Carriles y ancho por tramo</div>
+        <button onclick="cerrarConfigCarriles()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div id="carrilesObraLbl" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+      <div id="carrilesBody"></div>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="guardarConfigCarriles()" style="flex:1;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Guardar</button>
+        <button onclick="cerrarConfigCarriles()" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+      </div>
+    </div>
   </div>
 
   <div class="tabs" id="tabBar">
@@ -632,6 +647,24 @@ function cargarObras(){
   return obras;
 }
 function guardarObras(o){ try{ localStorage.setItem('t039_obras',JSON.stringify(o)); }catch(e){} }
+// Carriles y ancho sugerido por tramo (editable por obra). Default: O1 con central, O2 solo Der/Izq (7 m).
+const CARRILES_DEFAULT={
+  O1:[{label:'L. DER.',ancho:3.5},{label:'CENT.',ancho:3.5},{label:'L. IZQ.',ancho:3.5}],
+  O2:[{label:'L. DER.',ancho:3.5},{label:'L. IZQ.',ancho:3.5}]
+};
+function carrilesDeObra(clave,tramo){ const o=OBRAS[clave]||{}; const c=o.carriles&&o.carriles[tramo]; return (c&&c.length)?c:(CARRILES_DEFAULT[tramo]||CARRILES_DEFAULT.O1); }
+function tramoDeConcepto(id){ const cat=getCatItem(id); return (cat&&cat.obra)||'O1'; }
+function carrilesDeConcepto(id){ return carrilesDeObra(obraActiva, tramoDeConcepto(id)); }
+// Pre-llena el ancho (ini/fin) con el sugerido del carril elegido; sigue siendo editable.
+function _sugerirAncho(arr,i,pref){
+  const cv=arr[i]; if(!cv) return;
+  const cs=carrilesDeConcepto(cv.id); const c=cs.find(x=>x.label===cv.carril)||cs[0];
+  if(c&&c.ancho>0){ cv.aw1=c.ancho; cv.aw2=c.ancho;
+    const a1=document.getElementById(pref+'aw1_'+i), a2=document.getElementById(pref+'aw2_'+i);
+    if(a1) a1.value=c.ancho; if(a2) a2.value=c.ancho; }
+}
+window.sugerirAnchoViaje=function(i){ _sugerirAncho(conceptosViaje,i,'f_'); if(typeof calcResumenViaje==='function') calcResumenViaje(); };
+window.sugerirAnchoEdit=function(i){ _sugerirAncho(editConceptos,i,'e_conc_'); };
 let OBRAS=cargarObras();
 let obraActiva=localStorage.getItem('t039_obra_activa')||'039';
 if(!OBRAS[obraActiva]) obraActiva='039';
@@ -653,6 +686,44 @@ window.cambiarObra=function(v){
   if(typeof renderObraSelect==='function') renderObraSelect();
   toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
 };
+// ── Editor de carriles y ancho por tramo (por obra) ──
+let _carrilesEdit=null, _carrilesObra=null;
+window.abrirConfigCarriles=function(){
+  _carrilesObra=obraActiva;
+  const base=(OBRAS[obraActiva]&&OBRAS[obraActiva].carriles)||CARRILES_DEFAULT;
+  _carrilesEdit={ O1:(base.O1||CARRILES_DEFAULT.O1).map(c=>({label:c.label,ancho:c.ancho})),
+                  O2:(base.O2||CARRILES_DEFAULT.O2).map(c=>({label:c.label,ancho:c.ancho})) };
+  const lbl=document.getElementById('carrilesObraLbl');
+  if(lbl) lbl.textContent='Obra: '+((OBRAS[obraActiva]&&OBRAS[obraActiva].nombre)||obraActiva)+' · define los carriles de cada tramo y su ancho sugerido (editable en cada viaje).';
+  _renderConfigCarriles();
+  document.getElementById('carrilesModal').style.display='flex';
+};
+function _renderConfigCarriles(){
+  const bloque=(tramo,titulo)=>{
+    const cs=_carrilesEdit[tramo]||[];
+    const rows=cs.map((c,idx)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+      <input value="${(c.label||'').replace(/"/g,'&quot;')}" oninput="_carrilesEdit['${tramo}'][${idx}].label=this.value" placeholder="Nombre carril (ej. L. DER.)" style="flex:2;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+      <input type="number" step="0.01" inputmode="decimal" value="${c.ancho!=null?c.ancho:''}" oninput="_carrilesEdit['${tramo}'][${idx}].ancho=parseFloat(this.value)||0" placeholder="ancho m" style="width:88px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+      <button onclick="_carrilQuitar('${tramo}',${idx})" title="Quitar carril" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
+    </div>`).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin carriles · agrega al menos uno.</div>';
+    return `<div style="margin-bottom:14px"><div style="font-weight:800;color:var(--gold);font-size:13px;margin-bottom:6px">${titulo}</div>${rows}
+      <button onclick="_carrilAgregar('${tramo}')" style="background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Carril</button></div>`;
+  };
+  document.getElementById('carrilesBody').innerHTML=bloque('O1','🛣️ Obra 1 · MEX-200')+bloque('O2','🛣️ Obra 2 · MEX-80');
+}
+window._carrilAgregar=function(t){ _carrilesEdit[t].push({label:'L. DER.',ancho:3.5}); _renderConfigCarriles(); };
+window._carrilQuitar=function(t,i){ _carrilesEdit[t].splice(i,1); _renderConfigCarriles(); };
+window.cerrarConfigCarriles=function(){ document.getElementById('carrilesModal').style.display='none'; };
+window.guardarConfigCarriles=function(){
+  if(!OBRAS[_carrilesObra]) OBRAS[_carrilesObra]={clave:_carrilesObra,nombre:_carrilesObra};
+  const limpia=t=>(_carrilesEdit[t]||[]).filter(c=>(c.label||'').trim()).map(c=>({label:c.label.trim(),ancho:+(c.ancho||0)}));
+  OBRAS[_carrilesObra].carriles={ O1:limpia('O1'), O2:limpia('O2') };
+  guardarObras(OBRAS);
+  document.getElementById('carrilesModal').style.display='none';
+  toast('Carriles y anchos guardados','ok');
+  if(typeof renderConceptosContainer==='function') renderConceptosContainer();
+};
+
 window.nuevaObra=function(){
   const clave=(prompt('Clave de la nueva obra (ej. 040):')||'').trim();
   if(!clave) return;
@@ -1526,7 +1597,7 @@ function renderEditConceptos(){
     if(esUltimo&&faltante>0) editConceptos[i].ton=faltante;
     return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-bottom:6px">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
-        <select id="e_conc_id_${i}" onchange="editConceptos[${i}].id=this.value"
+        <select id="e_conc_id_${i}" onchange="editConceptos[${i}].id=this.value;renderEditConceptos()"
           style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
           ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
@@ -1553,9 +1624,9 @@ function renderEditConceptos(){
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:11px;font-weight:700;color:var(--blue)">
         </div>
         <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Carril</div>
-          <select id="e_conc_carril_${i}" onchange="editConceptos[${i}].carril=this.value"
+          <select id="e_conc_carril_${i}" onchange="editConceptos[${i}].carril=this.value;sugerirAnchoEdit(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px;font-size:11px">
-            ${['L. DER.','L. IZQ.','CENT.','CARR. DER.','CARR. IZQ.'].map(o=>`<option ${(cv.carril||'L. DER.')===o?'selected':''}>${o}</option>`).join('')}
+            ${carrilesDeConcepto(cv.id).map(c=>`<option ${(cv.carril||carrilesDeConcepto(cv.id)[0]?.label)===c.label?'selected':''}>${c.label}</option>`).join('')}
           </select>
         </div>
         <div><div style="font-size:10px;color:var(--muted);margin-bottom:2px">Ancho ini</div>
@@ -1726,6 +1797,16 @@ function renderGraficoTiro(rs){
     });
   });
   if(!segs.length){ el.innerHTML='<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>'; return; }
+  // Un larguillo por obra: O2 = MEX-80 (247+000–252+000), O1 = MEX-200 (el resto)
+  const esO2=s=> s.a>=247000 && s.a<=252000;
+  const o1=segs.filter(s=>!esO2(s)), o2=segs.filter(esO2);
+  let html='';
+  if(o1.length) html+=_larguilloTiro(o1,'OBRA 1 · MEX-200');
+  if(o2.length) html+=_larguilloTiro(o2,'OBRA 2 · MEX-80');
+  el.innerHTML=html||'<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
+}
+
+function _larguilloTiro(segs,titulo){
   const minK=Math.min(...segs.map(s=>s.a)), maxK=Math.max(...segs.map(s=>s.b));
   const span=Math.max(1,maxK-minK);
   const RENIV_COL='#a78bfa';
@@ -1745,11 +1826,9 @@ function renderGraficoTiro(rs){
     const carp=ss.filter(s=>!s.reniv), ren=ss.filter(s=>s.reniv);
     rows+=`<line x1="${PADL}" y1="${cy}" x2="${W-PADR}" y2="${cy}" stroke="#1a1f29" stroke-width="${trackH}" stroke-linecap="round"/>`;
     rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="10" font-weight="700" fill="${t[2]}">${t[1]}</text>`;
-    // carpeta / bacheo (banda principal)
     carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y+3}" width="${Math.max(2,x2-x1)}" height="${trackH-6}" rx="3" fill="${t[2]}" opacity="0.9"><title>Viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
-    // renivelaciones (franja morada ARRIBA del carril)
     ren.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"><title>Renivelación · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
@@ -1760,9 +1839,9 @@ function renderGraficoTiro(rs){
       rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9" fill="#6b7280">sin tiro</text>`;
     }
   });
-  el.innerHTML=`<div style="background:var(--bg);border:1px solid var(--bord);border-radius:10px;padding:8px 6px">
+  return `<div style="background:var(--bg);border:1px solid var(--bord);border-radius:10px;padding:8px 6px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 2px">
-      <span style="font-size:10px;font-weight:700;color:#94a3b8">AVANCE POR CADENAMIENTO · hasta dónde va cada lado →</span>
+      <span style="font-size:10px;font-weight:800;color:var(--gold)">🛣️ ${titulo} · ${fmtCad(Math.round(minK))} → ${fmtCad(Math.round(maxK))}</span>
       <span style="font-size:9px;color:#94a3b8"><span style="display:inline-block;width:9px;height:9px;background:${RENIV_COL};border-radius:2px;vertical-align:middle"></span> renivelación</span>
     </div>
     <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
@@ -2490,7 +2569,7 @@ function renderConceptosContainer(){
     if(esUltimo&&faltante>0) conceptosViaje[i].ton=faltante;
     return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px" id="concepto_card_${i}">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
-        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;setTimeout(()=>actualizarConsecutivo(${i}),50)" 
+        <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer();setTimeout(()=>actualizarConsecutivo(${i}),50)" 
           style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
           ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
@@ -2527,9 +2606,9 @@ function renderConceptosContainer(){
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Carril</div>
-          <select onchange="conceptosViaje[${i}].carril=this.value"
+          <select onchange="conceptosViaje[${i}].carril=this.value;sugerirAnchoViaje(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
-            ${['L. DER.','L. IZQ.','CENT.','CARR. DER.','CARR. IZQ.'].map(o=>`<option ${(cv.carril||'L. DER.')===o?'selected':''}>${o}</option>`).join('')}
+            ${carrilesDeConcepto(cv.id).map(c=>`<option ${(cv.carril||carrilesDeConcepto(cv.id)[0]?.label)===c.label?'selected':''}>${c.label}</option>`).join('')}
           </select>
         </div>
         <div>
