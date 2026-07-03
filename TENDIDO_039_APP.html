@@ -1781,39 +1781,49 @@ function ladoDe(carril){
   if(k.includes('DER')) return 'DER';
   return 'CEN';
 }
+// Rangos completos por tramo (inicial → final del contrato)
+const RANGO_TRAMO={ O1:{min:46200,max:58700}, O2:{min:247600,max:251600} };
+const LADO_COL={IZQ:'#3ecf8e',CEN:'#f0b429',DER:'#60a5fa'};
+const RENIV_COL='#a78bfa', BACHEO_COL='#ec4899';
 function renderGraficoTiro(rs){
   const el=document.getElementById('tiroGrafico'); if(!el) return;
   const segs=[];
   rs.forEach(v=>{
-    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto}];
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto}];
     cs.forEach(c=>{
       if(c.kde!=null&&c.ka!=null){
         const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka);
         if(b>a){
-          const esReniv=(String(c.id||'')+String(c.label||'')).toUpperCase().includes('RENIV');
-          segs.push({a,b,side:ladoDe(c.carril),num:v.num_viaje_dia,reniv:esReniv});
+          const t=(String(c.id||'')+String(c.label||'')).toUpperCase();
+          const tipo = t.includes('RENIV')?'reniv' : (t.includes('BACHEO')?'bacheo':'carpeta');
+          segs.push({a,b,side:ladoDe(c.carril),num:v.num_viaje_dia,tipo});
         }
       }
     });
   });
   if(!segs.length){ el.innerHTML='<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>'; return; }
-  // Un larguillo por obra: O2 = MEX-80 (247+000–252+000), O1 = MEX-200 (el resto)
   const esO2=s=> s.a>=247000 && s.a<=252000;
   const o1=segs.filter(s=>!esO2(s)), o2=segs.filter(esO2);
   let html='';
-  if(o1.length) html+=_larguilloTiro(o1,'OBRA 1 · MEX-200');
-  if(o2.length) html+=_larguilloTiro(o2,'OBRA 2 · MEX-80');
+  if(o1.length) html+=_larguilloTiro(o1,'OBRA 1 · MEX-200','O1');
+  if(o2.length) html+=_larguilloTiro(o2,'OBRA 2 · MEX-80','O2');
   el.innerHTML=html||'<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
 }
 
-function _larguilloTiro(segs,titulo){
-  const minK=Math.min(...segs.map(s=>s.a)), maxK=Math.max(...segs.map(s=>s.b));
+function _larguilloTiro(segs,titulo,tramo){
+  const rango=RANGO_TRAMO[tramo]||{min:Math.min(...segs.map(s=>s.a)),max:Math.max(...segs.map(s=>s.b))};
+  const minK=rango.min, maxK=rango.max;
   const span=Math.max(1,maxK-minK);
-  const RENIV_COL='#a78bfa';
-  const W=720,PADL=86,PADR=74,PADT=30,trackH=20,renH=6,gapT=18;
-  const tracks=[['IZQ','Lat. izquierda','#3ecf8e'],['CEN','Central','#f0b429'],['DER','Lat. derecha','#60a5fa']];
+  const W=720,PADL=90,PADR=82,PADT=32,trackH=20,renH=6,gapT=24;
+  // Carriles según lo configurado en la obra para este tramo (orden izq, central, der)
+  const ord={IZQ:0,CEN:1,DER:2};
+  const nombreLado={IZQ:'Lat. izquierda',CEN:'Central',DER:'Lat. derecha'};
+  const carr=carrilesDeObra(obraActiva,tramo);
+  let tracks=carr.map(c=>{const s=ladoDe(c.label);return {side:s,label:c.label||nombreLado[s],color:LADO_COL[s]||'#60a5fa'};})
+                 .sort((a,b)=>(ord[a.side]??9)-(ord[b.side]??9));
+  if(!tracks.length) tracks=[{side:'DER',label:'Lat. derecha',color:LADO_COL.DER}];
   const H=PADT+tracks.length*(trackH+gapT)+24;
-  const X=k=>PADL+((k-minK)/span)*(W-PADL-PADR);
+  const X=k=>PADL+((Math.max(minK,Math.min(maxK,k))-minK)/span)*(W-PADL-PADR);
   const NT=6; let ticks='';
   for(let i=0;i<=NT;i++){ const k=minK+span*i/NT, x=X(k);
     ticks+=`<line x1="${x}" y1="${PADT-6}" x2="${x}" y2="${H-22}" stroke="#222836" stroke-width="1"/>`
@@ -1822,27 +1832,37 @@ function _larguilloTiro(segs,titulo){
   let rows='';
   tracks.forEach((t,ti)=>{
     const y=PADT+ti*(trackH+gapT), cy=y+trackH/2;
-    const ss=segs.filter(s=>s.side===t[0]);
-    const carp=ss.filter(s=>!s.reniv), ren=ss.filter(s=>s.reniv);
+    const ss=segs.filter(s=>s.side===t.side);
+    const carp=ss.filter(s=>s.tipo==='carpeta'), ren=ss.filter(s=>s.tipo==='reniv'), bach=ss.filter(s=>s.tipo==='bacheo');
+    // Fondo del carril = todo el tramo (inicial → final)
     rows+=`<line x1="${PADL}" y1="${cy}" x2="${W-PADR}" y2="${cy}" stroke="#1a1f29" stroke-width="${trackH}" stroke-linecap="round"/>`;
-    rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="10" font-weight="700" fill="${t[2]}">${t[1]}</text>`;
+    rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="10" font-weight="700" fill="${t.color}">${t.label}</text>`;
+    // Carpeta = banda principal (color del carril), reducida al tramo colocado
     carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
-      rows+=`<rect x="${x1}" y="${y+3}" width="${Math.max(2,x2-x1)}" height="${trackH-6}" rx="3" fill="${t[2]}" opacity="0.9"><title>Viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+      rows+=`<rect x="${x1}" y="${y+3}" width="${Math.max(2,x2-x1)}" height="${trackH-6}" rx="3" fill="${t.color}" opacity="0.9"><title>Carpeta · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
+    // Renivelación = franja ARRIBA (morado)
     ren.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"><title>Renivelación · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
-    const todos=ss.filter(s=>!s.reniv).length?carp:ss;
-    if(todos.length){ const mb=Math.max(...todos.map(s=>s.b));
-      rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9.5" font-weight="800" fill="${t[2]}">${fmtCad(Math.round(mb))}</text>`;
+    // Bacheo = franja ABAJO (rosa)
+    bach.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
+      rows+=`<rect x="${x1}" y="${y+trackH+2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${BACHEO_COL}"><title>Bacheo · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+    });
+    // Cadenamiento hasta donde llegó ese carril
+    if(ss.length){ const mb=Math.max(...ss.map(s=>s.b));
+      rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(mb))}</text>`;
     } else {
       rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9" fill="#6b7280">sin tiro</text>`;
     }
   });
   return `<div style="background:var(--bg);border:1px solid var(--bord);border-radius:10px;padding:8px 6px;margin-bottom:8px">
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 2px">
-      <span style="font-size:10px;font-weight:800;color:var(--gold)">🛣️ ${titulo} · ${fmtCad(Math.round(minK))} → ${fmtCad(Math.round(maxK))}</span>
-      <span style="font-size:9px;color:#94a3b8"><span style="display:inline-block;width:9px;height:9px;background:${RENIV_COL};border-radius:2px;vertical-align:middle"></span> renivelación</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 4px;flex-wrap:wrap;gap:4px">
+      <span style="font-size:10px;font-weight:800;color:var(--gold)">🛣️ ${titulo} · ${fmtCad(minK)} → ${fmtCad(maxK)}</span>
+      <span style="font-size:9px;color:#94a3b8;display:flex;gap:8px">
+        <span><span style="display:inline-block;width:9px;height:9px;background:${RENIV_COL};border-radius:2px;vertical-align:middle"></span> reniv (arriba)</span>
+        <span><span style="display:inline-block;width:9px;height:9px;background:${BACHEO_COL};border-radius:2px;vertical-align:middle"></span> bacheo (abajo)</span>
+      </span>
     </div>
     <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
       ${ticks}${rows}
