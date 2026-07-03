@@ -488,9 +488,15 @@ const RUTAS = {
 };
 
 const DEN=2.20, CONTRATO='2026-14-CB-D-039-W-00-2026', EMPRESA='Grupo Urbanizador Inmobiliario Yenter S.A. de C.V. y Sístole Consultoría y Obras S.A. de C.V.';
-// Volumen REAL colocado = toneladas recibidas ÷ densidad (no el geométrico área×espesor).
-// El "m³ a favor" es la diferencia geométrico − real, que se guarda aparte en r.m3_fav.
-const _volR = r => (r.ton_recibidas||0)/DEN;
+// ── VOLUMEN OFICIAL DEL REPORTE = GEOMÉTRICO (largo×ancho×espesor, campo c.volumen de cada concepto) ──
+// Coincide con la metodología de la estimación/Generador SICT. Se usa en TODO el reporte:
+// KPIs, % catálogo, curvas S (financiera y volumen), avance por periodo, volumen faltante, catálogo E-7, tendencia.
+// El ton÷densidad queda solo como referencia interna en "m³ ganancia" (_favDe), no como oficial.
+const _volR = r => {
+  const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
+  if(cs) return cs.reduce((s,c)=>s+(+(c.volumen||0)),0);
+  return +(r.volumen||0);
+};
 // Mapeo del concepto capturado (id del catálogo) a la clave del reporte
 const _ID2KEY={ 'RENIV-O1':'reniv','CARPETA3-O1':'carp3','BACHEO-O1':'bach1','CARPETA5-O2':'carp5','BACHEO-O2':'bach2' };
 function _keyFromLabel(s){ s=(s||'').toUpperCase();
@@ -504,20 +510,8 @@ function _keyFromLabel(s){ s=(s||'').toUpperCase();
 function _keyDeConcepto(c){ return _ID2KEY[c.id] || _keyFromLabel(c.label||c.id) || null; }
 function _keyHeur(r){ const isO2=r.kde>=247000&&r.kde<=252000, et=r.esp_teorico||3.5;
   return isO2?(et>=4.5?'carp5':'bach2'):(et<=3.5?'carp3':(et>=4.8?'bach1':'reniv')); }
-// Reparte el volumen REAL del viaje (ton÷densidad) entre los conceptos capturados según su id.
+// Reparte el volumen GEOMÉTRICO del viaje entre los conceptos capturados (cada concepto ya trae su propio c.volumen).
 function _conceptosReales(r){
-  const totVol=_volR(r);
-  const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
-  if(cs){
-    const val=cs.map(c=>({key:_keyDeConcepto(c), ton:+(c.ton||0)})).filter(x=>x.key);
-    const sumTon=val.reduce((s,x)=>s+x.ton,0);
-    if(val.length&&sumTon>0) return val.map(x=>({key:x.key, vol:totVol*x.ton/sumTon}));
-  }
-  return [{key:(_keyFromLabel(r.concepto)||_keyHeur(r)), vol:totVol}];
-}
-// Reparte el volumen GEOMÉTRICO del viaje (área×espesor, campo c.volumen de cada concepto) entre las claves.
-// Se usa SOLO para comparar contra el Generador SICT (que hoy factura en geométrico), no para KPIs oficiales.
-function _conceptosGeo(r){
   const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
   if(cs){
     const val=cs.map(c=>({key:_keyDeConcepto(c), vol:+(c.volumen||0)})).filter(x=>x.key);
@@ -525,7 +519,10 @@ function _conceptosGeo(r){
   }
   return [{key:(_keyFromLabel(r.concepto)||_keyHeur(r)), vol:+(r.volumen||0)}];
 }
-// m³ a favor REAL: solo carpeta (geométrico − real). Reniv/bacheo se miden por volumen real → favor 0.
+// Reparte el volumen GEOMÉTRICO del viaje (área×espesor, campo c.volumen de cada concepto) entre las claves.
+// Alias histórico de _conceptosReales — se mantiene por compatibilidad con el módulo de comparación.
+const _conceptosGeo = _conceptosReales;
+// m³ a favor: geométrico − ton÷densidad (ahorro real de material). Solo carpeta. Referencia interna, no oficial.
 function _favDe(r){
   const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
   if(cs){ let f=0; cs.forEach(c=>{ const k=_keyDeConcepto(c); if(k==='carp3'||k==='carp5') f+=((+(c.volumen||0))-(+(c.ton||0))/DEN); }); return f; }
@@ -728,15 +725,10 @@ function getKmRecorridos(r){
   return (oRuta.km_total+kmExtra).toFixed(1);
 }
 
-// ── CALC EXEC ──
+// ── CALC EXEC (oficial = geométrico) ──
 function calcExec(recs){
   const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
   recs.forEach(r=>{ _conceptosReales(r).forEach(({key,vol})=>{ if(e[key]!=null) e[key]+=vol; }); });
-  return e;
-}
-function calcExecGeo(recs){
-  const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
-  recs.forEach(r=>{ _conceptosGeo(r).forEach(({key,vol})=>{ if(e[key]!=null) e[key]+=vol; }); });
   return e;
 }
 
@@ -926,46 +918,38 @@ function buildHorarios(recs){
   </div>`;
 }
 
-function buildFinanciero(exec, execGeo){
+function buildFinanciero(exec){
   const keys=['reniv','carp3','bach1','carp5','bach2'];
   const rows=keys.map(k=>{
-    const c=CAT[k]; const ex=exec[k]||0; const exG=execGeo[k]||0;
-    const impCont=c.pu*c.vol, impEjec=c.pu*ex, impEjecGeo=c.pu*exG;
+    const c=CAT[k]; const ex=exec[k]||0;
+    const impCont=c.pu*c.vol, impEjec=c.pu*ex;
     const pct=impCont>0?Math.min(impEjec/impCont*100,100):0;
-    const pctG=impCont>0?Math.min(impEjecGeo/impCont*100,100):0;
-    return {k,c,ex,exG,impCont,impEjec,impEjecGeo,pct,pctG};
+    return {k,c,ex,impCont,impEjec,pct};
   });
   const montoContrato=rows.reduce((s,r)=>s+r.impCont,0);
   const montoEjec=rows.reduce((s,r)=>s+r.impEjec,0);
-  const montoEjecGeo=rows.reduce((s,r)=>s+r.impEjecGeo,0);
   const porEjecutar=montoContrato-montoEjec;
   const pctGlobal=montoContrato>0?(montoEjec/montoContrato*100):0;
-  const pctGlobalGeo=montoContrato>0?(montoEjecGeo/montoContrato*100):0;
-  const diffGeo=montoEjecGeo-montoEjec;
 
-  // Donut global (oficial = ton/densidad)
+  // Donut global — oficial = geométrico (largo×ancho×espesor), coincide con la estimación SICT
   const r=42, circ=2*Math.PI*r;
   const dash=(pctGlobal/100*circ).toFixed(2), gap=(circ-dash).toFixed(2);
   const colG=pctGlobal>=80?'var(--green)':pctGlobal>=40?'var(--gold)':'var(--blue)';
 
   const barras=rows.map(r=>{
     const colorPct=r.pct>=100?'var(--green)':r.pct>=50?'var(--blue)':'var(--gray)';
-    const colorPctG=r.pctG>=100?'var(--green)':r.pctG>=50?'var(--blue)':'var(--gray)';
-    const difR=r.impEjecGeo-r.impEjec;
-    const difTxt=Math.abs(difR)>=500?`<span style="color:${difR>0?'var(--gold)':'var(--green)'}">${difR>0?'+':''}${_fmtMXNc(difR)} vs generador</span>`:'';
     return `<div class="prog-row">
       <div class="prog-label">${r.c.label}<br><span style="font-size:10px;color:var(--gray)">${r.c.obra} · ${_fmtMXNc(r.impCont)} contrato</span></div>
       <div class="prog-track"><div class="prog-fill ${r.c.color}" style="width:${r.pct.toFixed(1)}%"></div></div>
       <div class="prog-pct" style="color:${colorPct}">${r.pct.toFixed(1)}%</div>
-      <div class="prog-vol">${_fmtMXNc(r.impEjec)}<br><span style="color:var(--gray)">ton÷densidad</span></div>
-      <div class="prog-vol" style="border-left:1px dashed var(--gray2);padding-left:8px">${_fmtMXNc(r.impEjecGeo)}<br><span style="color:${colorPctG}">geométrico · ${r.pctG.toFixed(0)}%</span></div>
-    </div>${difTxt?`<div style="text-align:right;font-size:10px;padding:2px 0 6px">${difTxt}</div>`:''}`;
+      <div class="prog-vol">${_fmtMXNc(r.impEjec)}<br><span style="color:var(--gray)">ejecutado</span></div>
+    </div>`;
   }).join('');
 
   return `
   <div class="section-hdr">💰 Físico-financiero — avance económico por concepto</div>
   <div class="card">
-    <div class="card-hdr"><h4>💵 Avance financiero global</h4><div class="meta">${pctGlobal.toFixed(1)}% del contrato · oficial (ton÷densidad)</div></div>
+    <div class="card-hdr"><h4>💵 Avance financiero global</h4><div class="meta">${pctGlobal.toFixed(1)}% del contrato · volumen geométrico</div></div>
     <div class="card-body">
       <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
         <svg width="110" height="110" viewBox="0 0 110 110" style="flex:0 0 auto">
@@ -978,14 +962,9 @@ function buildFinanciero(exec, execGeo){
         </svg>
         <div style="display:flex;gap:10px;flex:1;flex-wrap:wrap;min-width:240px">
           <div class="fin-kpi"><div class="fin-kpi-l">Monto contrato</div><div class="fin-kpi-v">${_fmtMXNc(montoContrato)}</div><div class="fin-kpi-s">${_fmtMXN(montoContrato)}</div></div>
-          <div class="fin-kpi" style="border-color:${colG}"><div class="fin-kpi-l">Ejecutado · ton÷densidad</div><div class="fin-kpi-v" style="color:${colG}">${_fmtMXNc(montoEjec)}</div><div class="fin-kpi-s">${_fmtMXN(montoEjec)}</div></div>
-          <div class="fin-kpi" style="border-color:var(--gold)"><div class="fin-kpi-l">Ejecutado · geométrico (gen. SICT)</div><div class="fin-kpi-v" style="color:var(--gold)">${_fmtMXNc(montoEjecGeo)}</div><div class="fin-kpi-s">${_fmtMXN(montoEjecGeo)} · ${pctGlobalGeo.toFixed(1)}%</div></div>
+          <div class="fin-kpi" style="border-color:${colG}"><div class="fin-kpi-l">Ejecutado</div><div class="fin-kpi-v" style="color:${colG}">${_fmtMXNc(montoEjec)}</div><div class="fin-kpi-s">${_fmtMXN(montoEjec)}</div></div>
           <div class="fin-kpi"><div class="fin-kpi-l">Por ejecutar</div><div class="fin-kpi-v">${_fmtMXNc(porEjecutar)}</div><div class="fin-kpi-s">${_fmtMXN(porEjecutar)}</div></div>
         </div>
-      </div>
-      <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;padding:6px 8px;background:var(--blue4);border-radius:6px">
-        Diferencia geométrico − ton÷densidad: <b style="color:${diffGeo>=0?'var(--gold)':'var(--green)'}">${diffGeo>=0?'+':''}${_fmtMXNc(diffGeo)}</b>.
-        El ton÷densidad es el valor oficial de cobro; el geométrico es lo que hoy calcula el Generador SICT (área×espesor, sin compactación) — pendiente normalizarlo.
       </div>
       ${barras}
     </div>
@@ -1466,24 +1445,29 @@ function ladoCad(carril){ const k=(carril||'').toUpperCase(); if(k.includes('IZQ
 function _cadSegs(recs){
   const out={O1:[],O2:[]};
   recs.forEach(v=>{
-    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto}];
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto,ton:v.ton_recibidas}];
+    const totVol=_volR(v);
+    const sumTon=cs.reduce((s,c)=>s+(+(c.ton||0)),0);
     cs.forEach(c=>{
       if(c.kde==null||c.ka==null) return;
       const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka);
       if(b<=a) return;
       const tramo=(c.kde>=247000&&c.kde<=252000)?'O2':'O1';
-      const reniv=(String(c.id||'')+String(c.label||'')).toUpperCase().includes('RENIV');
-      out[tramo].push({a,b,side:ladoCad(c.carril),reniv});
+      const t=(String(c.id||'')+String(c.label||'')).toUpperCase();
+      const tipo = t.includes('RENIV')?'reniv':(t.includes('BACHEO')?'bacheo':'carpeta');
+      const ton=+(c.ton||0);
+      const vol=sumTon>0 ? totVol*ton/sumTon : totVol;
+      out[tramo].push({a,b,side:ladoCad(c.carril),tipo,reniv:tipo==='reniv',ton,vol});
     });
   });
   return out;
 }
 function _svgTramo(lo,hi,segs,scale){
-  const PADL=66,PADR=88,PADT=28,trackH=18,renH=6,gapT=20,axisH=24;
+  const PADL=66,PADR=118,PADT=28,trackH=18,renH=6,gapT=20,axisH=24;
   const innerW=Math.max(280,Math.round((hi-lo)*scale));
   const W=PADL+innerW+PADR;
   const tracks=[['IZQ','Izquierda','#2563eb'],['CEN','Central','#d97706'],['DER','Derecha','#059669']];
-  const RENIV='#7c3aed';
+  const RENIV='#7c3aed', BACHEO='#db2777';
   const H=PADT+tracks.length*(trackH+gapT)+axisH;
   const X=k=>PADL+((k-lo)/(hi-lo))*innerW;
   const nice=[50,100,200,250,500,1000,2000,5000]; const rawIv=70/scale; const iv=nice.find(n=>n>=rawIv)||5000;
@@ -1496,14 +1480,18 @@ function _svgTramo(lo,hi,segs,scale){
   tracks.forEach((t,ti)=>{
     const y=PADT+ti*(trackH+gapT), cy=y+trackH/2;
     const ss=segs.filter(s=>s.side===t[0]);
-    const carp=ss.filter(s=>!s.reniv), ren=ss.filter(s=>s.reniv);
+    const carp=ss.filter(s=>s.tipo==='carpeta'), ren=ss.filter(s=>s.tipo==='reniv'), bach=ss.filter(s=>s.tipo==='bacheo');
     rows+=`<line x1="${PADL}" y1="${cy}" x2="${PADL+innerW}" y2="${cy}" stroke="#eef2f7" stroke-width="${trackH}" stroke-linecap="round"/>`;
     rows+=`<text x="${PADL-6}" y="${cy+3}" text-anchor="end" font-size="9.5" font-weight="700" fill="${t[2]}">${t[1]}</text>`;
-    carp.forEach(s=>{ const x1=X(s.a),x2=X(s.b); rows+=`<rect x="${x1}" y="${y+2}" width="${Math.max(1.5,x2-x1)}" height="${trackH-4}" rx="2" fill="${t[2]}" opacity="0.85"/>`; });
-    ren.forEach(s=>{ const x1=X(s.a),x2=X(s.b); rows+=`<rect x="${x1}" y="${y-renH-1}" width="${Math.max(1.5,x2-x1)}" height="${renH}" rx="1.5" fill="${RENIV}"/>`; });
-    if(carp.length){ const mb=Math.max(...carp.map(s=>s.b)); const xm=X(mb);
+    carp.forEach(s=>{ const x1=X(s.a),x2=X(s.b); rows+=`<rect x="${x1}" y="${y+2}" width="${Math.max(1.5,x2-x1)}" height="${trackH-4}" rx="2" fill="${t[2]}" opacity="0.85"><title>Carpeta: ${fmtKm(s.a)} → ${fmtKm(s.b)} · ${s.vol.toFixed(1)} m³ · ${s.ton.toFixed(1)} ton</title></rect>`; });
+    ren.forEach(s=>{ const x1=X(s.a),x2=X(s.b); rows+=`<rect x="${x1}" y="${y-renH-1}" width="${Math.max(1.5,x2-x1)}" height="${renH}" rx="1.5" fill="${RENIV}"><title>Renivelación: ${fmtKm(s.a)} → ${fmtKm(s.b)} · ${s.vol.toFixed(1)} m³ · ${s.ton.toFixed(1)} ton</title></rect>`; });
+    bach.forEach(s=>{ const x1=X(s.a),x2=X(s.b); rows+=`<rect x="${x1}" y="${y+trackH+1}" width="${Math.max(1.5,x2-x1)}" height="${renH}" rx="1.5" fill="${BACHEO}"><title>Bacheo: ${fmtKm(s.a)} → ${fmtKm(s.b)} · ${s.vol.toFixed(1)} m³ · ${s.ton.toFixed(1)} ton</title></rect>`; });
+    const cubierto=carp.length?carp:(ren.length?ren:bach);
+    const totVolT=ss.reduce((s,x)=>s+(x.vol||0),0), totTonT=ss.reduce((s,x)=>s+(x.ton||0),0);
+    if(cubierto.length){ const mb=Math.max(...cubierto.map(s=>s.b)); const xm=X(mb);
       rows+=`<line x1="${xm}" y1="${y-2}" x2="${xm}" y2="${y+trackH+2}" stroke="${t[2]}" stroke-width="2"/>`;
-      rows+=`<text x="${PADL+innerW+6}" y="${cy+3}" font-size="9" font-weight="800" fill="${t[2]}">${fmtKm(mb)}</text>`;
+      rows+=`<text x="${PADL+innerW+6}" y="${cy-2}" font-size="9" font-weight="800" fill="${t[2]}">${fmtKm(mb)}</text>`;
+      rows+=`<text x="${PADL+innerW+6}" y="${cy+9}" font-size="8" fill="#64748b">${totVolT.toFixed(0)} m³ · ${totTonT.toFixed(0)} ton</text>`;
     } else {
       rows+=`<text x="${PADL+innerW+6}" y="${cy+3}" font-size="8.5" fill="#cbd5e1">—</text>`;
     }
@@ -1518,9 +1506,17 @@ function renderCadHTML(){
   let out='';
   tramos.forEach(([nom,lo,hi,ss])=>{
     if(!ss.length) return;
+    const sum=(arr,f)=>arr.reduce((s,x)=>s+f(x),0);
+    const tip=k=>ss.filter(s=>s.tipo===k);
+    const resumen=['carpeta','reniv','bacheo'].map(k=>{
+      const arr=tip(k); if(!arr.length) return '';
+      const lbl={carpeta:'Carpeta',reniv:'Renivelación',bacheo:'Bacheo'}[k];
+      return `<span style="margin-right:14px"><b>${lbl}:</b> ${sum(arr,x=>x.vol).toFixed(1)} m³ · ${sum(arr,x=>x.ton).toFixed(1)} ton</span>`;
+    }).join('');
     out+=`<div style="margin-bottom:14px">
       <div style="font-weight:700;color:#1e293b;font-size:13px;margin-bottom:6px">${nom} <span style="font-weight:400;color:var(--gray);font-size:11px">· ${fmtKm(lo)} → ${fmtKm(hi)}</span></div>
       <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--gray2);border-radius:10px;background:var(--white);padding:8px">${_svgTramo(lo,hi,ss,_cadScale)}</div>
+      <div style="font-size:10.5px;color:var(--gray);margin-top:5px;padding:0 4px">${resumen}</div>
     </div>`;
   });
   if(!out) out='<div style="color:var(--gray);padding:16px;text-align:center">Aún no hay tiros con cadenamiento capturado</div>';
@@ -1600,7 +1596,7 @@ function buildSeccionCad(){
   return `<div class="section-hdr">🛣️ Avance por cadenamiento — toda la obra (acumulado)</div>
   <div class="card"><div class="card-body">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:10px">
-      <div style="font-size:11px;color:var(--gray)"><span style="display:inline-block;width:10px;height:10px;background:#2563eb;border-radius:2px;vertical-align:middle"></span> izq · <span style="display:inline-block;width:10px;height:10px;background:#d97706;border-radius:2px;vertical-align:middle"></span> central · <span style="display:inline-block;width:10px;height:10px;background:#059669;border-radius:2px;vertical-align:middle"></span> der · <span style="display:inline-block;width:10px;height:10px;background:#7c3aed;border-radius:2px;vertical-align:middle"></span> renivelación</div>
+      <div style="font-size:11px;color:var(--gray)"><span style="display:inline-block;width:10px;height:10px;background:#2563eb;border-radius:2px;vertical-align:middle"></span> izq · <span style="display:inline-block;width:10px;height:10px;background:#d97706;border-radius:2px;vertical-align:middle"></span> central · <span style="display:inline-block;width:10px;height:10px;background:#059669;border-radius:2px;vertical-align:middle"></span> der · <span style="display:inline-block;width:10px;height:10px;background:#7c3aed;border-radius:2px;vertical-align:middle"></span> renivelación · <span style="display:inline-block;width:10px;height:10px;background:#db2777;border-radius:2px;vertical-align:middle"></span> bacheo</div>
       <div style="display:flex;gap:6px">
         <button class="f-chip" onclick="zoomCad(0.7)">− Reducir</button>
         <button class="f-chip" onclick="zoomCad('fit')">Ajustar</button>
@@ -1635,7 +1631,6 @@ function render(){
   const favTon=m3FavAcum*DEN;
   const emulAcum=filtered.reduce((s,r)=>s+(r.emulsion_lts||0),0);
   const exec=calcExec(filtered);
-  const execGeo=calcExecGeo(filtered);
   const cambio=tonAyer>0?((tonHoy-tonAyer)/tonAyer*100).toFixed(1):null;
   const pctAvance=(volAcum/TOT_VOL*100).toFixed(1);
 
@@ -1664,7 +1659,7 @@ function render(){
   <div class="section-hdr">📈 Producción — día y acumulado</div>
   <div class="kpi-grid" id="kpiGrid">
     <div class="kpi blue"><span class="kpi-icon">🏗️</span><div class="kpi-label">Toneladas hoy</div><div class="kpi-value">${tonHoy.toFixed(1)}</div><div class="kpi-sub">${hoyR.length} viajes · ${(hoyR.reduce((s,r)=>s+r.area,0)).toFixed(0)} m²</div>${cambio?`<div class="kpi-delta ${parseFloat(cambio)>=0?'up':'down'}">${parseFloat(cambio)>=0?'▲':'▼'} ${Math.abs(cambio)}% vs ayer</div>`:'<div class="kpi-delta neutral">Primer día</div>'}</div>
-    <div class="kpi green"><span class="kpi-icon">📐</span><div class="kpi-label">Volumen hoy m³</div><div class="kpi-value">${volHoy.toFixed(2)}</div><div class="kpi-sub">${(volHoy*DEN).toFixed(1)} ton reales colocadas</div></div>
+    <div class="kpi green"><span class="kpi-icon">📐</span><div class="kpi-label">Volumen hoy m³</div><div class="kpi-value">${volHoy.toFixed(2)}</div><div class="kpi-sub">geométrico · ${tonHoy.toFixed(1)} ton báscula</div></div>
     <div class="kpi gold"><span class="kpi-icon">📦</span><div class="kpi-label">Ton acumuladas</div><div class="kpi-value">${tonAcum.toFixed(0)}</div><div class="kpi-sub">${filtered.length} viajes · ${Object.keys(byCam).length} camiones</div></div>
     <div class="kpi blue"><span class="kpi-icon">🧱</span><div class="kpi-label">Vol. acum m³</div><div class="kpi-value">${volAcum.toFixed(1)}</div><div class="kpi-sub">${pctAvance}% del catálogo total</div></div>
     <div class="kpi green"><span class="kpi-icon">💰</span><div class="kpi-label">m³ ganancia</div><div class="kpi-value">${m3FavAcum>=0?'+':''}${m3FavAcum.toFixed(2)}</div><div class="kpi-sub">${(m3FavAcum>=0?'+':'')}${favTon.toFixed(1)} ton a favor</div></div>
@@ -1702,7 +1697,7 @@ function render(){
   ${secciones.horarios ? buildHorarios(filtered) : ''}
 
   <!-- FÍSICO-FINANCIERO -->
-  ${secciones.financiero ? buildFinanciero(exec, execGeo) : ''}
+  ${secciones.financiero ? buildFinanciero(exec) : ''}
 
   <!-- AVANCE vs PROGRAMA -->
   <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
