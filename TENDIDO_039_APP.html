@@ -609,6 +609,18 @@ const CATALOGO_E7 = [
 ];
 let catalogoActivo = [...CATALOGO_E7];
 function getCatItem(id){ return catalogoActivo.find(x=>x.id===id)||null; }
+// Consolida cualquier variante de nombre a UN solo concepto canónico (por id o texto) + obra.
+const _CANON_LBL={ reniv:'RENIVELACIÓN · O1', carp3:'CARPETA 3CM · O1', bach1:'BACHEO SUP · O1', carp5:'CARPETA 5CM · O2', bach2:'BACHEO SUP · O2' };
+function _canonKeyC(id,label,kde){
+  const s=(String(id||'')+' '+String(label||'')).toUpperCase();
+  if(s.indexOf('RENIV')>=0) return 'reniv';
+  if(s.indexOf('CARPETA 5')>=0||s.indexOf('CARPETA5')>=0||s.indexOf('5CM')>=0||s.indexOf('5 CM')>=0) return 'carp5';
+  if(s.indexOf('CARPETA')>=0||s.indexOf('3CM')>=0||s.indexOf('3 CM')>=0) return 'carp3';
+  const esO2 = s.indexOf('O2')>=0 || (kde!=null && kde>=247000 && kde<=252000);
+  if(s.indexOf('BACHEO')>=0) return esO2?'bach2':'bach1';
+  return null;
+}
+function conceptoCanon(id,label,kde){ const k=_canonKeyC(id,label,kde); return k?_CANON_LBL[k]:(label||id||'—'); }
 function importe(id, m3){ const ci=getCatItem(id); return ci ? ci.pu*m3 : 0; }
 
 // ═══ MULTI-OBRA (Etapa 1: selector + se guarda la obra en cada viaje; NO filtra todavía) ═══
@@ -1807,7 +1819,7 @@ function renderTablaTiro(){
       const kdeC=(c.kde!=null)?c.kde:(ci===0?v.kde:null);
       const kaC =(c.ka !=null)?c.ka :(ci===0?v.ka:null);
       flatAll.push({v,lng,aw,area,vol,ton,er,mf,kdeC,kaC,
-        lblC:c.label||cat.label||v.concepto||'', carrilC:c.carril||v.carril||'—',
+        lblC:conceptoCanon(c.id, c.label||cat.label||v.concepto||'', (c.kde!=null?c.kde:v.kde)), carrilC:c.carril||v.carril||'—',
         unidad:cat.unidad||'M3', tp:v.temp_produccion, tt:v.temp_tendido});
     });
   });
@@ -3088,10 +3100,10 @@ function renderFisicoFinanciero() {
 
 function conceptoTxt(r){
   if(r.conceptos && r.conceptos.length){
-    const labs=[...new Set(r.conceptos.map(c=>c.label||'').filter(Boolean))];
+    const labs=[...new Set(r.conceptos.map(c=>conceptoCanon(c.id, c.label||'', (c.kde!=null?c.kde:r.kde))).filter(Boolean))];
     if(labs.length) return labs.join(' + ');
   }
-  return r.concepto || '—';
+  return conceptoCanon(null, r.concepto, r.kde);
 }
 // Cadenamiento de salida: acepta número (metros) o string ya formateado ("48+272.51")
 function cadOut(v){
@@ -3116,7 +3128,7 @@ function filasConcepto(r){
     const ton=c.ton||0;
     const er=(ton&&area)?ton/(area*DEN):0;
     const mf=(ton&&area&&esp)?(((esp/100)-er)*area):0;
-    return { r, label:(c.label||cat.label||c.id||r.concepto||'—'), ton, area, volumen:vol,
+    return { r, label:conceptoCanon(c.id, c.label||cat.label||r.concepto||'', (c.kde!=null?c.kde:r.kde)), ton, area, volumen:vol,
              esp_real:er, m3_fav:mf, gp:mf>=0?'GANANCIA':'PERDIDA', carril:(c.carril||r.carril||''), kde:c.kde, ka:c.ka };
   });
 }
