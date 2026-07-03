@@ -106,7 +106,7 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .card-body{padding:16px 18px}
 
 /* ── PROGRESS ── */
-.prog-row{display:grid;grid-template-columns:140px 1fr 60px 90px;align-items:center;gap:10px;margin-bottom:12px}
+.prog-row{display:grid;grid-template-columns:140px 1fr 60px 90px 90px;align-items:center;gap:10px;margin-bottom:12px}
 .prog-row:last-child{margin-bottom:0}
 .prog-label{font-size:12px;font-weight:600;color:var(--txt2);line-height:1.3}
 .prog-track{height:10px;background:var(--gray3);border-radius:99px;overflow:hidden}
@@ -242,7 +242,7 @@ body.ppt-mode .ppt-watermark{display:block}
   .main{padding:12px 14px}
   .header-inner{padding:12px 14px}
   .filters{padding:8px 14px}
-  .prog-row{grid-template-columns:100px 1fr 45px 70px}
+  .prog-row{grid-template-columns:100px 1fr 45px 70px 70px}
 }
 @media(max-width:600px){
   .kpi-grid{grid-template-columns:1fr 1fr}
@@ -515,6 +515,16 @@ function _conceptosReales(r){
   }
   return [{key:(_keyFromLabel(r.concepto)||_keyHeur(r)), vol:totVol}];
 }
+// Reparte el volumen GEOMÉTRICO del viaje (área×espesor, campo c.volumen de cada concepto) entre las claves.
+// Se usa SOLO para comparar contra el Generador SICT (que hoy factura en geométrico), no para KPIs oficiales.
+function _conceptosGeo(r){
+  const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
+  if(cs){
+    const val=cs.map(c=>({key:_keyDeConcepto(c), vol:+(c.volumen||0)})).filter(x=>x.key);
+    if(val.length) return val;
+  }
+  return [{key:(_keyFromLabel(r.concepto)||_keyHeur(r)), vol:+(r.volumen||0)}];
+}
 // m³ a favor REAL: solo carpeta (geométrico − real). Reniv/bacheo se miden por volumen real → favor 0.
 function _favDe(r){
   const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
@@ -724,6 +734,11 @@ function calcExec(recs){
   recs.forEach(r=>{ _conceptosReales(r).forEach(({key,vol})=>{ if(e[key]!=null) e[key]+=vol; }); });
   return e;
 }
+function calcExecGeo(recs){
+  const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
+  recs.forEach(r=>{ _conceptosGeo(r).forEach(({key,vol})=>{ if(e[key]!=null) e[key]+=vol; }); });
+  return e;
+}
 
 // ── FÍSICO-FINANCIERO: avance económico por concepto ──
 const _fmtMXN = v => '$'+Math.round(v).toLocaleString('es-MX');
@@ -911,38 +926,46 @@ function buildHorarios(recs){
   </div>`;
 }
 
-function buildFinanciero(exec){
+function buildFinanciero(exec, execGeo){
   const keys=['reniv','carp3','bach1','carp5','bach2'];
   const rows=keys.map(k=>{
-    const c=CAT[k]; const ex=exec[k]||0;
-    const impCont=c.pu*c.vol, impEjec=c.pu*ex;
+    const c=CAT[k]; const ex=exec[k]||0; const exG=execGeo[k]||0;
+    const impCont=c.pu*c.vol, impEjec=c.pu*ex, impEjecGeo=c.pu*exG;
     const pct=impCont>0?Math.min(impEjec/impCont*100,100):0;
-    return {k,c,ex,impCont,impEjec,pct};
+    const pctG=impCont>0?Math.min(impEjecGeo/impCont*100,100):0;
+    return {k,c,ex,exG,impCont,impEjec,impEjecGeo,pct,pctG};
   });
   const montoContrato=rows.reduce((s,r)=>s+r.impCont,0);
   const montoEjec=rows.reduce((s,r)=>s+r.impEjec,0);
+  const montoEjecGeo=rows.reduce((s,r)=>s+r.impEjecGeo,0);
   const porEjecutar=montoContrato-montoEjec;
   const pctGlobal=montoContrato>0?(montoEjec/montoContrato*100):0;
+  const pctGlobalGeo=montoContrato>0?(montoEjecGeo/montoContrato*100):0;
+  const diffGeo=montoEjecGeo-montoEjec;
 
-  // Donut global
+  // Donut global (oficial = ton/densidad)
   const r=42, circ=2*Math.PI*r;
   const dash=(pctGlobal/100*circ).toFixed(2), gap=(circ-dash).toFixed(2);
   const colG=pctGlobal>=80?'var(--green)':pctGlobal>=40?'var(--gold)':'var(--blue)';
 
   const barras=rows.map(r=>{
     const colorPct=r.pct>=100?'var(--green)':r.pct>=50?'var(--blue)':'var(--gray)';
+    const colorPctG=r.pctG>=100?'var(--green)':r.pctG>=50?'var(--blue)':'var(--gray)';
+    const difR=r.impEjecGeo-r.impEjec;
+    const difTxt=Math.abs(difR)>=500?`<span style="color:${difR>0?'var(--gold)':'var(--green)'}">${difR>0?'+':''}${_fmtMXNc(difR)} vs generador</span>`:'';
     return `<div class="prog-row">
       <div class="prog-label">${r.c.label}<br><span style="font-size:10px;color:var(--gray)">${r.c.obra} · ${_fmtMXNc(r.impCont)} contrato</span></div>
       <div class="prog-track"><div class="prog-fill ${r.c.color}" style="width:${r.pct.toFixed(1)}%"></div></div>
       <div class="prog-pct" style="color:${colorPct}">${r.pct.toFixed(1)}%</div>
-      <div class="prog-vol">${_fmtMXNc(r.impEjec)}<br><span style="color:var(--gray)">ejecutado</span></div>
-    </div>`;
+      <div class="prog-vol">${_fmtMXNc(r.impEjec)}<br><span style="color:var(--gray)">ton÷densidad</span></div>
+      <div class="prog-vol" style="border-left:1px dashed var(--gray2);padding-left:8px">${_fmtMXNc(r.impEjecGeo)}<br><span style="color:${colorPctG}">geométrico · ${r.pctG.toFixed(0)}%</span></div>
+    </div>${difTxt?`<div style="text-align:right;font-size:10px;padding:2px 0 6px">${difTxt}</div>`:''}`;
   }).join('');
 
   return `
   <div class="section-hdr">💰 Físico-financiero — avance económico por concepto</div>
   <div class="card">
-    <div class="card-hdr"><h4>💵 Avance financiero global</h4><div class="meta">${pctGlobal.toFixed(1)}% del contrato</div></div>
+    <div class="card-hdr"><h4>💵 Avance financiero global</h4><div class="meta">${pctGlobal.toFixed(1)}% del contrato · oficial (ton÷densidad)</div></div>
     <div class="card-body">
       <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;margin-bottom:14px">
         <svg width="110" height="110" viewBox="0 0 110 110" style="flex:0 0 auto">
@@ -955,9 +978,14 @@ function buildFinanciero(exec){
         </svg>
         <div style="display:flex;gap:10px;flex:1;flex-wrap:wrap;min-width:240px">
           <div class="fin-kpi"><div class="fin-kpi-l">Monto contrato</div><div class="fin-kpi-v">${_fmtMXNc(montoContrato)}</div><div class="fin-kpi-s">${_fmtMXN(montoContrato)}</div></div>
-          <div class="fin-kpi" style="border-color:${colG}"><div class="fin-kpi-l">Ejecutado</div><div class="fin-kpi-v" style="color:${colG}">${_fmtMXNc(montoEjec)}</div><div class="fin-kpi-s">${_fmtMXN(montoEjec)}</div></div>
+          <div class="fin-kpi" style="border-color:${colG}"><div class="fin-kpi-l">Ejecutado · ton÷densidad</div><div class="fin-kpi-v" style="color:${colG}">${_fmtMXNc(montoEjec)}</div><div class="fin-kpi-s">${_fmtMXN(montoEjec)}</div></div>
+          <div class="fin-kpi" style="border-color:var(--gold)"><div class="fin-kpi-l">Ejecutado · geométrico (gen. SICT)</div><div class="fin-kpi-v" style="color:var(--gold)">${_fmtMXNc(montoEjecGeo)}</div><div class="fin-kpi-s">${_fmtMXN(montoEjecGeo)} · ${pctGlobalGeo.toFixed(1)}%</div></div>
           <div class="fin-kpi"><div class="fin-kpi-l">Por ejecutar</div><div class="fin-kpi-v">${_fmtMXNc(porEjecutar)}</div><div class="fin-kpi-s">${_fmtMXN(porEjecutar)}</div></div>
         </div>
+      </div>
+      <div style="font-size:11px;color:var(--txt3);margin-bottom:10px;padding:6px 8px;background:var(--blue4);border-radius:6px">
+        Diferencia geométrico − ton÷densidad: <b style="color:${diffGeo>=0?'var(--gold)':'var(--green)'}">${diffGeo>=0?'+':''}${_fmtMXNc(diffGeo)}</b>.
+        El ton÷densidad es el valor oficial de cobro; el geométrico es lo que hoy calcula el Generador SICT (área×espesor, sin compactación) — pendiente normalizarlo.
       </div>
       ${barras}
     </div>
@@ -1003,8 +1031,16 @@ function buildAvanceProgramado(recs){
   const PROG_MESES=PER; // alias para el resto del template
 
   // Guardar para dibujar las curvas tras insertar el DOM
+  // Días TRABAJADOS (con tiro) para promedio global y tendencia reciente (ignora descansos)
+  const _pd={}; recs.forEach(r=>{ if(!r.fecha) return; const v=_volR(r); if(v<=0) return; if(!_pd[r.fecha])_pd[r.fecha]={vol:0,ton:0}; _pd[r.fecha].vol+=v; _pd[r.fecha].ton+=(r.ton_recibidas||0); });
+  const _diasT=Object.keys(_pd).sort();
+  const diasTrab=_diasT.length;
+  const volTot=_diasT.reduce((s,f)=>s+_pd[f].vol,0), tonTot=_diasT.reduce((s,f)=>s+_pd[f].ton,0);
+  const _rec=_diasT.slice(-7), nRec=_rec.length;
+  const volRec=_rec.reduce((s,f)=>s+_pd[f].vol,0), tonRec=_rec.reduce((s,f)=>s+_pd[f].ton,0);
   _sdata={labels:PER.map(m=>m.label),progVol,realVol,progFin,realFin,cur,TOT_VOL,TOT_FIN,progM,realM,
-    diaHoy,perDias:PER.map(p=>p.dia),perFin:PER.map(p=>p.fin),perDur:PER.map((p,i)=>p.dia-(i>0?PER[i-1].dia:0)),ratioFV:(TOT_VOL>0?TOT_FIN/TOT_VOL:0)};
+    diaHoy,perDias:PER.map(p=>p.dia),perFin:PER.map(p=>p.fin),perDur:PER.map((p,i)=>p.dia-(i>0?PER[i-1].dia:0)),ratioFV:(TOT_VOL>0?TOT_FIN/TOT_VOL:0),
+    diasTrab,volTot,tonTot,volRec,tonRec,nRec};
 
   // Seccionador de granularidad
   const selBtns=['dia','semana','quincena','mes'].map(g=>`<button class="gran-btn${g===_sGran?' on':''}" onclick="setGran('${g}')">${_granLabel[g]}</button>`).join('');
@@ -1250,8 +1286,15 @@ function _sProyecciones(){
   }
   const finProjDia=finFromVol(paceVol), finReproDia=finFromVol(volDiaObj);
   const fechaDe=dia=> isFinite(dia)? _fmtDiaYr(_addDays(PROG_INICIO,dia-1)) : 'fuera de rango';
+  // Promedio GLOBAL por día trabajado (todas las toneladas ÷ días trabajados) y tendencia reciente
+  const diasT=Math.max(d.diasTrab||1,1);
+  const volProm=(d.volTot!=null?d.volTot:realV)/diasT;
+  const tonProm=(d.tonTot!=null?d.tonTot:realV*DEN)/diasT;
+  const ritmoRecVol=(d.nRec? d.volRec/d.nRec : volProm);
+  const ritmoRecTon=(d.nRec? d.tonRec/d.nRec : tonProm);
   return {projVol,projFin,reproVol,reproFin,paceVol,volDiaObj,volDiaAuto,
     finProjDia,finReproDia,finProjFecha:fechaDe(finProjDia),finReproFecha:fechaDe(finReproDia),
+    volProm,tonProm,ritmoRecVol,ritmoRecTon,diasTrab:diasT,nRec:(d.nRec||0),
     onTimeProj:finProjDia<=PLAZO_DIAS, onTimeRepro:finReproDia<=PLAZO_DIAS};
 }
 function _fmtDiaYr(dt){ try{ return dt.toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}); }catch(e){ return _fmtDia(dt); } }
@@ -1259,13 +1302,22 @@ function _fmtDiaYr(dt){ try{ return dt.toLocaleDateString('es-MX',{day:'numeric'
 // Serie acumulada del PLAN de obra (capturado a mano por periodo)
 function _planSerie(){
   const d=_sdata; if(!d||!d.perFin) return null;
-  let ac=0, hasAny=false; const planVol=[], planFin=[];
-  for(let i=0;i<d.perFin.length;i++){ const v=+(_sPlan[d.perFin[i]]||0); if(v>0)hasAny=true; ac+=v; planVol.push(ac); planFin.push(ac*d.ratioFV); }
+  const keys=Object.keys(_sPlan).filter(k=>+_sPlan[k]>0);
+  if(!keys.length) return {planVol:null,planFin:null,total:0,finDia:null,finFecha:'—',cobro:0,onTime:false,hasAny:false};
+  let ac=0; const planVol=[], planFin=[]; let prevFin='';
+  for(let i=0;i<d.perFin.length;i++){
+    const fin=d.perFin[i];
+    let periodo=0; keys.forEach(k=>{ if((prevFin===''||k>prevFin) && k<=fin) periodo+=+_sPlan[k]; });
+    ac+=periodo; planVol.push(ac); planFin.push(ac*d.ratioFV); prevFin=fin;
+  }
+  // Aportes con fecha posterior al último periodo mostrado → se suman al último punto para no perderlos
+  const ultFin=d.perFin[d.perFin.length-1]; let extra=0; keys.forEach(k=>{ if(k>ultFin) extra+=+_sPlan[k]; });
+  if(extra>0){ ac+=extra; planVol[planVol.length-1]=ac; planFin[planFin.length-1]=ac*d.ratioFV; }
   let finIdx=planVol.findIndex(v=>v>=d.TOT_VOL-0.5);
   const finDia = finIdx>=0 ? d.perDias[finIdx] : null;
-  const finFecha = finDia!=null ? _fmtDiaYr(_addDays(PROG_INICIO, finDia-1)) : (hasAny?'no llega a meta':'—');
-  return {planVol:hasAny?planVol:null, planFin:hasAny?planFin:null, total:ac, finDia, finFecha,
-    cobro:Math.min(ac,d.TOT_VOL)*d.ratioFV, onTime:finDia!=null&&finDia<=PLAZO_DIAS, hasAny};
+  const finFecha = finDia!=null ? _fmtDiaYr(_addDays(PROG_INICIO, finDia-1)) : 'no llega a meta';
+  return {planVol, planFin, total:ac, finDia, finFecha,
+    cobro:Math.min(ac,d.TOT_VOL)*d.ratioFV, onTime:finDia!=null&&finDia<=PLAZO_DIAS, hasAny:true};
 }
 
 function buildSCharts(){
@@ -1283,7 +1335,7 @@ function buildSCharts(){
   // Actualiza panel de estado (fechas de término y cobro)
   if(pr){
     const setTxt=(id,t)=>{const e=document.getElementById(id); if(e) e.innerHTML=t;};
-    setTxt('sProjInfo', `Al ritmo actual (<b>${pr.paceVol.toFixed(1)} m³/día</b>): terminas <b style="color:#d97706">${pr.finProjFecha}</b> · cobras <b>${_fmtMXNc(d.TOT_FIN)}</b> <span style="color:${pr.onTimeProj?'var(--green)':'var(--red)'}">(${pr.onTimeProj?'dentro del plazo':'fuera del plazo'})</span>`);
+    setTxt('sProjInfo', `Promedio global: <b>${pr.tonProm.toFixed(0)} ton/día</b> (${pr.volProm.toFixed(1)} m³/día) en <b>${pr.diasTrab}</b> día(s) trabajados · terminas <b style="color:#d97706">${pr.finProjFecha}</b> · cobras <b>${_fmtMXNc(d.TOT_FIN)}</b> <span style="color:${pr.onTimeProj?'var(--green)':'var(--red)'}">(${pr.onTimeProj?'dentro del plazo':'fuera del plazo'})</span><br><span style="color:var(--txt3)">Tendencia últimos ${pr.nRec} día(s) trabajados: <b>${pr.ritmoRecTon.toFixed(0)} ton/día</b> (${pr.ritmoRecVol.toFixed(1)} m³/día)</span>`);
     setTxt('sReproInfo', `Reprogramado a <b style="color:#7c3aed">${pr.volDiaObj.toFixed(1)} m³/día</b>: terminas <b style="color:#7c3aed">${pr.finReproFecha}</b> <span style="color:${pr.onTimeRepro?'var(--green)':'var(--red)'}">(${pr.onTimeRepro?'dentro del plazo':'fuera del plazo'})</span>`);
     const inp=document.getElementById('sVolDiaInput');
     if(inp && document.activeElement!==inp) inp.value = (_sVolDia!=null&&_sVolDia>0)?_sVolDia:pr.volDiaAuto.toFixed(1);
@@ -1583,6 +1635,7 @@ function render(){
   const favTon=m3FavAcum*DEN;
   const emulAcum=filtered.reduce((s,r)=>s+(r.emulsion_lts||0),0);
   const exec=calcExec(filtered);
+  const execGeo=calcExecGeo(filtered);
   const cambio=tonAyer>0?((tonHoy-tonAyer)/tonAyer*100).toFixed(1):null;
   const pctAvance=(volAcum/TOT_VOL*100).toFixed(1);
 
@@ -1649,7 +1702,7 @@ function render(){
   ${secciones.horarios ? buildHorarios(filtered) : ''}
 
   <!-- FÍSICO-FINANCIERO -->
-  ${secciones.financiero ? buildFinanciero(exec) : ''}
+  ${secciones.financiero ? buildFinanciero(exec, execGeo) : ''}
 
   <!-- AVANCE vs PROGRAMA -->
   <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
