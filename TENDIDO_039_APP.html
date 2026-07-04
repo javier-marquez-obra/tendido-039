@@ -2245,7 +2245,7 @@ function _calcTraslapes(recs){
   const segs=[];
   recs.forEach(v=>_conceptosDe(v).forEach(c=>{
     if(c.kde==null||c.ka==null) return;
-    const txt=((c.id||'')+' '+(c.label||'')); if(/reniv/i.test(txt)) return; // la renivelación es otra capa
+    const txt=((c.id||'')+' '+(c.label||'')); if(/reniv|bacheo/i.test(txt)) return; // reniv y bacheo son capas de parche/nivelación, se pisan con la carpeta por diseño
     const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka); if(b-a<0.5) return;
     segs.push({a,b,carril:c.carril||v.carril||'?',tramo:(c.kde>=247000?'O2':'O1'),num:v.num_viaje_dia});
   }));
@@ -2268,7 +2268,7 @@ window.revisarTraslapes=function(){
   p.style.display='';
   p.innerHTML=`<div style="font-weight:800;margin-bottom:6px">🔎 Traslapes de carpeta (mismo carril y tramo)</div>`
     +(t.length?`<div style="color:var(--red);font-size:12px">${t.map(x=>'⚠️ '+x).join('<br>')}</div>`:`<div style="color:var(--green)">✓ Sin traslapes en carpeta.</div>`)
-    +`<div style="margin-top:6px;font-size:11px;color:var(--muted)">La renivelación no cuenta (es otra capa).</div>`
+    +`<div style="margin-top:6px;font-size:11px;color:var(--muted)">Renivelación y bacheo no cuentan (son capas de parche/nivelación, se pisan con la carpeta por diseño).</div>`
     +`<button class="bc" style="margin-top:8px;padding:5px 10px;font-size:12px" onclick="document.getElementById('tiroCadPanel').style.display='none'">Cerrar</button>`;
 };
 function _panelCad(cambios,errores,traslapes,nv){
