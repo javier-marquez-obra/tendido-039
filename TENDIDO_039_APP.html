@@ -2129,7 +2129,7 @@ window.exportarTablaExcel=function(){
   ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length+1,c:19}});
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tabla de tiro');
   XLSX.writeFile(wb,`TENDIDO_039_TABLA_${new Date().toISOString().slice(0,10)}.xlsx`);
-  toast('Tabla exportada · todo numérico y con fórmulas (A KM, m², m³, esp. real y totales)','ok');
+  toast('Tabla exportada · puedes editar Concepto (Renivelación/Bacheo/Carpeta 3cm/Carpeta 5cm), Ton, Carril, De KM, ML, Sentido, Ancho y Espesor','ok');
 };
 window.exportarCadExcel=function(){
   if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel; revisa tu conexión','err'); return; }
@@ -2180,6 +2180,7 @@ window.leerCadExcel=function(file){
   fr.readAsArrayBuffer(file);
 };
 let _cadPend=null;
+const _CANON_ID={reniv:'RENIV-O1',carp3:'CARPETA3-O1',bach1:'BACHEO-O1',carp5:'CARPETA5-O2',bach2:'BACHEO-O2'};
 function _procesarCadExcel(rows){
   const cambios=[], errores=[], porViaje={};
   rows.forEach((row,n)=>{
@@ -2191,6 +2192,20 @@ function _procesarCadExcel(rows){
     let sent=String(row.Sentido||'').toLowerCase().trim(); sent=sent.startsWith('b')?'baja':'sube';
     const carril=String(row.Carril||'').trim();
     if(isNaN(kde)||isNaN(ml)||ml<=0){ errores.push(`Fila ${n+2} (viaje ${v.num_viaje_dia}): De KM o ML inválido`); return; }
+    // Concepto: si viene, se valida contra los 5 canónicos del catálogo E-7. Si no se reconoce, se rechaza toda la fila (no se aplica nada a medias).
+    let conceptoNuevo=null;
+    if(row.Concepto!=null && String(row.Concepto).trim()!==''){
+      const key=_canonKeyC(row.Concepto, row.Concepto, kde);
+      if(!key){ errores.push(`Fila ${n+2} (viaje ${v.num_viaje_dia}): concepto "${row.Concepto}" no reconocido — usa Renivelación, Bacheo, Carpeta 3cm o Carpeta 5cm`); return; }
+      conceptoNuevo={id:_CANON_ID[key],label:_CANON_LBL[key]};
+    }
+    // Ton: si viene, se aplica al concepto (no toca el ton_recibidas del viaje/báscula).
+    let tonNuevo=null;
+    if(row.Ton!=null && String(row.Ton).trim()!==''){
+      const tn=parseFloat(row.Ton);
+      if(isNaN(tn)||tn<0){ errores.push(`Fila ${n+2} (viaje ${v.num_viaje_dia}): Ton inválido`); return; }
+      tonNuevo=tn;
+    }
     if(!porViaje[id]) porViaje[id]={v,conceptos:JSON.parse(JSON.stringify(_conceptosDe(v))),tieneArr:!!(v.conceptos&&v.conceptos.length)};
     const c=porViaje[id].conceptos[idx];
     if(!c){ errores.push(`Fila ${n+2}: el viaje ${v.num_viaje_dia} no tiene concepto #${idx}`); return; }
@@ -2200,13 +2215,15 @@ function _procesarCadExcel(rows){
     const _espCell = (row['Espesor (cm)']!=null&&row['Espesor (cm)']!=='') ? row['Espesor (cm)'] : row['Esp.teó(cm)'];
     const espEd=(_espCell!=null&&_espCell!==''&&!isNaN(+_espCell))?+_espCell:null;
     const ancho=anchoEd!=null?anchoEd:(c.ancho||0), esp=espEd!=null?espEd:(c.esp_teorico||0);
-    const antesK=c.kde, antesL=c.longitud, antesS=c.sentido, antesA=c.ancho, antesE=c.esp_teorico;
+    const antesK=c.kde, antesL=c.longitud, antesS=c.sentido, antesA=c.ancho, antesE=c.esp_teorico, antesId=c.id, antesTon=c.ton;
     c.kde=kde; c.ka=ka; c.longitud=+ml.toFixed(2); c.sentido=sent; if(carril) c.carril=carril;
     if(anchoEd!=null){ c.ancho=+anchoEd.toFixed(3); c.ancho_ini=c.ancho; c.ancho_fin=c.ancho; }
     if(espEd!=null) c.esp_teorico=espEd;
+    if(conceptoNuevo){ c.id=conceptoNuevo.id; c.label=conceptoNuevo.label; }
+    if(tonNuevo!=null) c.ton=+tonNuevo.toFixed(2);
     c.area=+((c.longitud)*ancho).toFixed(4); c.volumen=+(c.area*(esp/100)).toFixed(4);
-    if(antesK!==kde||antesL!==c.longitud||antesS!==sent||(anchoEd!=null&&antesA!==anchoEd)||(espEd!=null&&antesE!==espEd))
-      cambios.push(`Viaje ${v.num_viaje_dia} · ${c.label||c.id}: ${antesK!=null?fmtCad(antesK):'—'} → ${fmtCad(kde)} · ${ml.toFixed(2)} m · ${sent}${(anchoEd!=null&&antesA!==anchoEd)?` · ancho ${anchoEd}`:''}${(espEd!=null&&antesE!==espEd)?` · esp ${espEd}cm`:''}`);
+    if(antesK!==kde||antesL!==c.longitud||antesS!==sent||(anchoEd!=null&&antesA!==anchoEd)||(espEd!=null&&antesE!==espEd)||(conceptoNuevo&&antesId!==c.id)||(tonNuevo!=null&&antesTon!==c.ton))
+      cambios.push(`Viaje ${v.num_viaje_dia} · ${c.label||c.id}: ${antesK!=null?fmtCad(antesK):'—'} → ${fmtCad(kde)} · ${ml.toFixed(2)} m · ${sent}${(anchoEd!=null&&antesA!==anchoEd)?` · ancho ${anchoEd}`:''}${(espEd!=null&&antesE!==espEd)?` · esp ${espEd}cm`:''}${(conceptoNuevo&&antesId!==conceptoNuevo.id)?` · concepto ${antesId}→${conceptoNuevo.id}`:''}${(tonNuevo!=null&&antesTon!==tonNuevo)?` · ton ${antesTon}→${tonNuevo}`:''}`);
   });
   // Recalcular resumen del viaje (concepto principal) con la densidad oficial DEN
   const updates=[];
