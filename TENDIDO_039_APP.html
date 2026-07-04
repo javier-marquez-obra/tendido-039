@@ -3315,7 +3315,7 @@ function _repRows(){
     const mf=(ton&&area&&esp)?(((esp/100)-(ton/(area*DEN)))*area):0;
     rows.push({ fecha:v.fecha||'', obra:v.obra||'039', viaje:v.num_viaje_dia||'', placas:v.placas||'',
       camion:v.tipo_camion||'', material:v.material||'', pg:v.pg||'', mezcla:v.tipo_mezcla||'',
-      concepto:c.label||c.id||'', carril:c.carril||v.carril||'', sentido:(c.sentido||v.sentido||'sube'),
+      concepto:conceptoCanon(c.id, c.label||'', (c.kde!=null?c.kde:v.kde)), carril:c.carril||v.carril||'', sentido:(c.sentido||v.sentido||'sube'),
       dekm:c.kde, akm:c.ka, ml, ancho:aw, esp, area, vol, ton, espreal, m3fav:mf, gp:(mf>=0?'GANANCIA':'PERDIDA'),
       tprod:v.temp_produccion, ttend:v.temp_tendido,
       hcap:v.hora_captura||'', hini:v.hora_inicio_tendido||'', hfin:v.hora_fin_tendido||'',
@@ -3351,8 +3351,9 @@ function _repGraficos(){
   // G1 barras por día
   let bars='',xlab='';
   valDia.forEach((t,i)=>{ const x=padL+gap*i+gap/2, bh=t/maxDia*ch, y=padT+ch-bh;
+    const fs=Math.max(6.5,Math.min(9,gap*0.42));
     bars+=`<rect x="${(x-bw/2).toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${Math.max(0,bh).toFixed(1)}" rx="3" fill="var(--gold)"/>`;
-    if(n<=18) bars+=`<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${fmt(t)}</text>`;
+    bars+=`<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" font-size="${fs.toFixed(1)}" fill="var(--muted)" text-anchor="middle">${fmt(t)}</text>`;
     if(n<=14||i%Math.ceil(n/14)===0) xlab+=`<text x="${x.toFixed(1)}" y="${(H-padB+15).toFixed(1)}" font-size="9" fill="var(--muted)" text-anchor="middle">${dias[i].slice(8,10)+'/'+dias[i].slice(5,7)}</text>`;
   });
   let yr1='';
