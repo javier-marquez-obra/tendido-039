@@ -649,19 +649,20 @@ function cargarObras(){
 function guardarObras(o){ try{ localStorage.setItem('t039_obras',JSON.stringify(o)); }catch(e){} }
 // Carriles y ancho sugerido por tramo (editable por obra). Default: O1 con central, O2 solo Der/Izq (7 m).
 const CARRILES_DEFAULT={
-  O1:[{label:'L. DER.',ancho:3.5},{label:'CENT.',ancho:3.5},{label:'L. IZQ.',ancho:3.5}],
+  O1:[{label:'L. DER.',ancho:4.0},{label:'CENT.',ancho:4.0},{label:'L. IZQ.',ancho:4.0}],
   O2:[{label:'L. DER.',ancho:3.5},{label:'L. IZQ.',ancho:3.5}]
 };
 function carrilesDeObra(clave,tramo){ const o=OBRAS[clave]||{}; const c=o.carriles&&o.carriles[tramo]; return (c&&c.length)?c:(CARRILES_DEFAULT[tramo]||CARRILES_DEFAULT.O1); }
 function tramoDeConcepto(id){ const cat=getCatItem(id); return (cat&&cat.obra)||'O1'; }
 function carrilesDeConcepto(id){ return carrilesDeObra(obraActiva, tramoDeConcepto(id)); }
-// Pre-llena el ancho (ini/fin) con el sugerido del carril elegido; sigue siendo editable.
+// Pre-llena el ancho (ini/fin) con el sugerido del carril elegido SOLO si el campo está vacío.
+// Nunca pisa un valor que el checador ya haya capturado (puede cargar los datos en cualquier orden).
 function _sugerirAncho(arr,i,pref){
   const cv=arr[i]; if(!cv) return;
   const cs=carrilesDeConcepto(cv.id); const c=cs.find(x=>x.label===cv.carril)||cs[0];
-  if(c&&c.ancho>0){ cv.aw1=c.ancho; cv.aw2=c.ancho;
-    const a1=document.getElementById(pref+'aw1_'+i), a2=document.getElementById(pref+'aw2_'+i);
-    if(a1) a1.value=c.ancho; if(a2) a2.value=c.ancho; }
+  if(!c||!(c.ancho>0)) return;
+  if(!cv.aw1){ cv.aw1=c.ancho; const a1=document.getElementById(pref+'aw1_'+i); if(a1) a1.value=c.ancho; }
+  if(!cv.aw2){ cv.aw2=c.ancho; const a2=document.getElementById(pref+'aw2_'+i); if(a2) a2.value=c.ancho; }
 }
 window.sugerirAnchoViaje=function(i){ _sugerirAncho(conceptosViaje,i,'f_'); if(typeof calcResumenViaje==='function') calcResumenViaje(); };
 window.sugerirAnchoEdit=function(i){ _sugerirAncho(editConceptos,i,'e_conc_'); };
