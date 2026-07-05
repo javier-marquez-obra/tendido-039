@@ -1839,7 +1839,7 @@ function renderGraficoTiro(rs){
           const volGeo=+(c.volumen||0);
           const espReal=(ton&&area)?(ton/(area*DEN_TIRO)):0;
           const volReal=ton/DEN_TIRO;
-          segs.push({a,b,side,num:v.num_viaje_dia,tipo,area,espTeo,espReal,volGeo,volReal});
+          segs.push({a,b,side,num:v.num_viaje_dia,placas:v.placas||'',tipo,area,espTeo,espReal,volGeo,volReal});
         }
       }
     });
@@ -1903,14 +1903,17 @@ function _larguilloVista(segs,titulo,tramo,modo){
          +`<text x="${x}" y="${H-7}" text-anchor="middle" font-size="9" fill="#94a3b8">${fmtCad(Math.round(k))}</text>`;
   }
   let rows='';
+  const posCarp={}; // num_viaje → [{cx, cy, side}] para conectar camión que sigue en otro carril
   tracks.forEach((t,ti)=>{
     const y=PADT+ti*(trackH+gapT), cy=y+trackH/2;
     const ss=segs.filter(s=>s.side===t.side);
     const carp=ss.filter(s=>s.tipo==='carpeta'), ren=ss.filter(s=>s.tipo==='reniv'), bach=ss.filter(s=>s.tipo==='bacheo');
     rows+=`<line x1="${PADL}" y1="${cy}" x2="${W-PADR}" y2="${cy}" stroke="#1a1f29" stroke-width="${trackH}" stroke-linecap="round"/>`;
     rows+=`<text x="${PADL}" y="${y-9}" font-size="9.5" font-weight="700" fill="${t.color}">${t.label}</text>`;
-    carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
-      rows+=`<rect x="${x1}" y="${y+3}" width="${Math.max(2,x2-x1)}" height="${trackH-6}" rx="3" fill="${t.color}" opacity="0.9"><title>Carpeta · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+    carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b); const w=Math.max(2,x2-x1); const cx=(x1+x2)/2;
+      rows+=`<rect x="${x1}" y="${y+3}" width="${w}" height="${trackH-6}" rx="2" fill="${t.color}" opacity="0.92" stroke="#0d1017" stroke-width="0.8"><title>Camión ${s.num}${s.placas?' · '+s.placas:''}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+      if(w>=11) rows+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#0d1017">${s.num}</text>`;
+      if(s.num!=null){ (posCarp[s.num]=posCarp[s.num]||[]).push({cx,cy,ti}); }
     });
     ren.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"><title>Renivelación · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
@@ -1941,6 +1944,18 @@ function _larguilloVista(segs,titulo,tramo,modo){
       rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9" fill="#6b7280">sin tiro</text>`;
     }
   });
+  // Conector punteado: mismo camión (mismo N° de viaje) que continuó en otro carril
+  let conectores='';
+  Object.values(posCarp).forEach(pts=>{
+    if(pts.length<2) return;
+    pts.sort((a,b)=>a.ti-b.ti);
+    for(let i=0;i<pts.length-1;i++){ const p=pts[i], q=pts[i+1];
+      if(p.ti===q.ti) continue; // solo si cambia de carril
+      conectores+=`<line x1="${p.cx.toFixed(1)}" y1="${p.cy.toFixed(1)}" x2="${q.cx.toFixed(1)}" y2="${q.cy.toFixed(1)}" stroke="#f0b429" stroke-width="1.4" stroke-dasharray="3 3" opacity="0.85"/>`;
+      conectores+=`<circle cx="${p.cx.toFixed(1)}" cy="${p.cy.toFixed(1)}" r="1.8" fill="#f0b429"/><circle cx="${q.cx.toFixed(1)}" cy="${q.cy.toFixed(1)}" r="1.8" fill="#f0b429"/>`;
+    }
+  });
+  rows+=conectores;
   const nomTipo={carpeta:'Carpeta',reniv:'Renivelación',bacheo:'Bacheo'};
   let notaHtml='';
   if(modo==='sup'){
@@ -2683,11 +2698,32 @@ let conceptosViaje = [];
 
 // Si solo hay 1 concepto, asigna automáticamente todas las ton del camión
 function autoAsignarTon(){
+  const ton=parseFloat(document.getElementById('f_ton').value)||0;
   if(conceptosViaje.length===1){
-    const ton=parseFloat(document.getElementById('f_ton').value)||0;
     conceptosViaje[0].ton=ton;
     const inp=document.getElementById('f_concepto_ton_0');
     if(inp) inp.value=ton||'';
+    renderConceptosContainer();
+    return;
+  }
+  // Varios conceptos (ej. mismo camión en dos carriles): reparte el total por ÁREA (m²) de cada concepto.
+  // Si aún no hay geometría, reparte en partes iguales. Siempre editable a mano después.
+  if(ton>0){
+    const areas=conceptosViaje.map(cv=>{
+      const lng=+(cv.ml||cv.longitud||0);
+      const aw=(cv.aw1||cv.aw2)?(((+cv.aw1||0)+(+cv.aw2||0))/((cv.aw1?1:0)+(cv.aw2?1:0))):(+cv.ancho||0);
+      return Math.max(0,lng*aw);
+    });
+    const sumA=areas.reduce((s,a)=>s+a,0);
+    let repartido=0;
+    conceptosViaje.forEach((cv,i)=>{
+      if(i<conceptosViaje.length-1){
+        const t = sumA>0 ? +(ton*areas[i]/sumA).toFixed(2) : +(ton/conceptosViaje.length).toFixed(2);
+        cv.ton=t; repartido+=t;
+      } else {
+        cv.ton=+(ton-repartido).toFixed(2); // el último absorbe el redondeo → suma exacta
+      }
+    });
     renderConceptosContainer();
   }
 }
