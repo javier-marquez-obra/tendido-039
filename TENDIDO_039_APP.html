@@ -2400,9 +2400,11 @@ function _calcTraslapes(recs){
     if(c.kde==null||c.ka==null) return;
     const txt=((c.id||'')+' '+(c.label||'')); if(/reniv|bacheo/i.test(txt)) return; // reniv y bacheo son capas de parche/nivelación, se pisan con la carpeta por diseño
     const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka); if(b-a<0.5) return;
-    segs.push({a,b,carril:c.carril||v.carril||'?',tramo:(c.kde>=247000?'O2':'O1'),num:v.num_viaje_dia});
+    const lado=ladoDe(c.carril||v.carril); if(!lado) return; // carril no reconocido: no se compara (evita falsos traslapes)
+    segs.push({a,b,lado,tramo:(c.kde>=247000?'O2':'O1'),num:v.num_viaje_dia});
   }));
-  const grupos={}; segs.forEach(s=>{ const k=s.tramo+' · '+s.carril; (grupos[k]=grupos[k]||[]).push(s); });
+  const nomLado={IZQ:'L. IZQ.',CEN:'CENT.',DER:'L. DER.'};
+  const grupos={}; segs.forEach(s=>{ const k=s.tramo+' · '+(nomLado[s.lado]||s.lado); (grupos[k]=grupos[k]||[]).push(s); });
   const out=[];
   Object.entries(grupos).forEach(([k,arr])=>{
     arr.sort((x,y)=>x.a-y.a); let maxEnd=-Infinity, maxSeg=null;
