@@ -2401,10 +2401,11 @@ function _calcTraslapes(recs){
     const txt=((c.id||'')+' '+(c.label||'')); if(/reniv|bacheo/i.test(txt)) return; // reniv y bacheo son capas de parche/nivelación, se pisan con la carpeta por diseño
     const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka); if(b-a<0.5) return;
     const lado=ladoDe(c.carril||v.carril); if(!lado) return; // carril no reconocido: no se compara (evita falsos traslapes)
-    segs.push({a,b,lado,tramo:(c.kde>=247000?'O2':'O1'),num:v.num_viaje_dia});
+    segs.push({a,b,lado,tramo:(c.kde>=247000?'O2':'O1'),num:v.num_viaje_dia,fecha:v.fecha||'?'});
   }));
   const nomLado={IZQ:'L. IZQ.',CEN:'CENT.',DER:'L. DER.'};
-  const grupos={}; segs.forEach(s=>{ const k=s.tramo+' · '+(nomLado[s.lado]||s.lado); (grupos[k]=grupos[k]||[]).push(s); });
+  // Agrupa por FECHA + tramo + carril: solo se comparan viajes del mismo día (evita falsos traslapes entre días distintos)
+  const grupos={}; segs.forEach(s=>{ const k=s.fecha+' · '+s.tramo+' · '+(nomLado[s.lado]||s.lado); (grupos[k]=grupos[k]||[]).push(s); });
   const out=[];
   Object.entries(grupos).forEach(([k,arr])=>{
     arr.sort((x,y)=>x.a-y.a); let maxEnd=-Infinity, maxSeg=null;
