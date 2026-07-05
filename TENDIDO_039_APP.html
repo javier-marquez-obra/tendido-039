@@ -572,7 +572,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="display:flex;gap:6px">
         <button class="bc" id="btnGrafTiro" style="padding:6px 12px;font-size:13px" onclick="toggleGraficoTiro()">📉 Ocultar gráfico</button>
         <button class="bc" id="btnAmpliarTiro" style="padding:6px 12px;font-size:13px" onclick="toggleAmpliarTiro()">⛶ Ampliar</button>
-        <button class="bc" style="padding:6px 12px;font-size:13px;border-color:var(--gold);color:var(--gold)" onclick="imprimirGraficoTiro()">🖨️ Imprimir</button>
+        <button class="bc" style="padding:6px 12px;font-size:13px;border-color:var(--gold);color:var(--gold)" onclick="abrirImprimirTiro()">🖨️ Imprimir</button>
         <button class="bc" style="padding:6px 12px;font-size:13px" onclick="cerrarTiro()">✕ Cerrar</button>
       </div>
     </div>
@@ -1741,6 +1741,7 @@ function motivoBloqueo(v){
 // ═══ TABLA DE TIRO (desglose por concepto) ═══
 const DEN_TIRO = 2.20;
 let _tiroDias = null; // null=por defecto(jornada activa) · Set de fechas seleccionadas
+let _tiroFlatUltimo = []; // última tabla filtrada mostrada (para imprimir)
 function _diasSelDefault(fechas){
   const ja=getJornadaActiva();
   return new Set([ fechas.includes(ja)?ja:(fechas[0]||null) ].filter(Boolean));
@@ -1812,15 +1813,73 @@ function renderGraficoTiro(rs){
   el.innerHTML=html||'<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
 }
 
-// Imprime el gráfico de larguillo actual (respeta los días elegidos con los chips 📅) con encabezado de obra, contrato y rango.
-window.imprimirGraficoTiro=function(){
+// Columnas disponibles para la tabla que acompaña la impresión (el checador/tú eligen cuáles)
+const TIRO_PRINT_COLS=[
+  {k:'fecha',t:'Fecha',get:r=>(r.v.fecha||'').split('-').reverse().join('/')},
+  {k:'viaje',t:'Viaje#',get:r=>r.v.num_viaje_dia||''},
+  {k:'placas',t:'Placas',get:r=>r.v.placas||''},
+  {k:'material',t:'Material',get:r=>r.v.material||''},
+  {k:'concepto',t:'Concepto',get:r=>r.lblC||'—'},
+  {k:'carril',t:'Carril',get:r=>r.carrilC||''},
+  {k:'dekm',t:'De KM',get:r=>r.kdeC!=null?fmtCad(r.kdeC):'—'},
+  {k:'akm',t:'A KM',get:r=>r.kaC!=null?fmtCad(r.kaC):'—'},
+  {k:'longitud',t:'ML',get:r=>r.lng.toFixed(2)},
+  {k:'ancho',t:'Ancho',get:r=>r.aw.toFixed(2)},
+  {k:'area',t:'m²',get:r=>r.area.toFixed(2)},
+  {k:'vol',t:'m³',get:r=>r.vol.toFixed(3)},
+  {k:'ton',t:'Ton',get:r=>r.ton.toFixed(2)},
+  {k:'espreal',t:'Esp.real(cm)',get:r=>(r.er*100).toFixed(2)},
+];
+const TIRO_PRINT_DEFAULT=['fecha','placas','concepto','carril','dekm','akm','ton'];
+function _tiroPrintColsGet(){
+  let s; try{ s=JSON.parse(localStorage.getItem('t039_tiro_print_cols')||'null'); }catch(e){ s=null; }
+  if(!Array.isArray(s)||!s.length) s=TIRO_PRINT_DEFAULT.slice();
+  const valid=new Set(TIRO_PRINT_COLS.map(c=>c.k));
+  return s.filter(k=>valid.has(k));
+}
+window.tiroPrintToggleCol=function(k){
+  let a=_tiroPrintColsGet(); const i=a.indexOf(k);
+  if(i>=0) a.splice(i,1); else a.push(k);
+  try{ localStorage.setItem('t039_tiro_print_cols',JSON.stringify(a)); }catch(e){}
+  _renderTiroPrintPanel();
+};
+function _renderTiroPrintPanel(){
+  const el=document.getElementById('tiroPrintBody'); if(!el) return;
+  const sel=new Set(_tiroPrintColsGet());
+  el.innerHTML=TIRO_PRINT_COLS.map(c=>`<button onclick="tiroPrintToggleCol('${c.k}')" style="padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord);margin:3px;background:${sel.has(c.k)?'var(--gold)':'var(--bg)'};color:${sel.has(c.k)?'#1a1a1a':'var(--txt)'}">${sel.has(c.k)?'✓ ':''}${c.t}</button>`).join('');
+}
+// Abre el selector de columnas antes de imprimir (respeta los días/filtros ya elegidos en la tabla de tiro)
+window.abrirImprimirTiro=function(){
+  if(!_tiroFlatUltimo.length){ toast('No hay datos para imprimir en los días elegidos','warn'); return; }
+  let ov=document.getElementById('tiroPrintOv');
+  if(!ov){
+    ov=document.createElement('div'); ov.className='ov'; ov.id='tiroPrintOv'; ov.style.zIndex='120';
+    ov.innerHTML=`<div class="sh" style="max-width:520px">
+      <h4 style="margin:0 0 8px">🖨️ Elegir columnas para imprimir</h4>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Se imprime la gráfica + una tabla tipo larguillo con los ${_tiroFlatUltimo.length} renglón(es) de los días elegidos.</div>
+      <div id="tiroPrintBody" style="margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end">
+        <button class="bc" onclick="document.getElementById('tiroPrintOv').style.display='none'">Cancelar</button>
+        <button class="bc" style="background:var(--gold);color:#1a1a1a;font-weight:700" onclick="generarImpresionTiro()">🖨️ Generar impresión</button>
+      </div>
+    </div>`;
+    document.body.appendChild(ov);
+  }
+  ov.style.display='flex';
+  _renderTiroPrintPanel();
+};
+// Genera la hoja imprimible: encabezado (obra, contrato, rango) + gráfica + tabla con las columnas elegidas
+window.generarImpresionTiro=function(){
   const el=document.getElementById('tiroGrafico');
   if(!el || !el.innerHTML.trim()){ toast('No hay gráfico para imprimir','warn'); return; }
+  const cols=TIRO_PRINT_COLS.filter(c=>_tiroPrintColsGet().includes(c.k));
   const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort();
   const selArr=(_tiroDias instanceof Set && _tiroDias.size)?[..._tiroDias].sort():fechas;
   const dm=f=>f.split('-').reverse().join('/').slice(0,5);
   const rango = selArr.length ? (selArr[0]===selArr[selArr.length-1] ? dm(selArr[0]) : `${dm(selArr[0])} → ${dm(selArr[selArr.length-1])}`) : '—';
   const obraNom=(typeof OBRAS!=='undefined' && OBRAS[obraActiva] && OBRAS[obraActiva].nombre) || obraActiva || 'TENDIDO 039';
+  const th=cols.map(c=>`<th>${c.t}</th>`).join('');
+  const body=_tiroFlatUltimo.map(r=>`<tr>${cols.map(c=>`<td>${c.get(r)}</td>`).join('')}</tr>`).join('');
   const w=window.open('','_blank');
   if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups para imprimir','warn'); return; }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Avance de tiro · ${obraNom}</title>
@@ -1830,14 +1889,19 @@ window.imprimirGraficoTiro=function(){
     .meta{font-size:11px;color:#555;margin-bottom:16px}
     svg text{fill:#111 !important}
     svg line{stroke:#ccc !important}
+    table{border-collapse:collapse;width:100%;margin-top:14px;font-size:11px}
+    th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}
+    th{background:#f0f0f0}
     @media print{ @page{ size: landscape; margin:10mm } .noprint{display:none} }
   </style></head><body>
   <h1>🛣️ Avance por cadenamiento — ${obraNom} · N-27</h1>
   <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
   ${el.innerHTML}
+  <table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>
   <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>
   </body></html>`);
   w.document.close();
+  const ov=document.getElementById('tiroPrintOv'); if(ov) ov.style.display='none';
   setTimeout(()=>{ w.focus(); w.print(); },300);
 };
 
@@ -1845,7 +1909,7 @@ function _larguilloTiro(segs,titulo,tramo){
   const rango=RANGO_TRAMO[tramo]||{min:Math.min(...segs.map(s=>s.a)),max:Math.max(...segs.map(s=>s.b))};
   const minK=rango.min, maxK=rango.max;
   const span=Math.max(1,maxK-minK);
-  const W=720,PADL=90,PADR=82,PADT=32,trackH=20,renH=6,gapT=24;
+  const W=720,PADL=90,PADR=82,PADT=38,trackH=20,renH=6,gapT=26;
   // Carriles según lo configurado en la obra para este tramo (orden izq, central, der)
   const ord={IZQ:0,CEN:1,DER:2};
   const nombreLado={IZQ:'Lat. izquierda',CEN:'Central',DER:'Lat. derecha'};
@@ -1867,7 +1931,7 @@ function _larguilloTiro(segs,titulo,tramo){
     const carp=ss.filter(s=>s.tipo==='carpeta'), ren=ss.filter(s=>s.tipo==='reniv'), bach=ss.filter(s=>s.tipo==='bacheo');
     // Fondo del carril = todo el tramo (inicial → final)
     rows+=`<line x1="${PADL}" y1="${cy}" x2="${W-PADR}" y2="${cy}" stroke="#1a1f29" stroke-width="${trackH}" stroke-linecap="round"/>`;
-    rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="10" font-weight="700" fill="${t.color}">${t.label}</text>`;
+    rows+=`<text x="${PADL}" y="${y-7}" font-size="9.5" font-weight="700" fill="${t.color}">${t.label}</text>`;
     // Carpeta = banda principal (color del carril), reducida al tramo colocado
     carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y+3}" width="${Math.max(2,x2-x1)}" height="${trackH-6}" rx="3" fill="${t.color}" opacity="0.9"><title>Carpeta · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
@@ -1880,10 +1944,12 @@ function _larguilloTiro(segs,titulo,tramo){
     bach.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y+trackH+2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${BACHEO_COL}"><title>Bacheo · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
-    // Cadenamiento hasta donde llegó ese carril
-    if(ss.length){ const mb=Math.max(...ss.map(s=>s.b));
+    // Cadenamiento inicial (izq) y hasta donde llegó (der) — mismo formato en ambos lados
+    if(ss.length){ const ma=Math.min(...ss.map(s=>s.a)); const mb=Math.max(...ss.map(s=>s.b));
+      rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(ma))}</text>`;
       rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(mb))}</text>`;
     } else {
+      rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="9" fill="#6b7280">—</text>`;
       rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9" fill="#6b7280">sin tiro</text>`;
     }
   });
@@ -1982,6 +2048,7 @@ function renderTablaTiro(){
   // 3) Marcar la primera fila visible de cada viaje (muestra N°, placas, etc.)
   const visto={};
   flat.forEach(row=>{ const id=row.v._id; row.primera=!visto[id]; visto[id]=true; });
+  _tiroFlatUltimo=flat; // para impresión: exactamente lo que está filtrado/visible ahora
 
   // 4) Totales de lo filtrado
   let totM2=0,totM3=0,totTon=0,totGan=0,totPer=0;
