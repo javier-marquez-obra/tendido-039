@@ -572,6 +572,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="display:flex;gap:6px">
         <button class="bc" id="btnGrafTiro" style="padding:6px 12px;font-size:13px" onclick="toggleGraficoTiro()">📉 Ocultar gráfico</button>
         <button class="bc" id="btnAmpliarTiro" style="padding:6px 12px;font-size:13px" onclick="toggleAmpliarTiro()">⛶ Ampliar</button>
+        <button class="bc" style="padding:6px 12px;font-size:13px;border-color:var(--gold);color:var(--gold)" onclick="imprimirGraficoTiro()">🖨️ Imprimir</button>
         <button class="bc" style="padding:6px 12px;font-size:13px" onclick="cerrarTiro()">✕ Cerrar</button>
       </div>
     </div>
@@ -1125,11 +1126,11 @@ function comprimirFoto(file) {
   return new Promise((res,rej) => {
     const img=new Image(), url=URL.createObjectURL(file);
     img.onload=()=>{
-      const MAX=800; let w=img.width,h=img.height;
+      const MAX=640; let w=img.width,h=img.height;
       if(w>MAX||h>MAX){ if(w>h){h=Math.round(h*MAX/w);w=MAX;}else{w=Math.round(w*MAX/h);h=MAX;} }
       const c=document.createElement('canvas'); c.width=w; c.height=h;
       c.getContext('2d').drawImage(img,0,0,w,h);
-      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg',.65));
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg',.5));
     };
     img.onerror=rej; img.src=url;
   });
@@ -1810,6 +1811,35 @@ function renderGraficoTiro(rs){
   if(o2.length) html+=_larguilloTiro(o2,'OBRA 2 · MEX-80','O2');
   el.innerHTML=html||'<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
 }
+
+// Imprime el gráfico de larguillo actual (respeta los días elegidos con los chips 📅) con encabezado de obra, contrato y rango.
+window.imprimirGraficoTiro=function(){
+  const el=document.getElementById('tiroGrafico');
+  if(!el || !el.innerHTML.trim()){ toast('No hay gráfico para imprimir','warn'); return; }
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort();
+  const selArr=(_tiroDias instanceof Set && _tiroDias.size)?[..._tiroDias].sort():fechas;
+  const dm=f=>f.split('-').reverse().join('/').slice(0,5);
+  const rango = selArr.length ? (selArr[0]===selArr[selArr.length-1] ? dm(selArr[0]) : `${dm(selArr[0])} → ${dm(selArr[selArr.length-1])}`) : '—';
+  const obraNom=(typeof OBRAS!=='undefined' && OBRAS[obraActiva] && OBRAS[obraActiva].nombre) || obraActiva || 'TENDIDO 039';
+  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups para imprimir','warn'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Avance de tiro · ${obraNom}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px}
+    h1{font-size:16px;margin:0 0 3px}
+    .meta{font-size:11px;color:#555;margin-bottom:16px}
+    svg text{fill:#111 !important}
+    svg line{stroke:#ccc !important}
+    @media print{ @page{ size: landscape; margin:10mm } .noprint{display:none} }
+  </style></head><body>
+  <h1>🛣️ Avance por cadenamiento — ${obraNom} · N-27</h1>
+  <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
+  ${el.innerHTML}
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },300);
+};
 
 function _larguilloTiro(segs,titulo,tramo){
   const rango=RANGO_TRAMO[tramo]||{min:Math.min(...segs.map(s=>s.a)),max:Math.max(...segs.map(s=>s.b))};
