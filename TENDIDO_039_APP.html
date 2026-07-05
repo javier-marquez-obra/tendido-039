@@ -581,6 +581,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:var(--blue);color:var(--blue)" onclick="document.getElementById('cadExcelFile').click()">⬆️ Subir Excel (actualizar datos)</button>
       <input type="file" id="cadExcelFile" accept=".xlsx,.xls" style="display:none" onchange="leerCadExcel(this.files[0]);this.value=''">
       <button class="bc" style="padding:6px 12px;font-size:12px" onclick="revisarTraslapes()">🔎 Revisar traslapes</button>
+      <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:#a78bfa;color:#a78bfa" onclick="document.getElementById('genExtraFile').click()" title="Subir generador de bacheo o renivelación (volumen extra geométrico, solo cobro)">➕ Importar generador (extra)</button>
+      <input type="file" id="genExtraFile" accept=".xlsx,.xls" style="display:none" onchange="leerGeneradorExtra(this.files[0]);this.value=''">
     </div>
     <div id="tiroCadPanel" style="display:none;margin-bottom:8px;border:1px solid var(--bord);border-radius:8px;padding:10px;background:var(--bg);max-height:40vh;overflow:auto"></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -925,6 +927,7 @@ window.cerrarSesion = async function(){ try{ await signOut(auth); }catch(e){} lo
 function startListener() {
   setSyncState('loading');
   startEmulListener();
+  startExtrasListener();
   try {
     const q = query(collection(db, COL), orderBy('ts','desc'));
     onSnapshot(q, snap => {
@@ -1799,11 +1802,13 @@ function _pctAvanceGeo(){
     const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{volumen:v.volumen}];
     cs.forEach(c=>{ tot+=+(c.volumen||0); });
   });
+  const extra=(_extras||[]).reduce((s,x)=>s+(+x.vol||0),0);
+  tot+=extra;
   const TOT=CATALOGO_E7.filter(c=>c.id!=='OTRO').reduce((s,c)=>s+c.cantidad,0);
-  return { tot, TOT, pct: TOT>0?(tot/TOT*100):0 };
+  return { tot, TOT, extra, pct: TOT>0?(tot/TOT*100):0 };
 }
 function _avanceHeaderHtml(av){
-  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance geométrico contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(1)}%</b> (${av.tot.toFixed(1)} / ${av.TOT} m³ del catálogo E-7)</div>`;
+  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance geométrico contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(1)}%</b> (${av.tot.toFixed(1)} / ${av.TOT} m³ del catálogo E-7)${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(1)} m³ extra</span>`:''}</div>`;
 }
 function _puedeImprimirGrafico(){
   return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
@@ -1818,6 +1823,56 @@ window.tiroVista=function(v){
   if(bs){ bs.style.background=v==='sup'?'var(--gold)':'var(--bg)'; bs.style.color=v==='sup'?'#1a1a1a':'var(--txt)'; }
   if(bc){ bc.style.background=v==='cli'?'var(--blue)':'var(--bg)'; bc.style.color=v==='cli'?'#fff':'var(--txt)'; }
 };
+// Tabla de volúmenes acumulados por concepto. modo 'sup' = solo geométrico; 'cli' = geométrico + real + ganancia
+function _tablaVolConcepto(o1,o2,modo){
+  // clave por tipo+obra
+  const filas=[
+    {key:'reniv_O1', label:'Renivelación · O1', tipo:'reniv', obra:1},
+    {key:'bach_O1',  label:'Bacheo · O1',       tipo:'bacheo',obra:1},
+    {key:'carp_O1',  label:'Carpeta · O1',      tipo:'carpeta',obra:1},
+    {key:'reniv_O2', label:'Renivelación · O2', tipo:'reniv', obra:2},
+    {key:'bach_O2',  label:'Bacheo · O2',       tipo:'bacheo',obra:2},
+    {key:'carp_O2',  label:'Carpeta · O2',      tipo:'carpeta',obra:2},
+  ];
+  const acc={}; filas.forEach(f=>acc[f.key]={geo:0,real:0});
+  const add=(segs,obra)=>segs.forEach(s=>{ const k=s.tipo==='reniv'?'reniv':(s.tipo==='bacheo'?'bach':'carp'); const key=`${k}_O${obra}`; if(acc[key]){ acc[key].geo+=s.volGeo||0; acc[key].real+=s.volReal||0; } });
+  add(o1,1); add(o2,2);
+  const conDatos=filas.filter(f=>acc[f.key].geo>0 || acc[f.key].real>0);
+  if(!conDatos.length) return '';
+
+  if(modo==='sup'){
+    let tGeo=0;
+    const rows=conDatos.map(f=>{ const v=acc[f.key].geo; tGeo+=v;
+      return `<tr><td style="padding:3px 8px">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700">${v.toFixed(2)} m³</td></tr>`;
+    }).join('');
+    return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
+      <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen acumulado por concepto (geométrico)</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">${rows}
+        <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
+      </table></div>`;
+  } else {
+    let tGeo=0,tReal=0;
+    const rows=conDatos.map(f=>{ const g=acc[f.key].geo, r=acc[f.key].real, gan=g-r; tGeo+=g; tReal+=r;
+      const gc=gan>=0?'#3ecf8e':'#ef4444';
+      return `<tr>
+        <td style="padding:3px 8px">${f.label}</td>
+        <td style="padding:3px 8px;text-align:right">${g.toFixed(2)}</td>
+        <td style="padding:3px 8px;text-align:right;font-weight:700">${r.toFixed(2)}</td>
+        <td style="padding:3px 8px;text-align:right;font-weight:700;color:${gc}">${gan>=0?'+':''}${gan.toFixed(2)}</td>
+      </tr>`;
+    }).join('');
+    const tGan=tGeo-tReal, gcT=tGan>=0?'#3ecf8e':'#ef4444';
+    return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
+      <div style="background:rgba(59,130,246,.12);padding:6px 8px;font-size:11px;font-weight:800;color:#3b82f6">📊 Volumen acumulado por concepto</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <tr style="color:var(--muted);font-size:10px"><td style="padding:3px 8px">Concepto</td><td style="padding:3px 8px;text-align:right">Geométrico</td><td style="padding:3px 8px;text-align:right">Real</td><td style="padding:3px 8px;text-align:right">Ganancia</td></tr>
+        ${rows}
+        <tr style="border-top:2px solid #3b82f6"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:700">${tGeo.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800">${tReal.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:${gcT}">${tGan>=0?'+':''}${tGan.toFixed(2)}</td></tr>
+      </table>
+      <div style="font-size:9.5px;color:var(--muted);padding:4px 8px">Ganancia = geométrico − real (m³). Positivo: se colocó menos material del teórico.</div>
+    </div>`;
+  }
+}
 function renderGraficoTiro(rs){
   const elS=document.getElementById('tiroGraficoSup'), elC=document.getElementById('tiroGraficoCli');
   if(!elS||!elC) return;
@@ -1845,6 +1900,12 @@ function renderGraficoTiro(rs){
     });
   });
   window._tiroSinCarril=sinCarril;
+  // Inyectar VOLUMEN EXTRA (bacheo/reniv de generadores): solo geométrico, volReal=0, marcado extra:true
+  (_extras||[]).forEach(x=>{
+    const a=Math.min(x.kde,x.ka), b=Math.max(x.kde,x.ka); if(!(b>a)) return;
+    const side=ladoDe(x.lado); if(!side) return;
+    segs.push({a,b,side,num:null,placas:'',fecha:'',tipo:x.tipo,area:+x.area||0,espTeo:(x.area>0?(x.vol/x.area*100):0),espReal:0,volGeo:+x.vol||0,volReal:0,extra:true});
+  });
   const msgVacio='<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
   if(!segs.length){ elS.innerHTML=msgVacio; elC.innerHTML=msgVacio; return; }
   const esO2=s=> s.a>=247000 && s.a<=252000;
@@ -1869,6 +1930,7 @@ function renderGraficoTiro(rs){
     </div>
     ${_avanceHeaderHtml(av)}
     ${bodyS||msgVacio}
+    ${_tablaVolConcepto(o1,o2,'sup')}
     ${avisoCarril}`;
 
   elC.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -1877,6 +1939,7 @@ function renderGraficoTiro(rs){
     </div>
     ${_avanceHeaderHtml(av)}
     ${bodyC||msgVacio}
+    ${_tablaVolConcepto(o1,o2,'cli')}
     ${avisoCarril}`;
 
   tiroVista(_tiroVista); // mostrar solo el gráfico elegido
@@ -1914,10 +1977,10 @@ function _larguilloVista(segs,titulo,tramo,modo){
       if(w>=11) rows+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#0d1017">${s.num}</text>`;
     });
     ren.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
-      rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"><title>Renivelación · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+      rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"${s.extra?' stroke="#fff" stroke-width="0.7" stroke-dasharray="2 1.5"':''}><title>Renivelación${s.extra?' EXTRA (geométrico)':' · viaje '+s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)} · ${(s.volGeo||0).toFixed(2)} m³</title></rect>`;
     });
     bach.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
-      rows+=`<rect x="${x1}" y="${y+trackH+2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${BACHEO_COL}"><title>Bacheo · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+      rows+=`<rect x="${x1}" y="${y+trackH+2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${BACHEO_COL}"${s.extra?' stroke="#fff" stroke-width="0.7" stroke-dasharray="2 1.5"':''}><title>Bacheo${s.extra?' EXTRA (geométrico)':' · viaje '+s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)} · ${(s.volGeo||0).toFixed(2)} m³</title></rect>`;
     });
     if(ss.length){
       const ma=Math.min(...ss.map(s=>s.a)), mb=Math.max(...ss.map(s=>s.b));
@@ -2324,6 +2387,111 @@ window.leerCadExcel=function(file){
   fr.readAsArrayBuffer(file);
 };
 let _cadPend=null;
+
+// ═══ IMPORTAR GENERADORES (bacheo / renivelación) como VOLUMEN EXTRA GEOMÉTRICO ═══
+// Estos volúmenes abundan para cobro/estimación (geométrico), NO cuentan como real (sin ton de báscula).
+// Se guardan en la colección 'extras039', un doc por tipo, así al re-subir se SOBRESCRIBE (no duplica).
+const _BACHE_LADO={
+  'carril derecho':'L. DER.','lateral derecho':'L. DER.','acotamiento derecho':'L. DER.','ld + acotamiento':'L. DER.','carril derecho + acot.':'L. DER.',
+  'carril izquierdo':'L. IZQ.','lateral izquierdo':'L. IZQ.','acotamiento izquierdo':'L. IZQ.','acot. carril izquierdo':'L. IZQ.',
+  'central':'CENT.'
+};
+function _ladoBache(ubi){ const u=String(ubi||'').toLowerCase().trim(); return _BACHE_LADO[u] || (u.includes('izq')?'L. IZQ.':(u.includes('cent')?'CENT.':'L. DER.')); }
+function _cadNum(v){ const s=String(v||'').trim(); if(s.includes('+')){ const p=s.split('+'); return (parseFloat(p[0])||0)*1000+(parseFloat(p[1])||0); } return parseFloat(s)||NaN; }
+window.leerGeneradorExtra=function(file){
+  if(!file){ return; }
+  if(typeof XLSX==='undefined'){ toast('No cargó la librería de Excel','err'); return; }
+  const fr=new FileReader();
+  fr.onload=(e)=>{ try{
+    const wb=XLSX.read(e.target.result,{type:'array'});
+    const detect=_detectarGenerador(wb);
+    if(!detect){ toast('No reconocí el generador (¿es de bacheo o renivelación?)','err'); return; }
+    _confirmarGeneradorExtra(detect);
+  }catch(err){ toast('No pude leer el generador: '+err.message,'err'); } };
+  fr.readAsArrayBuffer(file);
+};
+function _detectarGenerador(wb){
+  const nombres=wb.SheetNames.map(s=>s.toUpperCase());
+  const esBacheo=nombres.some(n=>n.includes('BACHEO'));
+  const esReniv=nombres.some(n=>n.includes('DESGLOSE')||n.includes('RENIV'));
+  const bloques=[];
+  if(esBacheo){
+    wb.SheetNames.forEach(sn=>{
+      const up=sn.toUpperCase(); if(!up.includes('BACHEO')) return;
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+      const grup={};
+      rows.forEach(r=>{
+        const cad=_cadNum(r[0]); const largo=parseFloat(r[1]); const area=parseFloat(r[3]); const vol=parseFloat(r[4]); const ubi=r[5];
+        if(isNaN(cad)||isNaN(vol)||vol<=0) return;
+        if(String(r[0]).toUpperCase().includes('TOTAL')||String(r[0]).includes('[dato')) return;
+        const obra = cad>=247000?2:1; // obra por cadenamiento real, no por nombre de hoja
+        const lado=_ladoBache(ubi);
+        const zona=Math.floor(cad/500)*500;
+        const key=obra+'|'+zona+'|'+lado;
+        if(!grup[key]) grup[key]={obra,kMin:cad,kMax:cad,area:0,vol:0,lado};
+        grup[key].kMin=Math.min(grup[key].kMin,cad); grup[key].kMax=Math.max(grup[key].kMax,cad+(largo||2));
+        grup[key].area+=area||0; grup[key].vol+=vol||0;
+      });
+      Object.values(grup).forEach(g=>bloques.push({obra:g.obra,tipo:'bacheo',lado:g.lado,kde:g.kMin,ka:Math.max(g.kMax,g.kMin+5),area:+g.area.toFixed(2),vol:+g.vol.toFixed(3)}));
+    });
+    return {tipo:'bacheo', bloques};
+  }
+  if(esReniv){
+    const sn=wb.SheetNames.find(s=>s.toUpperCase().includes('DESGLOSE'))||wb.SheetNames[0];
+    const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+    rows.forEach(r=>{
+      const kde=_cadNum(r[0]), ka=_cadNum(r[1]); const lng=parseFloat(r[2]); const esp=parseFloat(r[12])||0.03;
+      const cd=parseFloat(r[6])||0, ci=parseFloat(r[7])||0, ad=parseFloat(r[8])||0, ai=parseFloat(r[9])||0;
+      if(isNaN(kde)||isNaN(ka)||!lng) return;
+      const obra = kde>=247000?2:1;
+      const anchoD=cd+ad, anchoI=ci+ai;
+      if(anchoD>0){ const area=lng*anchoD; bloques.push({obra,tipo:'reniv',lado:'L. DER.',kde,ka,area:+area.toFixed(2),vol:+(area*esp).toFixed(3)}); }
+      if(anchoI>0){ const area=lng*anchoI; bloques.push({obra,tipo:'reniv',lado:'L. IZQ.',kde,ka,area:+area.toFixed(2),vol:+(area*esp).toFixed(3)}); }
+    });
+    return {tipo:'reniv', bloques};
+  }
+  return null;
+}
+function _confirmarGeneradorExtra(detect){
+  const {tipo,bloques}=detect;
+  if(!bloques.length){ toast('El generador no trajo datos válidos','warn'); return; }
+  const volTot=bloques.reduce((s,b)=>s+b.vol,0);
+  const porObra={1:0,2:0}; bloques.forEach(b=>porObra[b.obra]+=b.vol);
+  let ov=document.getElementById('genExtraOv');
+  if(!ov){ ov=document.createElement('div'); ov.className='ov'; ov.id='genExtraOv'; ov.style.zIndex='130'; document.body.appendChild(ov); }
+  window._genExtraPend=detect;
+  ov.innerHTML=`<div class="sh" style="max-width:480px">
+    <h4 style="margin:0 0 8px">➕ Importar ${tipo==='bacheo'?'bacheo':'renivelación'} (volumen extra)</h4>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Se agrega como <b>volumen geométrico extra</b> (abunda para cobro/estimación). <b>NO cuenta como real</b> (sin toneladas de báscula), no afecta la ganancia del cliente.</div>
+    <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px;font-size:13px;margin-bottom:12px">
+      ${bloques.length} bloque(s) · <b>${volTot.toFixed(2)} m³</b> extra<br>
+      <span style="color:var(--muted);font-size:11px">Obra 1: ${porObra[1].toFixed(2)} m³ · Obra 2: ${porObra[2].toFixed(2)} m³</span>
+    </div>
+    <div style="font-size:11px;color:#a78bfa;margin-bottom:12px">Si ya importaste este mismo tipo antes, se REEMPLAZA (no se duplica).</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="bc" onclick="document.getElementById('genExtraOv').style.display='none'">Cancelar</button>
+      <button class="bc" style="background:#a78bfa;color:#fff;font-weight:700" onclick="guardarGeneradorExtra()">➕ Agregar extra</button>
+    </div>
+  </div>`;
+  ov.style.display='flex';
+}
+window.guardarGeneradorExtra=async function(){
+  const detect=window._genExtraPend; if(!detect) return;
+  const {tipo,bloques}=detect;
+  try{
+    await setDoc(doc(db,'extras039',tipo), { tipo, bloques, ts:Date.now(), by:(session&&session.nombre)||'admin' });
+    toast(`${bloques.length} bloque(s) de ${tipo} agregados como extra geométrico`,'ok');
+    const ov=document.getElementById('genExtraOv'); if(ov) ov.style.display='none';
+  }catch(e){ toast('Error guardando: '+(e.message||e),'err'); }
+};
+let _extras=[];
+function startExtrasListener(){
+  try{ onSnapshot(collection(db,'extras039'), snap=>{
+    _extras=[]; snap.forEach(d=>{ const x=d.data(); (x.bloques||[]).forEach(b=>_extras.push({...b,extra:true})); });
+    const ov=document.getElementById('tiroOv');
+    if(typeof renderTablaTiro==='function' && ov && ov.style.display!=='none') renderTablaTiro();
+  }); }catch(e){ console.warn('extras listener', e); }
+}
 const _CANON_ID={reniv:'RENIV-O1',carp3:'CARPETA3-O1',bach1:'BACHEO-O1',carp5:'CARPETA5-O2',bach2:'BACHEO-O2'};
 function _procesarCadExcel(rows){
   const cambios=[], errores=[], porViaje={};
