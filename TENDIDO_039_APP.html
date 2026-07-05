@@ -572,7 +572,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="display:flex;gap:6px">
         <button class="bc" id="btnGrafTiro" style="padding:6px 12px;font-size:13px" onclick="toggleGraficoTiro()">📉 Ocultar gráfico</button>
         <button class="bc" id="btnAmpliarTiro" style="padding:6px 12px;font-size:13px" onclick="toggleAmpliarTiro()">⛶ Ampliar</button>
-        <button class="bc" style="padding:6px 12px;font-size:13px;border-color:var(--gold);color:var(--gold)" onclick="abrirImprimirTiro()">🖨️ Imprimir</button>
         <button class="bc" style="padding:6px 12px;font-size:13px" onclick="cerrarTiro()">✕ Cerrar</button>
       </div>
     </div>
@@ -584,8 +583,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <button class="bc" style="padding:6px 12px;font-size:12px" onclick="revisarTraslapes()">🔎 Revisar traslapes</button>
     </div>
     <div id="tiroCadPanel" style="display:none;margin-bottom:8px;border:1px solid var(--bord);border-radius:8px;padding:10px;background:var(--bg);max-height:40vh;overflow:auto"></div>
-    <div id="tiroGraficoBox" style="height:300px;overflow:auto;-webkit-overflow-scrolling:touch;flex:none">
-      <div id="tiroGrafico"></div>
+    <div id="tiroGraficoBox" style="height:420px;overflow:auto;-webkit-overflow-scrolling:touch;flex:none">
+      <div id="tiroGraficoSup"></div>
+      <div id="tiroGraficoCli" style="margin-top:14px"></div>
     </div>
     <div id="tiroDrag" onmousedown="tiroDragStart(event)" ontouchstart="tiroDragStart(event)"
       title="Arrastra para ajustar el tamaño del gráfico"
@@ -1788,129 +1788,81 @@ function ladoDe(carril){
 const RANGO_TRAMO={ O1:{min:46200,max:58700}, O2:{min:247600,max:251600} };
 const LADO_COL={IZQ:'#3ecf8e',CEN:'#f0b429',DER:'#60a5fa'};
 const RENIV_COL='#a78bfa', BACHEO_COL='#ec4899';
+// % de avance geométrico contra el catálogo E-7 completo (todo el proyecto, no solo los días filtrados)
+function _pctAvanceGeo(){
+  let tot=0;
+  records.forEach(v=>{
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{volumen:v.volumen}];
+    cs.forEach(c=>{ tot+=+(c.volumen||0); });
+  });
+  const TOT=CATALOGO_E7.filter(c=>c.id!=='OTRO').reduce((s,c)=>s+c.cantidad,0);
+  return { tot, TOT, pct: TOT>0?(tot/TOT*100):0 };
+}
+function _avanceHeaderHtml(av){
+  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance geométrico contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(1)}%</b> (${av.tot.toFixed(1)} / ${av.TOT} m³ del catálogo E-7)</div>`;
+}
+function _puedeImprimirGrafico(){
+  return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
+}
 function renderGraficoTiro(rs){
-  const el=document.getElementById('tiroGrafico'); if(!el) return;
+  const elS=document.getElementById('tiroGraficoSup'), elC=document.getElementById('tiroGraficoCli');
+  if(!elS||!elC) return;
   const segs=[];
   rs.forEach(v=>{
-    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto}];
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto,ton:v.ton_recibidas,volumen:v.volumen,area:v.area,esp_teorico:v.esp_teorico,ancho:v.ancho}];
     cs.forEach(c=>{
       if(c.kde!=null&&c.ka!=null){
         const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka);
         if(b>a){
           const t=(String(c.id||'')+String(c.label||'')).toUpperCase();
           const tipo = t.includes('RENIV')?'reniv' : (t.includes('BACHEO')?'bacheo':'carpeta');
-          segs.push({a,b,side:ladoDe(c.carril),num:v.num_viaje_dia,tipo});
+          const area=+(c.area||0)||((b-a)*(+(c.ancho||0)));
+          const espTeo=+(c.esp_teorico||0);
+          const ton=+(c.ton||0);
+          const volGeo=+(c.volumen||0);
+          const espReal=(ton&&area)?(ton/(area*DEN_TIRO)):0;
+          const volReal=ton/DEN_TIRO;
+          segs.push({a,b,side:ladoDe(c.carril),num:v.num_viaje_dia,tipo,area,espTeo,espReal,volGeo,volReal});
         }
       }
     });
   });
-  if(!segs.length){ el.innerHTML='<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>'; return; }
+  const msgVacio='<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
+  if(!segs.length){ elS.innerHTML=msgVacio; elC.innerHTML=msgVacio; return; }
   const esO2=s=> s.a>=247000 && s.a<=252000;
   const o1=segs.filter(s=>!esO2(s)), o2=segs.filter(esO2);
-  let html='';
-  if(o1.length) html+=_larguilloTiro(o1,'OBRA 1 · MEX-200','O1');
-  if(o2.length) html+=_larguilloTiro(o2,'OBRA 2 · MEX-80','O2');
-  el.innerHTML=html||'<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
+  const av=_pctAvanceGeo();
+  const puedeImp=_puedeImprimirGrafico();
+
+  window._tiroSegs={o1,o2}; // para impresión
+
+  const btnImp=(modo)=>puedeImp?`<button class="bc" style="padding:4px 10px;font-size:11px" onclick="imprimirLarguillo('${modo}')">🖨️ Imprimir</button>`:'';
+
+  let bodyS=''; if(o1.length) bodyS+=_larguilloVista(o1,'OBRA 1 · MEX-200','O1','sup'); if(o2.length) bodyS+=_larguilloVista(o2,'OBRA 2 · MEX-80','O2','sup');
+  let bodyC=''; if(o1.length) bodyC+=_larguilloVista(o1,'OBRA 1 · MEX-200','O1','cli'); if(o2.length) bodyC+=_larguilloVista(o2,'OBRA 2 · MEX-80','O2','cli');
+
+  elS.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;font-weight:800;color:var(--gold)">👷 GRÁFICO SUPERVISOR · volumen geométrico</span>
+      ${btnImp('sup')}
+    </div>
+    ${_avanceHeaderHtml(av)}
+    ${bodyS||msgVacio}`;
+
+  elC.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+      <span style="font-size:11px;font-weight:800;color:#3b82f6">🏗️ GRÁFICO CLIENTE · volumen real instalado</span>
+      ${btnImp('cli')}
+    </div>
+    ${_avanceHeaderHtml(av)}
+    ${bodyC||msgVacio}`;
 }
 
-// Columnas disponibles para la tabla que acompaña la impresión (el checador/tú eligen cuáles)
-const TIRO_PRINT_COLS=[
-  {k:'fecha',t:'Fecha',get:r=>(r.v.fecha||'').split('-').reverse().join('/')},
-  {k:'viaje',t:'Viaje#',get:r=>r.v.num_viaje_dia||''},
-  {k:'placas',t:'Placas',get:r=>r.v.placas||''},
-  {k:'material',t:'Material',get:r=>r.v.material||''},
-  {k:'concepto',t:'Concepto',get:r=>r.lblC||'—'},
-  {k:'carril',t:'Carril',get:r=>r.carrilC||''},
-  {k:'dekm',t:'De KM',get:r=>r.kdeC!=null?fmtCad(r.kdeC):'—'},
-  {k:'akm',t:'A KM',get:r=>r.kaC!=null?fmtCad(r.kaC):'—'},
-  {k:'longitud',t:'ML',get:r=>r.lng.toFixed(2)},
-  {k:'ancho',t:'Ancho',get:r=>r.aw.toFixed(2)},
-  {k:'area',t:'m²',get:r=>r.area.toFixed(2)},
-  {k:'vol',t:'m³',get:r=>r.vol.toFixed(3)},
-  {k:'ton',t:'Ton',get:r=>r.ton.toFixed(2)},
-  {k:'espreal',t:'Esp.real(cm)',get:r=>(r.er*100).toFixed(2)},
-];
-const TIRO_PRINT_DEFAULT=['fecha','placas','concepto','carril','dekm','akm','ton'];
-function _tiroPrintColsGet(){
-  let s; try{ s=JSON.parse(localStorage.getItem('t039_tiro_print_cols')||'null'); }catch(e){ s=null; }
-  if(!Array.isArray(s)||!s.length) s=TIRO_PRINT_DEFAULT.slice();
-  const valid=new Set(TIRO_PRINT_COLS.map(c=>c.k));
-  return s.filter(k=>valid.has(k));
-}
-window.tiroPrintToggleCol=function(k){
-  let a=_tiroPrintColsGet(); const i=a.indexOf(k);
-  if(i>=0) a.splice(i,1); else a.push(k);
-  try{ localStorage.setItem('t039_tiro_print_cols',JSON.stringify(a)); }catch(e){}
-  _renderTiroPrintPanel();
-};
-function _renderTiroPrintPanel(){
-  const el=document.getElementById('tiroPrintBody'); if(!el) return;
-  const sel=new Set(_tiroPrintColsGet());
-  el.innerHTML=TIRO_PRINT_COLS.map(c=>`<button onclick="tiroPrintToggleCol('${c.k}')" style="padding:6px 12px;border-radius:99px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord);margin:3px;background:${sel.has(c.k)?'var(--gold)':'var(--bg)'};color:${sel.has(c.k)?'#1a1a1a':'var(--txt)'}">${sel.has(c.k)?'✓ ':''}${c.t}</button>`).join('');
-}
-// Abre el selector de columnas antes de imprimir (respeta los días/filtros ya elegidos en la tabla de tiro)
-window.abrirImprimirTiro=function(){
-  if(!_tiroFlatUltimo.length){ toast('No hay datos para imprimir en los días elegidos','warn'); return; }
-  let ov=document.getElementById('tiroPrintOv');
-  if(!ov){
-    ov=document.createElement('div'); ov.className='ov'; ov.id='tiroPrintOv'; ov.style.zIndex='120';
-    ov.innerHTML=`<div class="sh" style="max-width:520px">
-      <h4 style="margin:0 0 8px">🖨️ Elegir columnas para imprimir</h4>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Se imprime la gráfica + una tabla tipo larguillo con los ${_tiroFlatUltimo.length} renglón(es) de los días elegidos.</div>
-      <div id="tiroPrintBody" style="margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px;justify-content:flex-end">
-        <button class="bc" onclick="document.getElementById('tiroPrintOv').style.display='none'">Cancelar</button>
-        <button class="bc" style="background:var(--gold);color:#1a1a1a;font-weight:700" onclick="generarImpresionTiro()">🖨️ Generar impresión</button>
-      </div>
-    </div>`;
-    document.body.appendChild(ov);
-  }
-  ov.style.display='flex';
-  _renderTiroPrintPanel();
-};
-// Genera la hoja imprimible: encabezado (obra, contrato, rango) + gráfica + tabla con las columnas elegidas
-window.generarImpresionTiro=function(){
-  const el=document.getElementById('tiroGrafico');
-  if(!el || !el.innerHTML.trim()){ toast('No hay gráfico para imprimir','warn'); return; }
-  const cols=TIRO_PRINT_COLS.filter(c=>_tiroPrintColsGet().includes(c.k));
-  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort();
-  const selArr=(_tiroDias instanceof Set && _tiroDias.size)?[..._tiroDias].sort():fechas;
-  const dm=f=>f.split('-').reverse().join('/').slice(0,5);
-  const rango = selArr.length ? (selArr[0]===selArr[selArr.length-1] ? dm(selArr[0]) : `${dm(selArr[0])} → ${dm(selArr[selArr.length-1])}`) : '—';
-  const obraNom=(typeof OBRAS!=='undefined' && OBRAS[obraActiva] && OBRAS[obraActiva].nombre) || obraActiva || 'TENDIDO 039';
-  const th=cols.map(c=>`<th>${c.t}</th>`).join('');
-  const body=_tiroFlatUltimo.map(r=>`<tr>${cols.map(c=>`<td>${c.get(r)}</td>`).join('')}</tr>`).join('');
-  const w=window.open('','_blank');
-  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups para imprimir','warn'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Avance de tiro · ${obraNom}</title>
-  <style>
-    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px}
-    h1{font-size:16px;margin:0 0 3px}
-    .meta{font-size:11px;color:#555;margin-bottom:16px}
-    svg text{fill:#111 !important}
-    svg line{stroke:#ccc !important}
-    table{border-collapse:collapse;width:100%;margin-top:14px;font-size:11px}
-    th,td{border:1px solid #ccc;padding:4px 6px;text-align:left}
-    th{background:#f0f0f0}
-    @media print{ @page{ size: landscape; margin:10mm } .noprint{display:none} }
-  </style></head><body>
-  <h1>🛣️ Avance por cadenamiento — ${obraNom} · N-27</h1>
-  <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
-  ${el.innerHTML}
-  <table><thead><tr>${th}</tr></thead><tbody>${body}</tbody></table>
-  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>
-  </body></html>`);
-  w.document.close();
-  const ov=document.getElementById('tiroPrintOv'); if(ov) ov.style.display='none';
-  setTimeout(()=>{ w.focus(); w.print(); },300);
-};
-
-function _larguilloTiro(segs,titulo,tramo){
+// Dibuja el larguillo de un tramo. modo='sup' (geométrico: esp. teórico, m³ geométricos) o 'cli' (real: esp. promedio real, m³ instalados reales).
+// En los dos modos solo se manejan volúmenes en m³ (nunca toneladas).
+function _larguilloVista(segs,titulo,tramo,modo){
   const rango=RANGO_TRAMO[tramo]||{min:Math.min(...segs.map(s=>s.a)),max:Math.max(...segs.map(s=>s.b))};
   const minK=rango.min, maxK=rango.max;
   const span=Math.max(1,maxK-minK);
-  const W=720,PADL=90,PADR=82,PADT=38,trackH=20,renH=6,gapT=26;
-  // Carriles según lo configurado en la obra para este tramo (orden izq, central, der)
+  const W=740,PADL=90,PADR=136,PADT=38,trackH=20,renH=6,gapT=38;
   const ord={IZQ:0,CEN:1,DER:2};
   const nombreLado={IZQ:'Lat. izquierda',CEN:'Central',DER:'Lat. derecha'};
   const carr=carrilesDeObra(obraActiva,tramo);
@@ -1929,30 +1881,66 @@ function _larguilloTiro(segs,titulo,tramo){
     const y=PADT+ti*(trackH+gapT), cy=y+trackH/2;
     const ss=segs.filter(s=>s.side===t.side);
     const carp=ss.filter(s=>s.tipo==='carpeta'), ren=ss.filter(s=>s.tipo==='reniv'), bach=ss.filter(s=>s.tipo==='bacheo');
-    // Fondo del carril = todo el tramo (inicial → final)
     rows+=`<line x1="${PADL}" y1="${cy}" x2="${W-PADR}" y2="${cy}" stroke="#1a1f29" stroke-width="${trackH}" stroke-linecap="round"/>`;
-    rows+=`<text x="${PADL}" y="${y-7}" font-size="9.5" font-weight="700" fill="${t.color}">${t.label}</text>`;
-    // Carpeta = banda principal (color del carril), reducida al tramo colocado
+    rows+=`<text x="${PADL}" y="${y-9}" font-size="9.5" font-weight="700" fill="${t.color}">${t.label}</text>`;
     carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y+3}" width="${Math.max(2,x2-x1)}" height="${trackH-6}" rx="3" fill="${t.color}" opacity="0.9"><title>Carpeta · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
-    // Renivelación = franja ARRIBA (morado)
     ren.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"><title>Renivelación · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
-    // Bacheo = franja ABAJO (rosa)
     bach.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y+trackH+2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${BACHEO_COL}"><title>Bacheo · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
     });
-    // Cadenamiento inicial (izq) y hasta donde llegó (der) — mismo formato en ambos lados
-    if(ss.length){ const ma=Math.min(...ss.map(s=>s.a)); const mb=Math.max(...ss.map(s=>s.b));
+    if(ss.length){
+      const ma=Math.min(...ss.map(s=>s.a)), mb=Math.max(...ss.map(s=>s.b));
+      const mlTot=ss.reduce((s,x)=>s+(x.b-x.a),0);
+      const areaTot=ss.reduce((s,x)=>s+(x.area||0),0);
       rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(ma))}</text>`;
-      rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(mb))}</text>`;
+      rows+=`<text x="${W-PADR+5}" y="${cy-6}" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(mb))}</text>`;
+      rows+=`<text x="${W-PADR+5}" y="${cy+6}" font-size="8" fill="#94a3b8">${mlTot.toFixed(1)} ml · ${areaTot.toFixed(1)} m²</text>`;
+      if(modo==='sup'){
+        const volGeoT=ss.reduce((s,x)=>s+(x.volGeo||0),0);
+        rows+=`<text x="${W-PADR+5}" y="${cy+16}" font-size="8" fill="#94a3b8">${volGeoT.toFixed(2)} m³ geométricos</text>`;
+      } else {
+        const volRealT=ss.reduce((s,x)=>s+(x.volReal||0),0);
+        const volGeoT=ss.reduce((s,x)=>s+(x.volGeo||0),0);
+        const gan=volGeoT-volRealT; // + = va ganando (usó menos material que el geométrico)
+        const gc=gan>=0?'#3ecf8e':'#ef4444';
+        rows+=`<text x="${W-PADR+5}" y="${cy+16}" font-size="8" fill="#94a3b8">${volRealT.toFixed(2)} m³ instalados</text>`;
+        rows+=`<text x="${W-PADR+5}" y="${cy+26}" font-size="8" font-weight="700" fill="${gc}">${gan>=0?'+':''}${gan.toFixed(2)} m³ ${gan>=0?'ganancia':'pérdida'}</text>`;
+      }
     } else {
       rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="9" fill="#6b7280">—</text>`;
       rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9" fill="#6b7280">sin tiro</text>`;
     }
   });
+  const nomTipo={carpeta:'Carpeta',reniv:'Renivelación',bacheo:'Bacheo'};
+  let notaHtml='';
+  if(modo==='sup'){
+    // Espesor geométrico por concepto (área-ponderado)
+    const gEsp={};
+    segs.forEach(s=>{ if(!gEsp[s.tipo]) gEsp[s.tipo]={sumA:0,sumAE:0}; gEsp[s.tipo].sumA+=s.area||0; gEsp[s.tipo].sumAE+=(s.area||0)*(s.espTeo||0); });
+    const espLine=Object.entries(gEsp).filter(([,d])=>d.sumA>0).map(([k,d])=>`${nomTipo[k]||k}: ${(d.sumAE/d.sumA).toFixed(2)}cm`).join(' · ');
+    notaHtml = espLine?`<div style="font-size:9.5px;color:#94a3b8;padding:2px 6px 0"><b style="color:var(--gold)">Esp. geométrico:</b> ${espLine}</div>`:'';
+  } else {
+    // Cliente: espesor promedio SOLO de carpeta (nota informativa, no interviene en el gráfico)
+    const carpSegs=segs.filter(s=>s.tipo==='carpeta');
+    const sumA=carpSegs.reduce((s,x)=>s+(x.area||0),0);
+    const sumAE=carpSegs.reduce((s,x)=>s+(x.area||0)*(x.espReal||0),0);
+    const espCarp = sumA>0 ? (sumAE/sumA) : 0;
+    // Comparativa geométrico vs real (todos los conceptos) → ganancia total del tramo
+    const volGeoTot=segs.reduce((s,x)=>s+(x.volGeo||0),0);
+    const volRealTot=segs.reduce((s,x)=>s+(x.volReal||0),0);
+    const ganTot=volGeoTot-volRealTot;
+    const gc=ganTot>=0?'#3ecf8e':'#ef4444';
+    notaHtml = `<div style="font-size:9.5px;color:#94a3b8;padding:3px 6px 0">
+      ${espCarp>0?`<b style="color:#3b82f6">Esp. promedio carpeta:</b> ${espCarp.toFixed(2)} cm &nbsp;·&nbsp; `:''}
+      <b>Geométrico:</b> ${volGeoTot.toFixed(2)} m³ &nbsp;·&nbsp; <b>Instalado real:</b> ${volRealTot.toFixed(2)} m³ &nbsp;·&nbsp;
+      <b style="color:${gc}">${ganTot>=0?'Ganancia':'Pérdida'}: ${ganTot>=0?'+':''}${ganTot.toFixed(2)} m³</b>
+    </div>`;
+  }
+
   return `<div style="background:var(--bg);border:1px solid var(--bord);border-radius:10px;padding:8px 6px;margin-bottom:8px">
     <div style="display:flex;justify-content:space-between;align-items:center;padding:0 4px 4px;flex-wrap:wrap;gap:4px">
       <span style="font-size:10px;font-weight:800;color:var(--gold)">🛣️ ${titulo} · ${fmtCad(minK)} → ${fmtCad(maxK)}</span>
@@ -1964,8 +1952,40 @@ function _larguilloTiro(segs,titulo,tramo){
     <svg viewBox="0 0 ${W} ${H}" width="100%" style="display:block" xmlns="http://www.w3.org/2000/svg">
       ${ticks}${rows}
     </svg>
+    ${notaHtml}
   </div>`;
 }
+
+// Imprime un solo gráfico (Supervisor o Cliente) — condicionado a admin/residente (datos sensibles)
+window.imprimirLarguillo=function(modo){
+  if(!_puedeImprimirGrafico()){ toast('Solo administrador o superintendente puede imprimir este gráfico','warn'); return; }
+  const el=document.getElementById(modo==='sup'?'tiroGraficoSup':'tiroGraficoCli');
+  if(!el || !el.innerHTML.trim()){ toast('No hay gráfico para imprimir','warn'); return; }
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort();
+  const selArr=(_tiroDias instanceof Set && _tiroDias.size)?[..._tiroDias].sort():fechas;
+  const dm=f=>f.split('-').reverse().join('/').slice(0,5);
+  const rango = selArr.length ? (selArr[0]===selArr[selArr.length-1] ? dm(selArr[0]) : `${dm(selArr[0])} → ${dm(selArr[selArr.length-1])}`) : '—';
+  const obraNom=(typeof OBRAS!=='undefined' && OBRAS[obraActiva] && OBRAS[obraActiva].nombre) || obraActiva || 'TENDIDO 039';
+  const tituloModo = modo==='sup' ? 'Gráfico Supervisor · volumen geométrico' : 'Gráfico Cliente · volumen real instalado';
+  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups para imprimir','warn'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${tituloModo} · ${obraNom}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px}
+    h1{font-size:16px;margin:0 0 3px}
+    .meta{font-size:11px;color:#555;margin-bottom:16px}
+    svg text{fill:#111 !important}
+    svg line{stroke:#ccc !important}
+    @media print{ @page{ size: landscape; margin:10mm } .noprint{display:none} }
+  </style></head><body>
+  <h1>🛣️ ${tituloModo} — ${obraNom} · N-27</h1>
+  <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
+  ${el.innerHTML}
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },300);
+};
 
 function renderTablaTiro(){
   const wrap=document.getElementById('tiroWrap'); if(!wrap) return;
