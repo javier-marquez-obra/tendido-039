@@ -586,6 +586,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div style="display:flex;gap:6px;margin-bottom:8px">
       <button id="tiroVistaSup" onclick="tiroVista('sup')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord)">👷 Vista supervisor</button>
       <button id="tiroVistaCli" onclick="tiroVista('cli')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord)">🏗️ Vista cliente</button>
+      <button id="tiroConexBtn" onclick="tiroToggleConexion()" title="Muestra qué camión siguió en otro carril (solo revisión)" style="padding:8px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:1px solid var(--bord)">🔗 Conexión camión</button>
     </div>
     <div id="tiroGraficoBox" style="height:420px;overflow:auto;-webkit-overflow-scrolling:touch;flex:none">
       <div id="tiroGraficoSup"></div>
@@ -1809,6 +1810,13 @@ function _puedeImprimirGrafico(){
   return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
 }
 let _tiroVista='sup'; // qué gráfico se muestra: 'sup' o 'cli'
+let _tiroConexion=false; // conexión punteada camión entre carriles (solo revisión, apagada por default)
+window.tiroToggleConexion=function(){
+  _tiroConexion=!_tiroConexion;
+  const b=document.getElementById('tiroConexBtn');
+  if(b){ b.style.background=_tiroConexion?'var(--gold)':'var(--bg)'; b.style.color=_tiroConexion?'#1a1a1a':'var(--txt)'; b.textContent=_tiroConexion?'🔗 Conexión camión: ON':'🔗 Conexión camión'; }
+  renderTablaTiro();
+};
 window.tiroVista=function(v){
   _tiroVista=v;
   const s=document.getElementById('tiroGraficoSup'), c=document.getElementById('tiroGraficoCli');
@@ -1839,7 +1847,7 @@ function renderGraficoTiro(rs){
           const volGeo=+(c.volumen||0);
           const espReal=(ton&&area)?(ton/(area*DEN_TIRO)):0;
           const volReal=ton/DEN_TIRO;
-          segs.push({a,b,side,num:v.num_viaje_dia,placas:v.placas||'',tipo,area,espTeo,espReal,volGeo,volReal});
+          segs.push({a,b,side,num:v.num_viaje_dia,placas:v.placas||'',fecha:v.fecha||'',tipo,area,espTeo,espReal,volGeo,volReal});
         }
       }
     });
@@ -1913,7 +1921,7 @@ function _larguilloVista(segs,titulo,tramo,modo){
     carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b); const w=Math.max(2,x2-x1); const cx=(x1+x2)/2;
       rows+=`<rect x="${x1}" y="${y+3}" width="${w}" height="${trackH-6}" rx="2" fill="${t.color}" opacity="0.92" stroke="#0d1017" stroke-width="0.8"><title>Camión ${s.num}${s.placas?' · '+s.placas:''}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
       if(w>=11) rows+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#0d1017">${s.num}</text>`;
-      if(s.num!=null){ (posCarp[s.num]=posCarp[s.num]||[]).push({cx,cy,ti}); }
+      if(s.num!=null){ const k=s.fecha+'#'+s.num; (posCarp[k]=posCarp[k]||[]).push({cx,cy,ti}); }
     });
     ren.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
       rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"><title>Renivelación · viaje ${s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
@@ -1944,18 +1952,20 @@ function _larguilloVista(segs,titulo,tramo,modo){
       rows+=`<text x="${W-PADR+5}" y="${cy+3}" font-size="9" fill="#6b7280">sin tiro</text>`;
     }
   });
-  // Conector punteado: mismo camión (mismo N° de viaje) que continuó en otro carril
-  let conectores='';
-  Object.values(posCarp).forEach(pts=>{
-    if(pts.length<2) return;
-    pts.sort((a,b)=>a.ti-b.ti);
-    for(let i=0;i<pts.length-1;i++){ const p=pts[i], q=pts[i+1];
-      if(p.ti===q.ti) continue; // solo si cambia de carril
-      conectores+=`<line x1="${p.cx.toFixed(1)}" y1="${p.cy.toFixed(1)}" x2="${q.cx.toFixed(1)}" y2="${q.cy.toFixed(1)}" stroke="#f0b429" stroke-width="1.4" stroke-dasharray="3 3" opacity="0.85"/>`;
-      conectores+=`<circle cx="${p.cx.toFixed(1)}" cy="${p.cy.toFixed(1)}" r="1.8" fill="#f0b429"/><circle cx="${q.cx.toFixed(1)}" cy="${q.cy.toFixed(1)}" r="1.8" fill="#f0b429"/>`;
-    }
-  });
-  rows+=conectores;
+  // Conector punteado: mismo camión (mismo N° de viaje Y mismo día) que continuó en otro carril. Solo si el toggle está activo.
+  if(_tiroConexion){
+    let conectores='';
+    Object.values(posCarp).forEach(pts=>{
+      if(pts.length<2) return;
+      pts.sort((a,b)=>a.ti-b.ti);
+      for(let i=0;i<pts.length-1;i++){ const p=pts[i], q=pts[i+1];
+        if(p.ti===q.ti) continue; // solo si cambia de carril
+        conectores+=`<line x1="${p.cx.toFixed(1)}" y1="${p.cy.toFixed(1)}" x2="${q.cx.toFixed(1)}" y2="${q.cy.toFixed(1)}" stroke="#f0b429" stroke-width="1.4" stroke-dasharray="3 3" opacity="0.85"/>`;
+        conectores+=`<circle cx="${p.cx.toFixed(1)}" cy="${p.cy.toFixed(1)}" r="1.8" fill="#f0b429"/><circle cx="${q.cx.toFixed(1)}" cy="${q.cy.toFixed(1)}" r="1.8" fill="#f0b429"/>`;
+      }
+    });
+    rows+=conectores;
+  }
   const nomTipo={carpeta:'Carpeta',reniv:'Renivelación',bacheo:'Bacheo'};
   let notaHtml='';
   if(modo==='sup'){
