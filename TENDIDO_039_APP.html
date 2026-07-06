@@ -2086,38 +2086,43 @@ async function _pdfDirectoLandscape(el, rango){
   const { jsPDF }=window.jspdf;
   const pdf=new jsPDF({orientation:'landscape', unit:'mm', format:'a4'}); // 297 x 210
   const pw=297, ph=210, mx=8, my=8;
+  const imgW=pw-mx*2, pageInnerH=ph-my*2;
 
-  // Contenedor temporal con fondo blanco y el contenido tal como se ve (sin botones)
-  const cont=document.createElement('div');
-  cont.style.cssText='position:fixed;left:-99999px;top:0;width:1100px;background:#fff;color:#111;padding:16px;font-family:Arial,Helvetica,sans-serif';
-  cont.innerHTML=`<h1 style="font-size:18px;margin:0 0 4px">LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026</h1>
-    <div style="font-size:12px;color:#555;margin-bottom:14px">Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>`;
-  const clone=el.cloneNode(true);
-  clone.querySelectorAll('button').forEach(b=>b.remove());
-  // forzar colores oscuros del tema a claros para impresión
-  clone.querySelectorAll('*').forEach(n=>{ n.style.color=''; });
-  cont.appendChild(clone);
-  document.body.appendChild(cont);
+  // Recolectar los bloques que NO deben cortarse: cada larguillo (div con svg) y la tabla de volumen
+  const bloques=[];
+  el.querySelectorAll('svg').forEach(svg=>{ const cont=svg.closest('div'); if(cont && !bloques.includes(cont)) bloques.push(cont); });
+  el.querySelectorAll('table').forEach(t=>{ const cont=t.closest('div'); if(cont && !bloques.includes(cont)) bloques.push(cont); });
+  if(!bloques.length) bloques.push(el);
 
-  try{
-    const canvas=await html2canvas(cont,{scale:2, backgroundColor:'#ffffff', useCORS:true});
-    const imgW=pw-mx*2;
-    const imgH=canvas.height*imgW/canvas.width;
-    const pageInnerH=ph-my*2;
-    let heightLeft=imgH, position=my;
-    const imgData=canvas.toDataURL('image/png');
-    pdf.addImage(imgData, 'PNG', mx, position, imgW, imgH);
-    heightLeft-=pageInnerH;
-    while(heightLeft>0){
-      pdf.addPage();
-      position=my-(imgH-heightLeft);
-      pdf.addImage(imgData, 'PNG', mx, position, imgW, imgH);
-      heightLeft-=pageInnerH;
-    }
-    const fname=`Larguillo_${(rango||'').replace(/[^0-9]/g,'')||'obra'}_039.pdf`;
-    pdf.save(fname);
-    toast('PDF horizontal descargado','ok');
-  } finally { document.body.removeChild(cont); }
+  // Título en la primera página
+  pdf.setFontSize(13); pdf.setFont(undefined,'bold');
+  pdf.text('LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026', mx, my+4);
+  pdf.setFontSize(9); pdf.setFont(undefined,'normal'); pdf.setTextColor(90);
+  pdf.text(`Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}`, mx, my+9);
+  pdf.setTextColor(17);
+  let y=my+14;
+
+  for(const bloque of bloques){
+    // Clonar el bloque en un contenedor blanco aislado para capturarlo limpio
+    const wrap=document.createElement('div');
+    wrap.style.cssText='position:fixed;left:-99999px;top:0;width:1100px;background:#fff;padding:8px;font-family:Arial,Helvetica,sans-serif';
+    const c=bloque.cloneNode(true);
+    c.querySelectorAll('button').forEach(b=>b.remove());
+    c.style.background='#fff'; c.style.border='1px solid #ddd'; c.style.borderRadius='8px';
+    // aclarar textos oscuros del tema
+    c.querySelectorAll('*').forEach(n=>{ const col=getComputedStyle(n).color; if(col && /rgb\((2[0-9]|[0-9]|3[0-9]),/.test(col)) n.style.color='#111'; });
+    wrap.appendChild(c); document.body.appendChild(wrap);
+    try{
+      const canvas=await html2canvas(wrap,{scale:2, backgroundColor:'#ffffff', useCORS:true});
+      const bh=canvas.height*imgW/canvas.width; // alto en mm de este bloque
+      if(y+bh>ph-my && y>my+14){ pdf.addPage(); y=my; }
+      pdf.addImage(canvas.toDataURL('image/png'),'PNG', mx, y, imgW, bh);
+      y+=bh+4;
+    } finally { document.body.removeChild(wrap); }
+  }
+  const fname=`Larguillo_${(rango||'').replace(/[^0-9]/g,'')||'obra'}_039.pdf`;
+  pdf.save(fname);
+  toast('PDF horizontal descargado','ok');
 }
 
 function _imprimirVentana(el, rango){
