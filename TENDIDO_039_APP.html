@@ -694,7 +694,7 @@ function aplicarObraActiva(){
   // Botón eliminar obra: solo admin y no la base 039
   const be=document.getElementById('btnEliminarObra');
   if(be) be.style.display = (typeof session!=='undefined' && session && session.rol==='admin' && obraActiva!=='039') ? '' : 'none';
-  if(typeof renderConceptosContainer==='function') renderConceptosContainer();
+  try{ if(window._appLista && typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
 }
 window.cambiarObra=function(v){
   if(!OBRAS[v]) return;
@@ -3094,6 +3094,7 @@ function actualizarStatusEmul(){
 }
 // ═══ GESTIÓN DE CONCEPTOS MÚLTIPLES POR CAMIÓN ═══
 let conceptosViaje = [];
+window._appLista = true;
 
 // Si solo hay 1 concepto, asigna automáticamente todas las ton del camión
 function autoAsignarTon(){
