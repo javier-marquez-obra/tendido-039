@@ -586,7 +586,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     </div>
     <div id="tiroCadPanel" style="display:none;margin-bottom:8px;border:1px solid var(--bord);border-radius:8px;padding:10px;background:var(--bg);max-height:40vh;overflow:auto"></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
-      <button id="tiroVistaSup" onclick="tiroVista('sup')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord)">👷 Vista supervisor</button>
+      <button id="tiroVistaSup" onclick="tiroVista('sup')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord)">📊 Vista avance</button>
       <button id="tiroVistaCli" onclick="tiroVista('cli')" style="flex:1;padding:8px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;border:1px solid var(--bord)">🏗️ Vista cliente</button>
     </div>
     <div id="tiroGraficoBox" style="height:420px;overflow:auto;-webkit-overflow-scrolling:touch;flex:none">
@@ -1925,7 +1925,7 @@ function renderGraficoTiro(rs){
     : '';
 
   elS.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <span style="font-size:11px;font-weight:800;color:var(--gold)">👷 GRÁFICO SUPERVISOR</span>
+      <span style="font-size:11px;font-weight:800;color:var(--gold)">📊 GRÁFICO DE AVANCE</span>
       ${btnImp('sup')}
     </div>
     ${_avanceHeaderHtml(av)}
@@ -1988,7 +1988,10 @@ function _larguilloVista(segs,titulo,tramo,modo){
       rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(ma))}</text>`;
       rows+=`<text x="${W-PADR+5}" y="${cy-6}" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(mb))}</text>`;
       rows+=`<text x="${W-PADR+5}" y="${cy+6}" font-size="8" fill="#94a3b8">${areaTot.toFixed(1)} m²</text>`;
-      if(modo!=='sup'){
+      if(modo==='sup'){
+        const volGeoT=ss.reduce((s,x)=>s+(x.volGeo||0),0);
+        rows+=`<text x="${W-PADR+5}" y="${cy+16}" font-size="8" fill="#94a3b8">${volGeoT.toFixed(2)} m³</text>`;
+      } else {
         const volRealT=ss.reduce((s,x)=>s+(x.volReal||0),0);
         const volGeoT=ss.reduce((s,x)=>s+(x.volGeo||0),0);
         const gan=volGeoT-volRealT; // + = va ganando (usó menos material que el geométrico)
@@ -2053,6 +2056,10 @@ window.imprimirLarguillo=function(modo){
   const rango = selArr.length ? (selArr[0]===selArr[selArr.length-1] ? dm(selArr[0]) : `${dm(selArr[0])} → ${dm(selArr[selArr.length-1])}`) : '—';
   const obraNom=(typeof OBRAS!=='undefined' && OBRAS[obraActiva] && OBRAS[obraActiva].nombre) || obraActiva || 'TENDIDO 039';
   const tituloModo = modo==='sup' ? 'LARGUILLO DE OBRA' : 'LARGUILLO DE OBRA · CLIENTE';
+  // Copia del gráfico SIN el botón interno de imprimir (que trae el emoji)
+  const tmp=el.cloneNode(true);
+  tmp.querySelectorAll('button').forEach(b=>b.remove());
+  const graf=tmp.innerHTML;
   const w=window.open('','_blank');
   if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups para imprimir','warn'); return; }
   w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Larguillo de obra · ${obraNom}</title>
@@ -2066,8 +2073,8 @@ window.imprimirLarguillo=function(modo){
   </style></head><body>
   <h1>LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026</h1>
   <div class="meta">Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
-  ${el.innerHTML}
-  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>
+  ${graf}
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">Imprimir / Guardar PDF</button></div>
   </body></html>`);
   w.document.close();
   setTimeout(()=>{ w.focus(); w.print(); },300);
