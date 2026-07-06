@@ -1808,7 +1808,7 @@ function _pctAvanceGeo(){
   return { tot, TOT, extra, pct: TOT>0?(tot/TOT*100):0 };
 }
 function _avanceHeaderHtml(av){
-  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance geométrico contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(1)}%</b> (${av.tot.toFixed(1)} / ${av.TOT} m³ del catálogo E-7)${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(1)} m³ extra</span>`:''}</div>`;
+  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(1)}%</b> (${av.tot.toFixed(1)} / ${av.TOT} m³ del catálogo E-7)${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(1)} m³ extra</span>`:''}</div>`;
 }
 function _puedeImprimirGrafico(){
   return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
@@ -1846,7 +1846,7 @@ function _tablaVolConcepto(o1,o2,modo){
       return `<tr><td style="padding:3px 8px">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700">${v.toFixed(2)} m³</td></tr>`;
     }).join('');
     return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
-      <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen acumulado por concepto (geométrico)</div>
+      <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen acumulado por concepto</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">${rows}
         <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
       </table></div>`;
@@ -1925,7 +1925,7 @@ function renderGraficoTiro(rs){
     : '';
 
   elS.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-      <span style="font-size:11px;font-weight:800;color:var(--gold)">👷 GRÁFICO SUPERVISOR · volumen geométrico</span>
+      <span style="font-size:11px;font-weight:800;color:var(--gold)">👷 GRÁFICO SUPERVISOR</span>
       ${btnImp('sup')}
     </div>
     ${_avanceHeaderHtml(av)}
@@ -1984,15 +1984,11 @@ function _larguilloVista(segs,titulo,tramo,modo){
     });
     if(ss.length){
       const ma=Math.min(...ss.map(s=>s.a)), mb=Math.max(...ss.map(s=>s.b));
-      const mlTot=ss.reduce((s,x)=>s+(x.b-x.a),0);
       const areaTot=ss.reduce((s,x)=>s+(x.area||0),0);
       rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(ma))}</text>`;
       rows+=`<text x="${W-PADR+5}" y="${cy-6}" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(mb))}</text>`;
-      rows+=`<text x="${W-PADR+5}" y="${cy+6}" font-size="8" fill="#94a3b8">${mlTot.toFixed(1)} ml · ${areaTot.toFixed(1)} m²</text>`;
-      if(modo==='sup'){
-        const volGeoT=ss.reduce((s,x)=>s+(x.volGeo||0),0);
-        rows+=`<text x="${W-PADR+5}" y="${cy+16}" font-size="8" fill="#94a3b8">${volGeoT.toFixed(2)} m³</text>`;
-      } else {
+      rows+=`<text x="${W-PADR+5}" y="${cy+6}" font-size="8" fill="#94a3b8">${areaTot.toFixed(1)} m²</text>`;
+      if(modo!=='sup'){
         const volRealT=ss.reduce((s,x)=>s+(x.volReal||0),0);
         const volGeoT=ss.reduce((s,x)=>s+(x.volGeo||0),0);
         const gan=volGeoT-volRealT; // + = va ganando (usó menos material que el geométrico)
@@ -2012,7 +2008,7 @@ function _larguilloVista(segs,titulo,tramo,modo){
     const gEsp={};
     segs.forEach(s=>{ if(!gEsp[s.tipo]) gEsp[s.tipo]={sumA:0,sumAE:0}; gEsp[s.tipo].sumA+=s.area||0; gEsp[s.tipo].sumAE+=(s.area||0)*(s.espTeo||0); });
     const espLine=Object.entries(gEsp).filter(([,d])=>d.sumA>0).map(([k,d])=>`${nomTipo[k]||k}: ${(d.sumAE/d.sumA).toFixed(2)}cm`).join(' · ');
-    notaHtml = espLine?`<div style="font-size:9.5px;color:#94a3b8;padding:2px 6px 0"><b style="color:var(--gold)">Esp. geométrico:</b> ${espLine}</div>`:'';
+    notaHtml = espLine?`<div style="font-size:9.5px;color:#94a3b8;padding:2px 6px 0"><b style="color:var(--gold)">Esp. teórico:</b> ${espLine}</div>`:'';
   } else {
     // Cliente: espesor promedio SOLO de carpeta (nota informativa, no interviene en el gráfico)
     const carpSegs=segs.filter(s=>s.tipo==='carpeta');
@@ -2056,10 +2052,10 @@ window.imprimirLarguillo=function(modo){
   const dm=f=>f.split('-').reverse().join('/').slice(0,5);
   const rango = selArr.length ? (selArr[0]===selArr[selArr.length-1] ? dm(selArr[0]) : `${dm(selArr[0])} → ${dm(selArr[selArr.length-1])}`) : '—';
   const obraNom=(typeof OBRAS!=='undefined' && OBRAS[obraActiva] && OBRAS[obraActiva].nombre) || obraActiva || 'TENDIDO 039';
-  const tituloModo = modo==='sup' ? 'Gráfico Supervisor · volumen geométrico' : 'Gráfico Cliente · volumen real instalado';
+  const tituloModo = modo==='sup' ? 'LARGUILLO DE OBRA' : 'LARGUILLO DE OBRA · CLIENTE';
   const w=window.open('','_blank');
   if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups para imprimir','warn'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>${tituloModo} · ${obraNom}</title>
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Larguillo de obra · ${obraNom}</title>
   <style>
     body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px}
     h1{font-size:16px;margin:0 0 3px}
@@ -2068,8 +2064,8 @@ window.imprimirLarguillo=function(modo){
     svg line{stroke:#ccc !important}
     @media print{ @page{ size: landscape; margin:10mm } .noprint{display:none} }
   </style></head><body>
-  <h1>🛣️ ${tituloModo} — ${obraNom} · N-27</h1>
-  <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
+  <h1>LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026</h1>
+  <div class="meta">Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
   ${el.innerHTML}
   <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">🖨️ Imprimir / Guardar PDF</button></div>
   </body></html>`);
