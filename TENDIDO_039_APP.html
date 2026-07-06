@@ -2052,8 +2052,8 @@ async function _cargarPdfLibs(){
   if(_pdfLibsOK!==null) return _pdfLibsOK;
   try{
     if(!window.jspdf){ await _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); }
-    if(!window.svg2pdf){ await _loadScript('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js'); }
-    _pdfLibsOK = !!(window.jspdf && (window.svg2pdf || (window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.svg)));
+    if(!window.html2canvas){ await _loadScript('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'); }
+    _pdfLibsOK = !!(window.jspdf && window.html2canvas);
   }catch(e){ _pdfLibsOK=false; }
   return _pdfLibsOK;
 }
@@ -2085,29 +2085,39 @@ window.imprimirLarguillo=async function(modo){
 async function _pdfDirectoLandscape(el, rango){
   const { jsPDF }=window.jspdf;
   const pdf=new jsPDF({orientation:'landscape', unit:'mm', format:'a4'}); // 297 x 210
-  const pw=297, ph=210, mx=10, my=10;
-  pdf.setFontSize(13); pdf.setFont(undefined,'bold');
-  pdf.text('LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026', mx, my+4);
-  pdf.setFontSize(9); pdf.setFont(undefined,'normal'); pdf.setTextColor(90);
-  pdf.text(`Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}`, mx, my+10);
-  pdf.setTextColor(17);
-  const svgs=[...el.querySelectorAll('svg')];
-  let y=my+16;
-  for(const svg of svgs){
-    const vb=svg.viewBox && svg.viewBox.baseVal;
-    const wpx=(vb&&vb.width)||740, hpx=(vb&&vb.height)||220;
-    const availW=pw-mx*2;
-    const drawW=availW, drawH=drawW*hpx/wpx;
-    if(y+drawH>ph-my){ pdf.addPage(); y=my; }
-    // clonar el svg con tamaño explícito para svg2pdf
-    const clone=svg.cloneNode(true);
-    clone.setAttribute('width', wpx); clone.setAttribute('height', hpx);
-    await pdf.svg(clone, {x:mx, y:y, width:drawW, height:drawH});
-    y+=drawH+6;
-  }
-  const fname=`Larguillo_${(rango||'').replace(/[^0-9]/g,'')||'obra'}_039.pdf`;
-  pdf.save(fname);
-  toast('PDF horizontal descargado','ok');
+  const pw=297, ph=210, mx=8, my=8;
+
+  // Contenedor temporal con fondo blanco y el contenido tal como se ve (sin botones)
+  const cont=document.createElement('div');
+  cont.style.cssText='position:fixed;left:-99999px;top:0;width:1100px;background:#fff;color:#111;padding:16px;font-family:Arial,Helvetica,sans-serif';
+  cont.innerHTML=`<h1 style="font-size:18px;margin:0 0 4px">LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026</h1>
+    <div style="font-size:12px;color:#555;margin-bottom:14px">Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>`;
+  const clone=el.cloneNode(true);
+  clone.querySelectorAll('button').forEach(b=>b.remove());
+  // forzar colores oscuros del tema a claros para impresión
+  clone.querySelectorAll('*').forEach(n=>{ n.style.color=''; });
+  cont.appendChild(clone);
+  document.body.appendChild(cont);
+
+  try{
+    const canvas=await html2canvas(cont,{scale:2, backgroundColor:'#ffffff', useCORS:true});
+    const imgW=pw-mx*2;
+    const imgH=canvas.height*imgW/canvas.width;
+    const pageInnerH=ph-my*2;
+    let heightLeft=imgH, position=my;
+    const imgData=canvas.toDataURL('image/png');
+    pdf.addImage(imgData, 'PNG', mx, position, imgW, imgH);
+    heightLeft-=pageInnerH;
+    while(heightLeft>0){
+      pdf.addPage();
+      position=my-(imgH-heightLeft);
+      pdf.addImage(imgData, 'PNG', mx, position, imgW, imgH);
+      heightLeft-=pageInnerH;
+    }
+    const fname=`Larguillo_${(rango||'').replace(/[^0-9]/g,'')||'obra'}_039.pdf`;
+    pdf.save(fname);
+    toast('PDF horizontal descargado','ok');
+  } finally { document.body.removeChild(cont); }
 }
 
 function _imprimirVentana(el, rango){
