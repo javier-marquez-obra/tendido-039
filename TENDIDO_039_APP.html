@@ -2094,11 +2094,13 @@ async function _pdfDirectoLandscape(el, rango){
   el.querySelectorAll('table').forEach(t=>{ const cont=t.closest('div'); if(cont && !bloques.includes(cont)) bloques.push(cont); });
   if(!bloques.length) bloques.push(el);
 
-  // Título en la primera página
+  // Título en la primera página (ASCII simple para que jsPDF lo renderice bien)
+  const hoy=new Date();
+  const fechaTxt=`${String(hoy.getDate()).padStart(2,'0')}/${String(hoy.getMonth()+1).padStart(2,'0')}/${hoy.getFullYear()} ${String(hoy.getHours()).padStart(2,'0')}:${String(hoy.getMinutes()).padStart(2,'0')}`;
   pdf.setFontSize(13); pdf.setFont(undefined,'bold');
-  pdf.text('LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026', mx, my+4);
+  pdf.text('LARGUILLO DE OBRA  CONTRATO 2026-14-CB-D-039-W-00-2026', mx, my+4);
   pdf.setFontSize(9); pdf.setFont(undefined,'normal'); pdf.setTextColor(90);
-  pdf.text(`Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}`, mx, my+9);
+  pdf.text(`Rango: ${(rango||'').replace(/→/g,'a').replace(/·/g,'-')}    Generado: ${fechaTxt}`, mx, my+9);
   pdf.setTextColor(17);
   let y=my+14;
 
