@@ -2070,7 +2070,8 @@ window.imprimirLarguillo=function(modo){
     .meta{font-size:11px;color:#555;margin-bottom:16px}
     svg text{fill:#111 !important}
     svg line{stroke:#ccc !important}
-    @media print{ @page{ size: landscape; margin:10mm } .noprint{display:none} }
+    @page{ size: A4 landscape; margin:10mm }
+    @media print{ @page{ size: A4 landscape; margin:10mm } .noprint{display:none} }
   </style></head><body>
   <h1>LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026</h1>
   <div class="meta">Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}</div>
