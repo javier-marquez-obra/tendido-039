@@ -288,6 +288,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <span style="font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.06em">🏗️ OBRA:</span>
     <select id="obraSelect" onchange="cambiarObra(this.value)" style="background:var(--bg);border:1px solid var(--bord);color:var(--gold);border-radius:8px;padding:5px 10px;font-size:13px;font-weight:700;flex:1;min-width:140px;max-width:320px"></select>
     <button class="be" onclick="nuevaObra()" title="Dar de alta una obra nueva" style="padding:5px 10px;font-size:12px;white-space:nowrap">➕ Nueva obra</button>
+    <button class="be" id="btnEliminarObra" onclick="eliminarObra()" title="Eliminar la obra activa (solo admin)" style="padding:5px 10px;font-size:12px;white-space:nowrap;border-color:#ef4444;color:#ef4444;display:none">🗑 Eliminar obra</button>
     <button class="be" onclick="abrirConfigCarriles()" title="Definir carriles y ancho sugerido por tramo" style="padding:5px 10px;font-size:12px;white-space:nowrap">🛣️ Carriles</button>
     <select id="themeSel" onchange="setTheme(this.value)" title="Cambiar tema de color" style="background:var(--bg);border:1px solid var(--bord);color:var(--txt);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap">
       <option value="dark">🌙 Oscuro</option>
@@ -375,7 +376,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div class="field"><label>№ Vale mezcla</label><input type="text" id="f_vale" placeholder="V-001"></div>
         <div class="field"><label>№ Remisión báscula</label><input type="text" id="f_remision" placeholder="R-0001"></div>
         <!-- SENTIDO DEL TENDIDO -->
-        <div class="field" style="grid-column:1/-1">
+        <div class="field" id="sentidoWrap" style="grid-column:1/-1">
           <label style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)">SENTIDO DEL TENDIDO</label>
           <select id="f_sentido" onchange="localStorage.setItem('t039_sentido',this.value);renderConceptosContainer();conceptosViaje.forEach((_,i)=>calcKaConcepto(i))"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:10px;font-size:14px;font-weight:700;color:var(--gold)">
@@ -687,11 +688,20 @@ function aplicarObraActiva(){
   catalogoActivo=conceptosDeObra(obraActiva);
   const lbl=document.getElementById('obraNombre');
   if(lbl) lbl.textContent=(OBRAS[obraActiva]&&OBRAS[obraActiva].nombre)||obraActiva;
+  // Modo particular: ocultar el selector de sentido (no hay cadenamiento)
+  const sw=document.getElementById('sentidoWrap');
+  if(sw) sw.style.display = esParticular() ? 'none' : '';
+  // Botón eliminar obra: solo admin y no la base 039
+  const be=document.getElementById('btnEliminarObra');
+  if(be) be.style.display = (typeof session!=='undefined' && session && session.rol==='admin' && obraActiva!=='039') ? '' : 'none';
+  if(typeof renderConceptosContainer==='function') renderConceptosContainer();
 }
 window.cambiarObra=function(v){
   if(!OBRAS[v]) return;
   obraActiva=v; localStorage.setItem('t039_obra_activa',v);
   aplicarObraActiva();
+  if(typeof filtrarRecordsPorObra==='function') filtrarRecordsPorObra();
+  if(typeof renderAll==='function') renderAll();
   if(typeof renderObraSelect==='function') renderObraSelect();
   toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
 };
@@ -738,10 +748,34 @@ window.nuevaObra=function(){
   if(!clave) return;
   if(OBRAS[clave]){ toast('Ya existe una obra con esa clave','err'); return; }
   const nombre=(prompt('Nombre de la obra (ej. TENDIDO 040 · Carretera X):')||'').trim()||('Obra '+clave);
-  OBRAS[clave]={ clave, nombre, conceptos:[...CATALOGO_E7] }; // arranca con los conceptos de la 039 como base; los ajustas después
+  const tipoR=(prompt('Tipo de obra:\n1 = Carretera / Vialidad (por cadenamiento y carriles)\n2 = Particular (levantamiento por áreas)\n\nEscribe 1 o 2:')||'1').trim();
+  const tipo = tipoR==='2' ? 'particular' : 'carretera';
+  OBRAS[clave]={ clave, nombre, tipo, conceptos:[...CATALOGO_E7] };
   guardarObras(OBRAS);
   cambiarObra(clave);
-  toast('Obra "'+nombre+'" creada · ya puedes capturar en ella','ok');
+  toast('Obra "'+nombre+'" creada ('+(tipo==='particular'?'por áreas':'por cadenamiento')+')','ok');
+};
+function tipoObra(){ return (OBRAS[obraActiva]&&OBRAS[obraActiva].tipo)||'carretera'; }
+function esParticular(){ return tipoObra()==='particular'; }
+// Eliminar la obra activa (solo admin). Borra la obra y TODOS sus viajes en Firebase.
+window.eliminarObra=async function(){
+  if(!(typeof session!=='undefined' && session && session.rol==='admin')){ toast('Solo el administrador puede eliminar obras','err'); return; }
+  const clave=obraActiva; const nombre=(OBRAS[clave]&&OBRAS[clave].nombre)||clave;
+  if(clave==='039'){ toast('La obra base 039 no se puede eliminar','warn'); return; }
+  const viajesObra=records.filter(r=>r.obra===clave);
+  if(!confirm(`⚠️ Vas a ELIMINAR la obra "${nombre}" y sus ${viajesObra.length} viaje(s).\n\nEsto NO se puede deshacer. ¿Continuar?`)) return;
+  const conf=(prompt(`Para confirmar, escribe la clave de la obra: ${clave}`)||'').trim();
+  if(conf!==clave){ toast('Clave no coincide, cancelado','warn'); return; }
+  try{
+    toast('Eliminando obra y sus viajes…','info');
+    // borrar viajes de la obra
+    for(const v of viajesObra){ if(v._id) await deleteDoc(doc(db,COL,v._id)).catch(()=>{}); }
+    // borrar la obra del catálogo local
+    delete OBRAS[clave]; guardarObras(OBRAS);
+    obraActiva='039'; localStorage.setItem('t039_obra_activa','039');
+    aplicarObraActiva(); renderObraSelect();
+    toast(`Obra "${nombre}" eliminada (${viajesObra.length} viajes)`,'ok');
+  }catch(e){ toast('Error al eliminar: '+(e.message||e),'err'); }
 };
 function renderObraSelect(){
   const sel=document.getElementById('obraSelect'); if(!sel) return;
@@ -845,6 +879,7 @@ try {
 const COL   = 'viajes';
 
 let records  = [];
+let recordsAll = []; // todos los viajes crudos; records es solo la obra activa
 let session  = { nombre:'', rol:'operador' };
 let editId   = null;
 let fotosActuales = [];
@@ -932,11 +967,16 @@ function startListener() {
   try {
     const q = query(collection(db, COL), orderBy('ts','desc'));
     onSnapshot(q, snap => {
-      records = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+      recordsAll = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+      filtrarRecordsPorObra();
       renderAll();
       setSyncState('ok');
     }, () => { setSyncState('err'); toast('Sin conexión · datos locales','err'); });
   } catch(e) { setSyncState('err'); }
+}
+// Aísla las obras: records solo contiene los viajes de la obra activa. Un viaje sin campo 'obra' se trata como 039.
+function filtrarRecordsPorObra(){
+  records = (recordsAll||[]).filter(r => (r.obra||'039')===obraActiva);
 }
 
 // ═══ TEMPERATURAS ═══
@@ -1460,16 +1500,18 @@ window.guardar = async function() {
   const DEN_=2.35;
   const _gsent=(document.getElementById('f_sentido')||{}).value||'sube';
   const conceptosGuardar=conceptosViaje.map((cv,i)=>{
-    const kde_=parseCad((document.getElementById('f_kde_'+i)||{}).value);
+    const particular=esParticular();
+    const kde_=particular?null:parseCad((document.getElementById('f_kde_'+i)||{}).value);
     const sent_=cv.sentido||_gsent;
-    let ka_=parseCad((document.getElementById('f_ka_'+i)||{}).textContent||(document.getElementById('f_ka_'+i)||{}).value||'');
+    let ka_=particular?null:parseCad((document.getElementById('f_ka_'+i)||{}).textContent||(document.getElementById('f_ka_'+i)||{}).value||'');
     const ml_=parseFloat((document.getElementById('f_ml_'+i)||{}).value)||0;
-    if(isNaN(ka_) && !isNaN(kde_) && ml_>0) ka_=sent_==='sube'?kde_+ml_:kde_-ml_;
+    if(!particular && isNaN(ka_) && !isNaN(kde_) && ml_>0) ka_=sent_==='sube'?kde_+ml_:kde_-ml_;
+    const referencia_=particular?((document.getElementById('f_ref_'+i)||{}).value||cv.referencia||''):'';
     const aw1_=parseFloat((document.getElementById('f_aw1_'+i)||{}).value)||0;
     const aw2_=parseFloat((document.getElementById('f_aw2_'+i)||{}).value)||0;
     const aw_=aw1_&&aw2_?(aw1_+aw2_)/2:(aw1_||aw2_||0);
     const et_=parseFloat((document.getElementById('f_et_'+i)||{}).value)||3;
-    const carril_=(document.getElementById('f_concepto_carril_'+i)||{value:cv.carril||'L. DER.'}).value||cv.carril||'L. DER.';
+    const carril_=particular?'':((document.getElementById('f_concepto_carril_'+i)||{value:cv.carril||'L. DER.'}).value||cv.carril||'L. DER.');
     const area_=ml_*aw_;
     const vol_=area_*(et_/100);
     const cat=getCatItem(cv.id)||{};
@@ -1477,7 +1519,8 @@ window.guardar = async function() {
       id:cv.id, label:cat.label||cv.id, codigo:cat.codigo||'',
       ton:+(cv.ton||0).toFixed(2), pu:cat.pu||0,
       importe:+((cat.pu||0)*(cv.ton||0)).toFixed(2),
-      kde:isNaN(kde_)?null:kde_, ka:isNaN(ka_)?null:ka_, sentido:sent_,
+      kde:isNaN(kde_)||kde_==null?null:kde_, ka:isNaN(ka_)||ka_==null?null:ka_, sentido:particular?'':sent_,
+      referencia:referencia_,
       longitud:+ml_.toFixed(2), ancho:+aw_.toFixed(3),
       ancho_ini:aw1_||null, ancho_fin:aw2_||null,
       esp_teorico:et_, carril:carril_,
@@ -1486,12 +1529,14 @@ window.guardar = async function() {
     };
   });
   const concPpal=conceptosGuardar.reduce((a,b)=>a.ton>=b.ton?a:b);
-  // Validar que al menos el concepto principal tenga cadenamiento
-  if(!concPpal.kde||!concPpal.longitud){
-    toast('Captura el cadenamiento y los ML del concepto principal','err'); return;
+  // Validar: carretera exige cadenamiento+ML; particular exige longitud+ancho
+  if(esParticular()){
+    if(!concPpal.longitud || !concPpal.ancho){ toast('Captura la longitud y el ancho del área','err'); return; }
+  } else {
+    if(!concPpal.kde||!concPpal.longitud){ toast('Captura el cadenamiento y los ML del concepto principal','err'); return; }
   }
   // Usar los datos del concepto principal para los campos de resumen del rec
-  const kde=concPpal.kde, ka=concPpal.ka||concPpal.kde;
+  const kde=concPpal.kde||null, ka=concPpal.ka||concPpal.kde||null;
   const lng=concPpal.longitud, aw=concPpal.ancho;
   const et=concPpal.esp_teorico/100;
   const area=lng*aw, vol=area*et, tr=vol*DEN;
@@ -1874,9 +1919,64 @@ function _tablaVolConcepto(o1,o2,modo){
     </div>`;
   }
 }
+// Vista para obras PARTICULARES: tabla por referencia (sección) con m², m³, ton y acumulado. No hay larguillo.
+function _renderVistaAreas(rs,elS,elC){
+  const DEN=DEN_TIRO;
+  const grup={}; // referencia → {area, volGeo, volReal, ton, n}
+  rs.forEach(v=>{
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{referencia:v.referencia,area:v.area,volumen:v.volumen,ton:v.ton_recibidas}];
+    cs.forEach(c=>{
+      const ref=(c.referencia||'Sin referencia').trim()||'Sin referencia';
+      if(!grup[ref]) grup[ref]={area:0,volGeo:0,volReal:0,ton:0,n:0};
+      const ton=+(c.ton||0), area=+(c.area||0), volGeo=+(c.volumen||0);
+      grup[ref].area+=area; grup[ref].volGeo+=volGeo; grup[ref].volReal+=ton/DEN; grup[ref].ton+=ton; grup[ref].n++;
+    });
+  });
+  const filas=Object.entries(grup).sort((a,b)=>b[1].area-a[1].area);
+  if(!filas.length){ const vac='<div style="color:var(--muted);font-size:11px;padding:8px">Sin áreas capturadas</div>'; elS.innerHTML=vac; elC.innerHTML=vac; return; }
+
+  const tot={area:0,volGeo:0,volReal:0,ton:0};
+  filas.forEach(([,d])=>{ tot.area+=d.area; tot.volGeo+=d.volGeo; tot.volReal+=d.volReal; tot.ton+=d.ton; });
+
+  // Vista AVANCE (geométrico): referencia · m² · m³ · ton
+  const rowsSup=filas.map(([ref,d])=>`<tr>
+    <td style="padding:4px 8px">${ref}<br><span style="font-size:9px;color:var(--muted)">${d.n} área(s)</span></td>
+    <td style="padding:4px 8px;text-align:right">${d.area.toFixed(1)}</td>
+    <td style="padding:4px 8px;text-align:right;font-weight:700">${d.volGeo.toFixed(2)}</td>
+    <td style="padding:4px 8px;text-align:right">${d.ton.toFixed(1)}</td>
+  </tr>`).join('');
+  elS.innerHTML=`<div style="font-size:11px;font-weight:800;color:var(--gold);margin-bottom:6px">📊 AVANCE POR ÁREAS (${OBRAS[obraActiva]?.nombre||obraActiva})</div>
+    <div style="border:1px solid var(--bord);border-radius:8px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <tr style="background:rgba(240,180,41,.12);color:var(--gold);font-weight:800"><td style="padding:5px 8px">Referencia / sección</td><td style="padding:5px 8px;text-align:right">m²</td><td style="padding:5px 8px;text-align:right">m³ geom.</td><td style="padding:5px 8px;text-align:right">ton</td></tr>
+        ${rowsSup}
+        <tr style="border-top:2px solid var(--gold);font-weight:800"><td style="padding:6px 8px">ACUMULADO</td><td style="padding:6px 8px;text-align:right">${tot.area.toFixed(1)}</td><td style="padding:6px 8px;text-align:right;color:var(--gold)">${tot.volGeo.toFixed(2)}</td><td style="padding:6px 8px;text-align:right">${tot.ton.toFixed(1)}</td></tr>
+      </table></div>`;
+
+  // Vista CLIENTE: referencia · m² · geométrico · real · ganancia
+  const rowsCli=filas.map(([ref,d])=>{ const gan=d.volGeo-d.volReal; const gc=gan>=0?'#3ecf8e':'#ef4444';
+    return `<tr>
+      <td style="padding:4px 8px">${ref}<br><span style="font-size:9px;color:var(--muted)">${d.n} área(s)</span></td>
+      <td style="padding:4px 8px;text-align:right">${d.area.toFixed(1)}</td>
+      <td style="padding:4px 8px;text-align:right">${d.volGeo.toFixed(2)}</td>
+      <td style="padding:4px 8px;text-align:right;font-weight:700">${d.volReal.toFixed(2)}</td>
+      <td style="padding:4px 8px;text-align:right;font-weight:700;color:${gc}">${gan>=0?'+':''}${gan.toFixed(2)}</td>
+    </tr>`; }).join('');
+  const ganTot=tot.volGeo-tot.volReal, gcT=ganTot>=0?'#3ecf8e':'#ef4444';
+  elC.innerHTML=`<div style="font-size:11px;font-weight:800;color:#3b82f6;margin-bottom:6px">🏗️ AVANCE POR ÁREAS · CLIENTE</div>
+    <div style="border:1px solid var(--bord);border-radius:8px;overflow:hidden">
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <tr style="background:rgba(59,130,246,.12);color:#3b82f6;font-weight:800"><td style="padding:5px 8px">Referencia / sección</td><td style="padding:5px 8px;text-align:right">m²</td><td style="padding:5px 8px;text-align:right">Geom.</td><td style="padding:5px 8px;text-align:right">Real</td><td style="padding:5px 8px;text-align:right">Ganancia</td></tr>
+        ${rowsCli}
+        <tr style="border-top:2px solid #3b82f6;font-weight:800"><td style="padding:6px 8px">ACUMULADO</td><td style="padding:6px 8px;text-align:right">${tot.area.toFixed(1)}</td><td style="padding:6px 8px;text-align:right">${tot.volGeo.toFixed(2)}</td><td style="padding:6px 8px;text-align:right">${tot.volReal.toFixed(2)}</td><td style="padding:6px 8px;text-align:right;color:${gcT}">${ganTot>=0?'+':''}${ganTot.toFixed(2)}</td></tr>
+      </table></div>
+    <div style="font-size:9.5px;color:var(--muted);padding:4px 2px">Ganancia = geométrico − real (m³). Real = ton ÷ ${DEN}.</div>`;
+  tiroVista(_tiroVista);
+}
 function renderGraficoTiro(rs){
   const elS=document.getElementById('tiroGraficoSup'), elC=document.getElementById('tiroGraficoCli');
   if(!elS||!elC) return;
+  if(esParticular()){ _renderVistaAreas(rs,elS,elC); return; }
   const segs=[];
   const sinCarril=[];
   rs.forEach(v=>{
@@ -3111,7 +3211,47 @@ function renderConceptosContainer(){
         ${conceptosViaje.length>1?`<button type="button" onclick="quitarConcepto(${i})" 
           style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer;font-size:12px">✕</button>`:''}
       </div>
-      <!-- Cadenamiento propio de este concepto -->
+      <!-- Cadenamiento (carretera) o Referencia+Longitud (particular) -->
+      ${esParticular()?`
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Referencia del área</div>
+          <input type="text" id="f_ref_${i}" value="${cv.referencia||''}" placeholder="Ej. Patio A · Eje 3 · Acceso norte" autocomplete="off"
+            oninput="conceptosViaje[${i}].referencia=this.value"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Longitud (m)</div>
+          <input type="number" id="f_ml_${i}" value="${cv.ml||''}" placeholder="12.50" step="0.01" inputmode="decimal"
+            oninput="conceptosViaje[${i}].ml=parseFloat(this.value)||0;calcResumenViaje()"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:16px;font-weight:700;color:var(--green)">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Ancho ini (m)</div>
+          <input type="number" id="f_aw1_${i}" value="${cv.aw1||''}" placeholder="3.34" step="0.01" inputmode="decimal"
+            oninput="conceptosViaje[${i}].aw1=parseFloat(this.value)||0;calcResumenViaje()"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Ancho fin (m)</div>
+          <input type="number" id="f_aw2_${i}" value="${cv.aw2||''}" placeholder="3.40" step="0.01" inputmode="decimal"
+            oninput="conceptosViaje[${i}].aw2=parseFloat(this.value)||0;calcResumenViaje()"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
+        </div>
+        <div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Espesor (cm)</div>
+          <input type="number" id="f_et_${i}" value="${cv.et||3}" placeholder="3.0" step="0.1" inputmode="decimal"
+            oninput="conceptosViaje[${i}].et=parseFloat(this.value)||3;calcResumenViaje()"
+            style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
+        </div>
+        <div style="display:flex;flex-direction:column;justify-content:flex-end">
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._area?cv._area.toFixed(1)+' m²':''}</div>
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._vol?cv._vol.toFixed(3)+' m³':''}</div>
+        </div>
+      </div>
+      `:`
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px">
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">De KM</div>
@@ -3162,6 +3302,7 @@ function renderConceptosContainer(){
           <div style="font-size:10px;color:var(--muted);text-align:center">${cv._vol?cv._vol.toFixed(3)+' m³':''}</div>
         </div>
       </div>
+      `}
     </div>`;
   }).join('');
   calcResumenViaje();
