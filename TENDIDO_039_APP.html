@@ -2415,6 +2415,7 @@ window.leerGeneradorExtra=function(file){
   fr.readAsArrayBuffer(file);
 };
 function _detectarGenerador(wb){
+  window._renivAjuste=null;
   const nombres=wb.SheetNames.map(s=>s.toUpperCase());
   const esBacheo=nombres.some(n=>n.includes('BACHEO'));
   const esReniv=nombres.some(n=>n.includes('DESGLOSE')||n.includes('RENIV'));  const bloques=[];
@@ -2464,6 +2465,44 @@ function _confirmarGeneradorExtra(detect){
   if(!bloques.length){ toast('El generador no trajo datos válidos','warn'); return; }
   const volTot=bloques.reduce((s,b)=>s+b.vol,0);
   const porObra={1:0,2:0}; bloques.forEach(b=>porObra[b.obra]+=b.vol);
+
+  // VALIDACIÓN: real ya capturado + extra a importar NO debe pasar del catálogo E-7 (por concepto+obra).
+  // catId por tipo+obra
+  const catIdDe=(tipo,obra)=> tipo==='reniv' ? (obra===2?null:'RENIV-O1') : (obra===2?'BACHEO-O2':'BACHEO-O1');
+  const realPorId={};
+  (typeof records!=='undefined'?records:[]).forEach(v=>{
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{id:v.concepto,label:v.concepto,volumen:v.volumen}];
+    cs.forEach(c=>{ const t=(String(c.id||'')+String(c.label||'')).toUpperCase();
+      let id=null;
+      if(t.includes('RENIV')) id='RENIV-O1';
+      else if(t.includes('BACHEO')) id=(c.kde>=247000?'BACHEO-O2':'BACHEO-O1');
+      if(id) realPorId[id]=(realPorId[id]||0)+(+(c.volumen||0));
+    });
+  });
+  const errores=[];
+  [1,2].forEach(ob=>{
+    if(porObra[ob]<=0) return;
+    const id=catIdDe(tipo,ob); if(!id) return;
+    const cat=getCatItem(id); if(!cat) return;
+    const real=realPorId[id]||0;
+    const totalConExtra=real+porObra[ob];
+    if(totalConExtra>cat.cantidad+0.01){
+      errores.push(`${cat.label}: real ${real.toFixed(2)} + extra ${porObra[ob].toFixed(2)} = ${totalConExtra.toFixed(2)} m³ · PASA del catálogo (${cat.cantidad} m³) por ${(totalConExtra-cat.cantidad).toFixed(2)} m³`);
+    }
+  });
+  if(errores.length){
+    let ov=document.getElementById('genExtraOv');
+    if(!ov){ ov=document.createElement('div'); ov.className='ov'; ov.id='genExtraOv'; ov.style.zIndex='130'; document.body.appendChild(ov); }
+    ov.innerHTML=`<div class="sh" style="max-width:480px">
+      <h4 style="margin:0 0 8px;color:#ef4444">⛔ No se puede importar: pasa del catálogo</h4>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:10px">El volumen real ya capturado más este extra supera lo contratado en el catálogo E-7. Reduce el volumen del generador antes de subirlo.</div>
+      ${errores.map(e=>`<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:8px;font-size:12px;margin-bottom:6px;color:#dc2626">${e}</div>`).join('')}
+      <div style="display:flex;justify-content:flex-end;margin-top:8px"><button class="bc" onclick="document.getElementById('genExtraOv').style.display='none'">Entendido</button></div>
+    </div>`;
+    ov.style.display='flex';
+    return;
+  }
+
   let ov=document.getElementById('genExtraOv');
   if(!ov){ ov=document.createElement('div'); ov.className='ov'; ov.id='genExtraOv'; ov.style.zIndex='130'; document.body.appendChild(ov); }
   window._genExtraPend=detect;
