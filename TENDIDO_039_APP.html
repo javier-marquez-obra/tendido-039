@@ -2046,8 +2046,21 @@ function _larguilloVista(segs,titulo,tramo,modo){
   </div>`;
 }
 
-// Imprime un solo gráfico (Supervisor o Cliente) — condicionado a admin/residente (datos sensibles)
-window.imprimirLarguillo=function(modo){
+// Carga jsPDF + svg2pdf una sola vez (para PDF horizontal directo). Devuelve true si quedó lista.
+let _pdfLibsOK=null;
+async function _cargarPdfLibs(){
+  if(_pdfLibsOK!==null) return _pdfLibsOK;
+  try{
+    if(!window.jspdf){ await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
+    if(!window.svg2pdf){ await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/svg2pdf.js/2.2.3/svg2pdf.umd.min.js'); }
+    _pdfLibsOK = !!(window.jspdf && (window.svg2pdf || (window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.svg)));
+  }catch(e){ _pdfLibsOK=false; }
+  return _pdfLibsOK;
+}
+function _loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=rej; document.head.appendChild(s); }); }
+
+// Imprime/descarga un gráfico (Supervisor o Cliente) — condicionado a admin/residente (datos sensibles)
+window.imprimirLarguillo=async function(modo){
   if(!_puedeImprimirGrafico()){ toast('Solo administrador o superintendente puede imprimir este gráfico','warn'); return; }
   const el=document.getElementById(modo==='sup'?'tiroGraficoSup':'tiroGraficoCli');
   if(!el || !el.innerHTML.trim()){ toast('No hay gráfico para imprimir','warn'); return; }
@@ -2055,15 +2068,53 @@ window.imprimirLarguillo=function(modo){
   const selArr=(_tiroDias instanceof Set && _tiroDias.size)?[..._tiroDias].sort():fechas;
   const dm=f=>f.split('-').reverse().join('/').slice(0,5);
   const rango = selArr.length ? (selArr[0]===selArr[selArr.length-1] ? dm(selArr[0]) : `${dm(selArr[0])} → ${dm(selArr[selArr.length-1])}`) : '—';
-  const obraNom=(typeof OBRAS!=='undefined' && OBRAS[obraActiva] && OBRAS[obraActiva].nombre) || obraActiva || 'TENDIDO 039';
-  const tituloModo = modo==='sup' ? 'LARGUILLO DE OBRA' : 'LARGUILLO DE OBRA · CLIENTE';
-  // Copia del gráfico SIN el botón interno de imprimir (que trae el emoji)
+
+  // Intento 1: PDF horizontal directo con jsPDF (ya sale landscape, sin diálogo)
+  toast('Generando PDF horizontal…','info');
+  const ok=await _cargarPdfLibs();
+  if(ok){
+    try{ await _pdfDirectoLandscape(el, rango); return; }
+    catch(e){ console.warn('pdf directo falló, uso ventana', e); }
+  }
+  // Fallback: ventana de impresión (si no hubo internet para la librería)
+  _imprimirVentana(el, rango);
+};
+
+async function _pdfDirectoLandscape(el, rango){
+  const { jsPDF }=window.jspdf;
+  const pdf=new jsPDF({orientation:'landscape', unit:'mm', format:'a4'}); // 297 x 210
+  const pw=297, ph=210, mx=10, my=10;
+  pdf.setFontSize(13); pdf.setFont(undefined,'bold');
+  pdf.text('LARGUILLO DE OBRA CONTRATO 2026-14-CB-D-039-W-00-2026', mx, my+4);
+  pdf.setFontSize(9); pdf.setFont(undefined,'normal'); pdf.setTextColor(90);
+  pdf.text(`Rango mostrado: ${rango} · Generado ${new Date().toLocaleString('es-MX')}`, mx, my+10);
+  pdf.setTextColor(17);
+  const svgs=[...el.querySelectorAll('svg')];
+  let y=my+16;
+  for(const svg of svgs){
+    const vb=svg.viewBox && svg.viewBox.baseVal;
+    const wpx=(vb&&vb.width)||740, hpx=(vb&&vb.height)||220;
+    const availW=pw-mx*2;
+    const drawW=availW, drawH=drawW*hpx/wpx;
+    if(y+drawH>ph-my){ pdf.addPage(); y=my; }
+    // clonar el svg con tamaño explícito para svg2pdf
+    const clone=svg.cloneNode(true);
+    clone.setAttribute('width', wpx); clone.setAttribute('height', hpx);
+    await pdf.svg(clone, {x:mx, y:y, width:drawW, height:drawH});
+    y+=drawH+6;
+  }
+  const fname=`Larguillo_${(rango||'').replace(/[^0-9]/g,'')||'obra'}_039.pdf`;
+  pdf.save(fname);
+  toast('PDF horizontal descargado','ok');
+}
+
+function _imprimirVentana(el, rango){
   const tmp=el.cloneNode(true);
   tmp.querySelectorAll('button').forEach(b=>b.remove());
   const graf=tmp.innerHTML;
   const w=window.open('','_blank');
-  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups para imprimir','warn'); return; }
-  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Larguillo de obra · ${obraNom}</title>
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups','warn'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Larguillo de obra</title>
   <style>
     body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px}
     h1{font-size:16px;margin:0 0 3px}
@@ -2080,7 +2131,7 @@ window.imprimirLarguillo=function(modo){
   </body></html>`);
   w.document.close();
   setTimeout(()=>{ w.focus(); w.print(); },300);
-};
+}
 
 function renderTablaTiro(){
   const wrap=document.getElementById('tiroWrap'); if(!wrap) return;
