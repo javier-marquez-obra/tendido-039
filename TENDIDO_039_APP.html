@@ -2051,8 +2051,8 @@ let _pdfLibsOK=null;
 async function _cargarPdfLibs(){
   if(_pdfLibsOK!==null) return _pdfLibsOK;
   try{
-    if(!window.jspdf){ await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); }
-    if(!window.svg2pdf){ await _loadScript('https://cdnjs.cloudflare.com/ajax/libs/svg2pdf.js/2.2.3/svg2pdf.umd.min.js'); }
+    if(!window.jspdf){ await _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); }
+    if(!window.svg2pdf){ await _loadScript('https://cdn.jsdelivr.net/npm/svg2pdf.js@2.2.3/dist/svg2pdf.umd.min.js'); }
     _pdfLibsOK = !!(window.jspdf && (window.svg2pdf || (window.jspdf.jsPDF && window.jspdf.jsPDF.API && window.jspdf.jsPDF.API.svg)));
   }catch(e){ _pdfLibsOK=false; }
   return _pdfLibsOK;
@@ -2074,7 +2074,9 @@ window.imprimirLarguillo=async function(modo){
   const ok=await _cargarPdfLibs();
   if(ok){
     try{ await _pdfDirectoLandscape(el, rango); return; }
-    catch(e){ console.warn('pdf directo falló, uso ventana', e); }
+    catch(e){ console.warn('pdf directo falló, uso ventana', e); toast('PDF directo falló, abriendo impresión — elige Horizontal','warn'); }
+  } else {
+    toast('Sin PDF directo (red), abriendo impresión — elige Horizontal en Diseño','warn');
   }
   // Fallback: ventana de impresión (si no hubo internet para la librería)
   _imprimirVentana(el, rango);
