@@ -583,6 +583,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <button class="bc" style="padding:6px 12px;font-size:12px" onclick="revisarTraslapes()">🔎 Revisar traslapes</button>
       <button class="bc" style="padding:6px 12px;font-size:12px;font-weight:700;border-color:#a78bfa;color:#a78bfa" onclick="document.getElementById('genExtraFile').click()" title="Subir generador de bacheo o renivelación (volumen extra geométrico, solo cobro)">➕ Importar generador (extra)</button>
       <input type="file" id="genExtraFile" accept=".xlsx,.xls" style="display:none" onchange="leerGeneradorExtra(this.files[0]);this.value=''">
+      <button class="bc" style="padding:6px 12px;font-size:12px;border-color:#ef4444;color:#ef4444" onclick="quitarGeneradorExtra()" title="Quitar volúmenes extra importados (bacheo/reniv)">🗑 Quitar extra</button>
     </div>
     <div id="tiroCadPanel" style="display:none;margin-bottom:8px;border:1px solid var(--bord);border-radius:8px;padding:10px;background:var(--bg);max-height:40vh;overflow:auto"></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">
@@ -2416,8 +2417,7 @@ window.leerGeneradorExtra=function(file){
 function _detectarGenerador(wb){
   const nombres=wb.SheetNames.map(s=>s.toUpperCase());
   const esBacheo=nombres.some(n=>n.includes('BACHEO'));
-  const esReniv=nombres.some(n=>n.includes('DESGLOSE')||n.includes('RENIV'));
-  const bloques=[];
+  const esReniv=nombres.some(n=>n.includes('DESGLOSE')||n.includes('RENIV'));  const bloques=[];
   if(esBacheo){
     wb.SheetNames.forEach(sn=>{
       const up=sn.toUpperCase(); if(!up.includes('BACHEO')) return;
@@ -2440,16 +2440,20 @@ function _detectarGenerador(wb){
     return {tipo:'bacheo', bloques};
   }
   if(esReniv){
-    const sn=wb.SheetNames.find(s=>s.toUpperCase().includes('DESGLOSE'))||wb.SheetNames[0];
+    const sn=wb.SheetNames.find(s=>/GENERADOR|DESGLOSE|RENIV/.test(s.toUpperCase()))||wb.SheetNames[0];
     const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
     rows.forEach(r=>{
-      const kde=_cadNum(r[0]), ka=_cadNum(r[1]); const lng=parseFloat(r[2]); const esp=parseFloat(r[12])||0.03;
-      const cd=parseFloat(r[6])||0, ci=parseFloat(r[7])||0, ad=parseFloat(r[8])||0, ai=parseFloat(r[9])||0;
-      if(isNaN(kde)||isNaN(ka)||!lng) return;
+      const kde=_cadNum(r[0]), ka=_cadNum(r[1]); const lng=parseFloat(r[2]);
+      // Columnas: 0 INICIO, 1 FIN, 2 LONG, 3 CARRIL DER, 4 CARRIL IZQ, 5 ACOT DER, 6 ACOT IZQ, 7 ANCHO TOTAL, 8 ÁREA, 9 VOLUMEN
+      const cd=parseFloat(r[3])||0, ci=parseFloat(r[4])||0, ad=parseFloat(r[5])||0, ai=parseFloat(r[6])||0;
+      const volFila=parseFloat(r[9]); // volumen ya calculado en el generador
+      if(isNaN(kde)||isNaN(ka)||!lng||isNaN(volFila)||volFila<=0) return;
       const obra = kde>=247000?2:1;
-      const anchoD=cd+ad, anchoI=ci+ai;
-      if(anchoD>0){ const area=lng*anchoD; bloques.push({obra,tipo:'reniv',lado:'L. DER.',kde,ka,area:+area.toFixed(2),vol:+(area*esp).toFixed(3)}); }
-      if(anchoI>0){ const area=lng*anchoI; bloques.push({obra,tipo:'reniv',lado:'L. IZQ.',kde,ka,area:+area.toFixed(2),vol:+(area*esp).toFixed(3)}); }
+      const anchoD=cd+ad, anchoI=ci+ai, anchoTot=anchoD+anchoI;
+      // Reparte el volumen de la fila entre der/izq proporcional al ancho de cada lado (respeta el total = columna VOLUMEN)
+      if(anchoTot<=0){ bloques.push({obra,tipo:'reniv',lado:'L. DER.',kde,ka,area:+(lng*(parseFloat(r[7])||0)).toFixed(2),vol:+volFila.toFixed(3)}); return; }
+      if(anchoD>0){ const vD=volFila*anchoD/anchoTot; bloques.push({obra,tipo:'reniv',lado:'L. DER.',kde,ka,area:+(lng*anchoD).toFixed(2),vol:+vD.toFixed(3)}); }
+      if(anchoI>0){ const vI=volFila*anchoI/anchoTot; bloques.push({obra,tipo:'reniv',lado:'L. IZQ.',kde,ka,area:+(lng*anchoI).toFixed(2),vol:+vI.toFixed(3)}); }
     });
     return {tipo:'reniv', bloques};
   }
@@ -2486,6 +2490,34 @@ window.guardarGeneradorExtra=async function(){
     toast(`${bloques.length} bloque(s) de ${tipo} agregados como extra geométrico`,'ok');
     const ov=document.getElementById('genExtraOv'); if(ov) ov.style.display='none';
   }catch(e){ toast('Error guardando: '+(e.message||e),'err'); }
+};
+// Quitar volúmenes extra importados (revierte la gráfica). Elige bacheo, reniv o ambos.
+window.quitarGeneradorExtra=function(){
+  let ov=document.getElementById('genQuitarOv');
+  if(!ov){ ov=document.createElement('div'); ov.className='ov'; ov.id='genQuitarOv'; ov.style.zIndex='130'; document.body.appendChild(ov); }
+  const hayBache=(_extras||[]).some(x=>x.tipo==='bacheo');
+  const hayReniv=(_extras||[]).some(x=>x.tipo==='reniv');
+  ov.innerHTML=`<div class="sh" style="max-width:420px">
+    <h4 style="margin:0 0 8px">🗑 Quitar volumen extra</h4>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Borra el volumen extra importado y regresa la gráfica a como estaba. No toca los viajes reales.</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      <button class="bc" ${hayReniv?'':'disabled style="opacity:.4"'} onclick="_borrarExtra('reniv')">Quitar RENIVELACIÓN extra${hayReniv?'':' (no hay)'}</button>
+      <button class="bc" ${hayBache?'':'disabled style="opacity:.4"'} onclick="_borrarExtra('bacheo')">Quitar BACHEO extra${hayBache?'':' (no hay)'}</button>
+      <button class="bc" style="border-color:#ef4444;color:#ef4444" onclick="_borrarExtra('todo')">Quitar TODO el extra</button>
+    </div>
+    <div style="display:flex;justify-content:flex-end">
+      <button class="bc" onclick="document.getElementById('genQuitarOv').style.display='none'">Cerrar</button>
+    </div>
+  </div>`;
+  ov.style.display='flex';
+};
+window._borrarExtra=async function(cual){
+  try{
+    if(cual==='todo'){ await deleteDoc(doc(db,'extras039','reniv')).catch(()=>{}); await deleteDoc(doc(db,'extras039','bacheo')).catch(()=>{}); }
+    else { await deleteDoc(doc(db,'extras039',cual)); }
+    toast('Volumen extra quitado','ok');
+    const ov=document.getElementById('genQuitarOv'); if(ov) ov.style.display='none';
+  }catch(e){ toast('Error: '+(e.message||e),'err'); }
 };
 let _extras=[];
 function startExtrasListener(){
