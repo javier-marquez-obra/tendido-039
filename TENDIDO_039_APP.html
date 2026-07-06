@@ -693,7 +693,8 @@ function aplicarObraActiva(){
   if(sw) sw.style.display = esParticular() ? 'none' : '';
   // Botón eliminar obra: solo admin y no la base 039
   const be=document.getElementById('btnEliminarObra');
-  if(be) be.style.display = (typeof session!=='undefined' && session && session.rol==='admin' && obraActiva!=='039') ? '' : 'none';
+  let _sess=null; try{ _sess=session; }catch(e){}
+  if(be) be.style.display = (_sess && _sess.rol==='admin' && obraActiva!=='039') ? '' : 'none';
   try{ if(window._appLista && typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
 }
 window.cambiarObra=function(v){
@@ -793,7 +794,7 @@ function initTheme(){
   setTheme(t);
 }
 initTheme();
-renderObraSelect(); aplicarObraActiva();
+try{ renderObraSelect(); aplicarObraActiva(); }catch(e){ console.error('arranque obra:', e); }
 
 // ═══ AUTENTICACIÓN SEGURA ═══
 // Contraseñas validadas por hash SHA-256. El código fuente NO expone las contraseñas.
@@ -954,7 +955,7 @@ async function cargarSesion(user) {
   const rt=document.getElementById('roleTag');
   if(rt){ rt.textContent = (perfil.rol||'').toUpperCase()||'—'; rt.className='role-tag '+(isEditor?'admin':'op'); }
   if (isEditor) ['tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
-  startListener();
+  try{ startListener(); }catch(e){ console.error('startListener:', e); setSyncState('err'); }
 }
 
 window.cerrarSesion = async function(){ try{ await signOut(auth); }catch(e){} location.reload(); };
@@ -967,10 +968,12 @@ function startListener() {
   try {
     const q = query(collection(db, COL), orderBy('ts','desc'));
     onSnapshot(q, snap => {
-      recordsAll = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
-      filtrarRecordsPorObra();
-      renderAll();
-      setSyncState('ok');
+      try{
+        recordsAll = snap.docs.map(d => ({ _id: d.id, ...d.data() }));
+        filtrarRecordsPorObra();
+        renderAll();
+        setSyncState('ok');
+      }catch(err){ console.error('render snapshot:', err); setSyncState('err'); }
     }, () => { setSyncState('err'); toast('Sin conexión · datos locales','err'); });
   } catch(e) { setSyncState('err'); }
 }
