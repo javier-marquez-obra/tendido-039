@@ -345,9 +345,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div class="field"><label>Tipo de camión</label>
           <select id="f_camion" onchange="aplicarTipoCamion()">
             <option value="">— elegir (opcional) —</option>
-            <option value="10">Volteo (7 m³) · ~10 ton</option>
-            <option value="22">Tortón (14 m³) · ~22 ton</option>
-            <option value="45">Góndola · ~45 ton</option>
+            <option value="10" data-min="8" data-max="12">Volteo (7 m³) · ~10 ton</option>
+            <option value="22" data-min="18" data-max="26" selected>Tortón (14 m³) · ~22 ton</option>
+            <option value="45" data-min="38" data-max="50">Góndola · ~45 ton</option>
             <option value="manual">Otro / manual</option>
           </select>
         </div>
@@ -355,7 +355,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
           <input type="text" id="f_placas" list="placasList" placeholder="HW9792A" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" autocomplete="off"><datalist id="placasList"></datalist>
           <label style="font-size:11px;display:flex;gap:6px;align-items:center;margin-top:5px;color:var(--gold);cursor:pointer"><input type="checkbox" id="f_sinplaca" onchange="toggleSinPlaca()"> Sin placa (volumen sin camión)</label>
         </div>
-        <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist();autoAsignarTon()"></div>
+        <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist();autoAsignarTon();checkTonRango()">
+          <div id="tonWarn" style="display:none;margin-top:4px;font-size:11px;font-weight:700;color:var(--red);background:var(--red2);border-radius:6px;padding:4px 8px"></div>
+        </div>
         <div class="field"><label>Material</label>
           <select id="f_mat"><option>MEZCLA</option><option>BASE HIDRÁULICA</option><option>SELLO 3A</option></select>
         </div>
@@ -1457,6 +1459,24 @@ window.aplicarTipoCamion=function(){
     const t=document.getElementById('f_ton');
     if(t){ t.value=v; if(typeof calc==='function')calc(); if(typeof actualizarHintDist==='function')actualizarHintDist(); if(typeof autoAsignarTon==='function')autoAsignarTon(); }
   }
+  checkTonRango();
+};
+// Advertencia si las ton capturadas se salen del rango esperado para el tipo de camión (~min-max)
+window.checkTonRango=function(){
+  const sel=document.getElementById('f_camion'), t=document.getElementById('f_ton'), warn=document.getElementById('tonWarn');
+  if(!sel||!t||!warn) return;
+  const opt=sel.options[sel.selectedIndex];
+  const min=opt&&opt.dataset?parseFloat(opt.dataset.min):NaN, max=opt&&opt.dataset?parseFloat(opt.dataset.max):NaN;
+  const ton=parseFloat(t.value);
+  if(sel.value==='' || sel.value==='manual' || isNaN(min) || isNaN(max) || isNaN(ton) || ton<=0){
+    warn.style.display='none'; return;
+  }
+  if(ton<min || ton>max){
+    warn.textContent=`⚠️ ${ton.toFixed(2)} ton está fuera del rango típico de ${opt.text.split('·')[0].trim()} (${min}–${max} ton). Verifica el peso o el tipo de camión.`;
+    warn.style.display='block';
+  } else {
+    warn.style.display='none';
+  }
 };
 window.toggleSinPlaca=function(){
   const c=document.getElementById('f_sinplaca'), p=document.getElementById('f_placas');
@@ -1630,7 +1650,7 @@ function resetForm(kaAnterior) {
   // limpiar tipo de camión y "sin placa" para el siguiente viaje
   const _sp=document.getElementById('f_sinplaca'); if(_sp) _sp.checked=false;
   const _pl=document.getElementById('f_placas'); if(_pl){ _pl.disabled=false; _pl.style.opacity='1'; }
-  const _cam=document.getElementById('f_camion'); if(_cam) _cam.value='';
+  const _cam=document.getElementById('f_camion'); if(_cam){ _cam.value='22'; checkTonRango(); }
   _horaIni=null; _horaFin=null; _updTendInfo();
   const _pgl=document.getElementById('f_pg_libre'); if(_pgl) _pgl.value='';
   localStorage.removeItem('t039_draft');
@@ -1798,6 +1818,22 @@ function motivoBloqueo(v){
 const DEN_TIRO = 2.20;
 let _tiroDias = null; // null=por defecto(jornada activa) · Set de fechas seleccionadas
 let _tiroFlatUltimo = []; // última tabla filtrada mostrada (para imprimir)
+// Selector de columnas visibles en tabla de tiro (persistente). 'accion' nunca se oculta.
+const TIRO_COLS = [
+  {k:'n',label:'N°'},{k:'fecha',label:'Fecha'},{k:'placas',label:'Placas'},{k:'material',label:'Material'},
+  {k:'concepto',label:'Concepto'},{k:'carril',label:'Carril'},{k:'unidad',label:'Unidad'},
+  {k:'kmini',label:'KM ini'},{k:'kmfin',label:'KM fin'},{k:'long',label:'Long.'},{k:'ancho',label:'Ancho'},
+  {k:'m2',label:'m²'},{k:'m3',label:'m³'},{k:'ton',label:'Ton'},{k:'esp',label:'Esp. real'},
+  {k:'tprod',label:'T. Prod'},{k:'ttend',label:'T. Tend'},{k:'gan',label:'Ganancia'},{k:'per',label:'Pérdida'}
+];
+let _tiroColsOff = new Set(JSON.parse(localStorage.getItem('t039_tiro_cols_off')||'[]'));
+window.tiroToggleCol = function(k){
+  if(_tiroColsOff.has(k)) _tiroColsOff.delete(k); else _tiroColsOff.add(k);
+  localStorage.setItem('t039_tiro_cols_off', JSON.stringify([..._tiroColsOff]));
+  renderTablaTiro();
+};
+window.tiroColsReset = function(){ _tiroColsOff=new Set(); localStorage.setItem('t039_tiro_cols_off','[]'); renderTablaTiro(); };
+function _tiroShowCol(k){ return !_tiroColsOff.has(k); }
 function _diasSelDefault(fechas){
   const ja=getJornadaActiva();
   return new Set([ fechas.includes(ja)?ja:(fechas[0]||null) ].filter(Boolean));
@@ -1811,8 +1847,8 @@ window.toggleTiroDia = function(f){
 };
 window.tiroTodosDias = function(){
   const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
-  if(_tiroDias instanceof Set && _tiroDias.size===fechas.length) _tiroDias=null;
-  else _tiroDias=new Set(fechas);
+  if(_tiroDias instanceof Set && _tiroDias.size===fechas.length) _tiroDias=new Set(); // TODOS -> NINGUNO
+  else _tiroDias=new Set(fechas); // NINGUNO (o parcial) -> TODOS
   renderTablaTiro();
 };
 // Filtros independientes por columna (franjas)
@@ -2260,7 +2296,6 @@ function renderTablaTiro(){
   const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
   if(!(_tiroDias instanceof Set)) _tiroDias=_diasSelDefault(fechas);
   for(const f of [..._tiroDias]) if(!fechas.includes(f)) _tiroDias.delete(f);
-  if(_tiroDias.size===0 && fechas.length) _tiroDias.add(fechas[0]);
   const sel=_tiroDias;
   const todos = fechas.length>0 && sel.size===fechas.length;
 
@@ -2279,6 +2314,13 @@ function renderTablaTiro(){
         <span style="font-weight:700;color:var(--gold)">📅 Días:</span>
         <button onclick="tiroTodosDias()" style="${chipBase};background:${todos?'var(--blue)':'var(--bg)'};color:${todos?'#fff':'var(--txt)'};border-color:${todos?'var(--blue)':'var(--bord)'}">📋 Todos</button>
         ${chips}
+        <details style="display:inline-block;position:relative">
+          <summary style="${chipBase};display:inline-block;background:${_tiroColsOff.size?'var(--gold)':'var(--bg)'};color:${_tiroColsOff.size?'#1a1a1a':'var(--txt)'};border-color:${_tiroColsOff.size?'var(--gold)':'var(--bord)'};list-style:none">⚙️ Columnas${_tiroColsOff.size?` (${_tiroColsOff.size} oculta${_tiroColsOff.size>1?'s':''})`:''}</summary>
+          <div style="position:absolute;z-index:60;background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-top:4px;display:grid;grid-template-columns:repeat(2,1fr);gap:5px;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.3)">
+            ${TIRO_COLS.map(c=>`<label style="font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;color:var(--txt)"><input type="checkbox" ${_tiroShowCol(c.k)?'checked':''} onchange="tiroToggleCol('${c.k}')">${c.label}</label>`).join('')}
+            <button type="button" onclick="tiroColsReset()" style="grid-column:1/-1;padding:4px 6px;font-size:11px;margin-top:4px">↺ Mostrar todas</button>
+          </div>
+        </details>
       </div>
       <span style="color:var(--muted);font-size:11px">${rs.length} viaje(s) · ${sel.size} día(s) · una fila por concepto · <i>toca para elegir varios</i></span>
     </div>`;
@@ -2350,26 +2392,27 @@ function renderTablaTiro(){
     const fechaTxt=(v.fecha||'').split('-').reverse().join('/');
     const tpTxt=(tp!=null&&tp!=='')?`<span style="color:${tp<150?'var(--red)':'inherit'};font-weight:${tp<150?'700':'400'}">${tp}°</span>`:'—';
     const ttTxt=(tt!=null&&tt!=='')?`<span style="color:${tt<130?'var(--red)':'inherit'};font-weight:${tt<130?'700':'400'}">${tt}°</span>`:'—';
+    const sc=_tiroShowCol;
     return `<tr>
-      <td style="font-weight:700;color:var(--gold)">${primera?(v.num_viaje_dia||''):''}</td>
-      <td>${primera?fechaTxt:''}</td>
-      <td style="font-weight:700">${primera?(v.placas||''):''}</td>
-      <td>${primera?(v.material||''):''}</td>
-      <td style="text-align:left;color:var(--gold);font-weight:700">${lblC||'—'}</td>
-      <td style="font-weight:700;color:var(--blue)">${carrilC}</td>
-      <td>${row.unidad}</td>
-      <td>${kdeC!=null?fmtCad(kdeC):'—'}</td>
-      <td>${kaC!=null?fmtCad(kaC)+((kdeC!=null&&kaC<kdeC)?' <span title="Regresa (baja KM)" style="color:var(--gold)">⬇</span>':''):'—'}</td>
-      <td>${lng.toFixed(2)}</td>
-      <td>${aw.toFixed(2)}</td>
-      <td>${area.toFixed(2)}</td>
-      <td style="color:var(--green);font-weight:700">${vol.toFixed(3)}</td>
-      <td>${ton.toFixed(2)}</td>
-      <td>${(er*100).toFixed(2)}</td>
-      <td>${primera?tpTxt:''}</td>
-      <td>${primera?ttTxt:''}</td>
-      <td class="G">${gan?('+'+gan.toFixed(3)):'—'}</td>
-      <td class="P">${per?('−'+per.toFixed(3)):'—'}</td>
+      ${sc('n')?`<td style="font-weight:700;color:var(--gold)">${primera?(v.num_viaje_dia||''):''}</td>`:''}
+      ${sc('fecha')?`<td>${primera?fechaTxt:''}</td>`:''}
+      ${sc('placas')?`<td style="font-weight:700">${primera?(v.placas||''):''}</td>`:''}
+      ${sc('material')?`<td>${primera?(v.material||''):''}</td>`:''}
+      ${sc('concepto')?`<td style="text-align:left;color:var(--gold);font-weight:700">${lblC||'—'}</td>`:''}
+      ${sc('carril')?`<td style="font-weight:700;color:var(--blue)">${carrilC}</td>`:''}
+      ${sc('unidad')?`<td>${row.unidad}</td>`:''}
+      ${sc('kmini')?`<td>${kdeC!=null?fmtCad(kdeC):'—'}</td>`:''}
+      ${sc('kmfin')?`<td>${kaC!=null?fmtCad(kaC)+((kdeC!=null&&kaC<kdeC)?' <span title="Regresa (baja KM)" style="color:var(--gold)">⬇</span>':''):'—'}</td>`:''}
+      ${sc('long')?`<td>${lng.toFixed(2)}</td>`:''}
+      ${sc('ancho')?`<td>${aw.toFixed(2)}</td>`:''}
+      ${sc('m2')?`<td>${area.toFixed(2)}</td>`:''}
+      ${sc('m3')?`<td style="color:var(--green);font-weight:700">${vol.toFixed(3)}</td>`:''}
+      ${sc('ton')?`<td>${ton.toFixed(2)}</td>`:''}
+      ${sc('esp')?`<td>${(er*100).toFixed(2)}</td>`:''}
+      ${sc('tprod')?`<td>${primera?tpTxt:''}</td>`:''}
+      ${sc('ttend')?`<td>${primera?ttTxt:''}</td>`:''}
+      ${sc('gan')?`<td class="G">${gan?('+'+gan.toFixed(3)):'—'}</td>`:''}
+      ${sc('per')?`<td class="P">${per?('−'+per.toFixed(3)):'—'}</td>`:''}
       <td>${primera?`<button class="tiro-mod" onclick="modificarDesdeTiro('${v._id}')" ${editable?'':'disabled'} title="${editable?'Modificar este viaje':motivoBloqueo(v)}">${editable?'✏️ Modificar':'🔒'}</button>`:''}</td>
     </tr>`;
   }).join('');
@@ -2380,47 +2423,54 @@ function renderTablaTiro(){
   const selF=(k,opts,ph)=>`<select onchange="tiroSetF('${k}',this.value)" style="${fi}"><option value="">${ph}</option>${opts.map(o=>`<option ${F[k]===o?'selected':''}>${o}</option>`).join('')}</select>`;
   const txtF=(k,ph)=>`<input value="${F[k]||''}" onchange="tiroSetF('${k}',this.value)" placeholder="${ph}" style="${fi}">`;
   const rngF=(kmin,kmax,ph)=>`<div style="display:flex;gap:2px;justify-content:center"><input value="${F[kmin]||''}" onchange="tiroSetF('${kmin}',this.value)" placeholder="${ph||'mín'}" style="${fn}"><input value="${F[kmax]||''}" onchange="tiroSetF('${kmax}',this.value)" placeholder="máx" style="${fn}"></div>`;
+  const sc=_tiroShowCol;
   const filtros=`<tr class="flt">
-    <th></th>
-    <th></th>
-    <th>${txtF('placas','placas')}</th>
-    <th>${selF('material',optMat,'todos')}</th>
-    <th>${selF('concepto',optConc,'todos')}</th>
-    <th>${selF('carril',optCarril,'todos')}</th>
-    <th>${selF('unidad',optUni,'todos')}</th>
-    <th>${rngF('kdeMin','kdeMax','46+200')}</th>
-    <th>${rngF('kaMin','kaMax','46+800')}</th>
-    <th>${rngF('lngMin','lngMax')}</th>
-    <th>${rngF('awMin','awMax')}</th>
-    <th>${rngF('m2Min','m2Max')}</th>
-    <th>${rngF('m3Min','m3Max')}</th>
-    <th>${rngF('tonMin','tonMax')}</th>
-    <th>${rngF('espMin','espMax')}</th>
-    <th>${rngF('tpMin','tpMax')}</th>
-    <th>${rngF('ttMin','ttMax')}</th>
-    <th></th>
-    <th></th>
+    ${sc('n')?'<th></th>':''}
+    ${sc('fecha')?'<th></th>':''}
+    ${sc('placas')?`<th>${txtF('placas','placas')}</th>`:''}
+    ${sc('material')?`<th>${selF('material',optMat,'todos')}</th>`:''}
+    ${sc('concepto')?`<th>${selF('concepto',optConc,'todos')}</th>`:''}
+    ${sc('carril')?`<th>${selF('carril',optCarril,'todos')}</th>`:''}
+    ${sc('unidad')?`<th>${selF('unidad',optUni,'todos')}</th>`:''}
+    ${sc('kmini')?`<th>${rngF('kdeMin','kdeMax','46+200')}</th>`:''}
+    ${sc('kmfin')?`<th>${rngF('kaMin','kaMax','46+800')}</th>`:''}
+    ${sc('long')?`<th>${rngF('lngMin','lngMax')}</th>`:''}
+    ${sc('ancho')?`<th>${rngF('awMin','awMax')}</th>`:''}
+    ${sc('m2')?`<th>${rngF('m2Min','m2Max')}</th>`:''}
+    ${sc('m3')?`<th>${rngF('m3Min','m3Max')}</th>`:''}
+    ${sc('ton')?`<th>${rngF('tonMin','tonMax')}</th>`:''}
+    ${sc('esp')?`<th>${rngF('espMin','espMax')}</th>`:''}
+    ${sc('tprod')?`<th>${rngF('tpMin','tpMax')}</th>`:''}
+    ${sc('ttend')?`<th>${rngF('ttMin','ttMax')}</th>`:''}
+    ${sc('gan')?'<th></th>':''}
+    ${sc('per')?'<th></th>':''}
     <th><button class="bc" onclick="tiroLimpiarF()" style="padding:3px 6px;font-size:10px" title="Quitar todos los filtros de columna">✖ Limpiar</button></th>
   </tr>`;
 
   const filtroActivo=_hayFiltrosCol();
+  const nVisibles=TIRO_COLS.filter(c=>sc(c.k)).length+1; // +1 columna Acción, siempre visible
+  const heads=TIRO_COLS.map(c=>{
+    const lbl=c.label.replace(/\s/g,'&nbsp;');
+    return sc(c.k)?`<th>${lbl}</th>`:'';
+  }).join('');
+  // Colspan dinámico para la fila ACUMULADO: cubre desde N° hasta Ancho (todo lo previo a m²)
+  const preCols=['n','fecha','placas','material','concepto','carril','unidad','kmini','kmfin','long','ancho'];
+  const midCols=['esp','tprod','ttend'];
+  const preSpan=Math.max(1,preCols.filter(k=>sc(k)).length);
+  const midSpan=midCols.filter(k=>sc(k)).length;
   wrap.innerHTML=`<table class="tiro-tbl">
     <thead>
-    <tr>
-      <th>N°</th><th>Fecha</th><th>Placas</th><th>Material</th><th>Concepto</th><th>Carril</th><th>Unidad</th><th>KM&nbsp;ini</th><th>KM&nbsp;fin</th>
-      <th>Long.</th><th>Ancho</th><th>m²</th><th>m³</th><th>Ton</th>
-      <th>Esp.&nbsp;real</th><th>T.&nbsp;Prod</th><th>T.&nbsp;Tend</th><th>Ganancia</th><th>Pérdida</th><th>Acción</th>
-    </tr>
+    <tr>${heads}<th>Acción</th></tr>
     ${filtros}
-    </thead><tbody>${body||`<tr><td colspan="20" style="padding:18px;text-align:center;color:var(--muted)">Ningún renglón cumple los filtros · <a href="#" onclick="tiroLimpiarF();return false" style="color:var(--blue)">limpiar filtros</a></td></tr>`}</tbody>
+    </thead><tbody>${body||`<tr><td colspan="${nVisibles}" style="padding:18px;text-align:center;color:var(--muted)">Ningún renglón cumple los filtros · <a href="#" onclick="tiroLimpiarF();return false" style="color:var(--blue)">limpiar filtros</a></td></tr>`}</tbody>
     <tfoot><tr class="tiro-tot">
-      <td colspan="11" style="text-align:right">${filtroActivo?'ACUMULADO (filtrado) ▸':'ACUMULADO ▸'}</td>
-      <td>${totM2.toFixed(2)}</td>
-      <td>${totM3.toFixed(3)}</td>
-      <td>${totTon.toFixed(2)}</td>
-      <td colspan="3"></td>
-      <td class="G">${totGan?('+'+totGan.toFixed(3)):'—'}</td>
-      <td class="P">${totPer?('−'+totPer.toFixed(3)):'—'}</td>
+      <td colspan="${preSpan}" style="text-align:right">${filtroActivo?'ACUMULADO (filtrado) ▸':'ACUMULADO ▸'}</td>
+      ${sc('m2')?`<td>${totM2.toFixed(2)}</td>`:''}
+      ${sc('m3')?`<td>${totM3.toFixed(3)}</td>`:''}
+      ${sc('ton')?`<td>${totTon.toFixed(2)}</td>`:''}
+      ${midSpan?`<td colspan="${midSpan}"></td>`:''}
+      ${sc('gan')?`<td class="G">${totGan?('+'+totGan.toFixed(3)):'—'}</td>`:''}
+      ${sc('per')?`<td class="P">${totPer?('−'+totPer.toFixed(3)):'—'}</td>`:''}
       <td></td>
     </tr></tfoot></table>`;
 }
@@ -3199,6 +3249,7 @@ function renderConceptosContainer(){
     const esUltimo=i===conceptosViaje.length-1&&conceptosViaje.length>1;
     const tonVal=esUltimo&&faltante>0?faltante:(cv.ton||'');
     if(esUltimo&&faltante>0) conceptosViaje[i].ton=faltante;
+    const esRenivBacheo=/^(RENIV|BACHEO)/.test(cv.id||'');
     return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px" id="concepto_card_${i}">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
         <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer();setTimeout(()=>actualizarConsecutivo(${i}),50)" 
@@ -3206,12 +3257,12 @@ function renderConceptosContainer(){
           ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
         <span id="consec_${i}" style="display:none;padding:3px 10px;background:var(--navy);border:1px solid var(--blue);border-radius:99px;font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap"></span>
-        <div style="display:flex;align-items:center;gap:4px">
+        ${esRenivBacheo?`<div style="display:flex;align-items:center;gap:4px">
           <input type="number" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
             oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calcResumenViaje()"
             style="width:85px;font-size:18px;font-weight:700;color:${esUltimo?'var(--blue)':'var(--gold)'};background:var(--bg);border:1px solid ${esUltimo?'var(--blue)':'var(--bord)'};border-radius:6px;padding:6px;text-align:center">
           <span style="font-size:10px;color:var(--muted)">ton${esUltimo?' ←auto':''}</span>
-        </div>
+        </div>`:''}
         ${conceptosViaje.length>1?`<button type="button" onclick="quitarConcepto(${i})" 
           style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer;font-size:12px">✕</button>`:''}
       </div>
