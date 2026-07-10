@@ -3306,6 +3306,8 @@ function renderConceptosContainer(){
     const tonVal=esUltimo&&faltante>0?faltante:(cv.ton||'');
     if(esUltimo&&faltante>0) conceptosViaje[i].ton=faltante;
     const esRenivBacheo=/^(RENIV|BACHEO)/.test(cv.id||'');
+    const multiConcepto=conceptosViaje.length>1;
+    const mostrarTon=esRenivBacheo||multiConcepto; // en carpeta solo se pide si hay 2+ conceptos que repartir
     return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px" id="concepto_card_${i}">
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
         <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer();setTimeout(()=>actualizarConsecutivo(${i}),50)" 
@@ -3313,7 +3315,7 @@ function renderConceptosContainer(){
           ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
         <span id="consec_${i}" style="display:none;padding:3px 10px;background:var(--navy);border:1px solid var(--blue);border-radius:99px;font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap"></span>
-        ${esRenivBacheo?`<div style="display:flex;align-items:center;gap:4px">
+        ${mostrarTon?`<div style="display:flex;align-items:center;gap:4px">
           <input type="number" id="f_concepto_ton_${i}" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
             oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calcResumenViaje();actualizarContadorTon(${i})"
             style="width:85px;font-size:18px;font-weight:700;color:${esUltimo?'var(--blue)':'var(--gold)'};background:var(--bg);border:1px solid ${esUltimo?'var(--blue)':'var(--bord)'};border-radius:6px;padding:6px;text-align:center">
