@@ -1529,9 +1529,10 @@ window.guardar = async function() {
     if(hoy){ ff.value=hoy; }
     else { toast('Captura la fecha del viaje','err'); return; }
   }
-  // Validar distribución de conceptos
+  // Validar distribución de conceptos — primero se autocompleta para que nunca bloquee sin salida
+  sincronizarTonConcepto(ton);
   const vd=validarDistribucion(ton);
-  if(!vd.ok){ toast(vd.msg,'err'); return; }
+  if(!vd.ok){ if(!confirm('⚠️ '+vd.msg+'\n\n¿Guardar de todos modos?')) return; }
   // Leer cadenamientos y geometría de cada concepto desde el DOM
   const DEN_=2.35;
   const _gsent=(document.getElementById('f_sentido')||{}).value||'sube';
@@ -3512,6 +3513,19 @@ function actualizarConsecutivo(i){
   }
 }
 
+// Autocompleta el reparto de toneladas antes de guardar, para que la validación casi nunca truene.
+// 1 concepto -> se lleva el 100% del camión, sin importar lo que haya en el campo (puede estar oculto).
+// 2+ conceptos -> toma lo que haya en pantalla y cierra cualquier diferencia en el ÚLTIMO renglón.
+function sincronizarTonConcepto(tonTotal){
+  if(!conceptosViaje.length) return;
+  if(conceptosViaje.length===1){ conceptosViaje[0].ton=tonTotal; return; }
+  conceptosViaje.forEach((cv,i)=>{
+    const el=document.getElementById('f_concepto_ton_'+i);
+    if(el){ const v=parseFloat(el.value); if(!isNaN(v)) cv.ton=v; }
+  });
+  const asigPrev=conceptosViaje.slice(0,-1).reduce((s,cv)=>s+(cv.ton||0),0);
+  conceptosViaje[conceptosViaje.length-1].ton=Math.max(0,+(tonTotal-asigPrev).toFixed(2));
+}
 function validarDistribucion(ton){
   const asig=conceptosViaje.reduce((s,cv)=>s+(cv.ton||0),0);
   if(asig<0.01) return {ok:false,msg:'Asigna las toneladas a al menos un concepto'};
