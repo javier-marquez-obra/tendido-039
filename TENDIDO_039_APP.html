@@ -824,7 +824,7 @@ function guardarBorrador(){
     ...cv,
     // Leer valores actuales del DOM para no perder lo no guardado en el array
     id:(document.getElementById('concepto_card_'+i)?.querySelector('select')?.value)||cv.id,
-    ton:parseFloat(document.getElementById('concepto_card_'+i)?.querySelectorAll('input[type=number]')[0]?.value)||cv.ton||0,
+    ton:parseFloat(document.getElementById('f_concepto_ton_'+i)?.value)||cv.ton||0,
     kde:parseCad(document.getElementById('f_kde_'+i)?.value)||cv.kde,
     ml:parseFloat(document.getElementById('f_ml_'+i)?.value)||cv.ml||0,
     aw1:parseFloat(document.getElementById('f_aw1_'+i)?.value)||cv.aw1||0,
@@ -3314,7 +3314,7 @@ function renderConceptosContainer(){
         </select>
         <span id="consec_${i}" style="display:none;padding:3px 10px;background:var(--navy);border:1px solid var(--blue);border-radius:99px;font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap"></span>
         ${esRenivBacheo?`<div style="display:flex;align-items:center;gap:4px">
-          <input type="number" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
+          <input type="number" id="f_concepto_ton_${i}" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
             oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calcResumenViaje();actualizarContadorTon(${i})"
             style="width:85px;font-size:18px;font-weight:700;color:${esUltimo?'var(--blue)':'var(--gold)'};background:var(--bg);border:1px solid ${esUltimo?'var(--blue)':'var(--bord)'};border-radius:6px;padding:6px;text-align:center">
           <span style="font-size:10px;color:var(--muted)">ton${esUltimo?' ←auto':''}</span>
@@ -3443,7 +3443,7 @@ window.agregarConcepto=function(){
   conceptosViaje.forEach((cv,i)=>{
     const sel=document.getElementById('concepto_card_'+i)?.querySelector('select');
     if(sel) cv.id=sel.value;
-    const tonEl=document.getElementById('concepto_card_'+i)?.querySelectorAll('input[type=number]')[0];
+    const tonEl=document.getElementById('f_concepto_ton_'+i);
     if(tonEl) cv.ton=parseFloat(tonEl.value)||cv.ton||0;
   });
   conceptosViaje.push({id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'});
