@@ -363,6 +363,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <button type="button" id="btnEditarEmulIni" onclick="editarEmulInicio()" style="display:none;background:none;border:none;color:var(--blue);font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0">✎ Corregir inicio</button>
     </div>
 
+    <!-- TIEMPO DE DESCARGA — solo marca el INICIO aquí; el TERMINA se hace al cerrar el camión -->
+    <div class="card">
+      <h3>⏱️ Tiempo de descarga</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <button type="button" class="be" id="btnIniTend" onclick="marcarInicioTendido()" style="border-color:var(--green);color:var(--green);font-weight:700">▶ Inicia tendido</button>
+        <button type="button" class="be" id="btnFinTend" onclick="marcarFinTendido()" style="border-color:var(--blue);color:var(--blue);font-weight:700">⏹ Termina</button>
+        <button type="button" class="be" id="btnResetTend" onclick="resetTendido()" style="font-size:11px;padding:6px 10px">↺</button>
+      </div>
+      <div id="tendInfo" style="font-family:var(--mono);font-size:13px;font-weight:700;margin-top:8px;color:var(--muted)">Toca ▶ cuando el camión empieza a descargar. Marca ⏹ Termina antes de guardar el viaje.</div>
+    </div>
+
     <!-- DATOS VIAJE -->
     <div class="fc">
       <h3>🚛 Datos del viaje</h3>
@@ -444,15 +455,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="font-size:11px;color:var(--muted);margin-top:6px">SCT: prod ≥ 150°C · tend ≥ 130°C · Δ máx 30°C</div>
     </div>
 
-    <div class="card">
-      <h3>⏱️ Tiempo de descarga</h3>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <button type="button" class="be" id="btnIniTend" onclick="marcarInicioTendido()" style="border-color:var(--green);color:var(--green);font-weight:700">▶ Inicia tendido</button>
-        <button type="button" class="be" id="btnFinTend" onclick="marcarFinTendido()" style="border-color:var(--blue);color:var(--blue);font-weight:700">⏹ Termina</button>
-        <button type="button" class="be" id="btnResetTend" onclick="resetTendido()" style="font-size:11px;padding:6px 10px">↺</button>
-      </div>
-      <div id="tendInfo" style="font-family:var(--mono);font-size:13px;font-weight:700;margin-top:8px;color:var(--muted)">Toca ▶ cuando el camión empieza a descargar y ⏹ cuando termina.</div>
-    </div>
+    <!-- (Tiempo de descarga: movido arriba, entre Emulsión-Inicio y Datos del viaje) -->
 
     <!-- Resumen totales del camión -->
     <div class="fc" id="resumenViaje" style="display:none">
@@ -1576,6 +1579,7 @@ window.guardar = async function() {
   const er=ton&&area?(ton/(area*DEN)):0;
   const mf=ton&&area&&et?((et)-(ton/(area*DEN)))*area:0;
   if (ton<5||ton>60) { if(!confirm('Toneladas: '+ton+'. Fuera del rango normal (5-60 ton). ¿Es correcto?')) return; }
+  if (_horaIni && !_horaFin) { if(!confirm('⏱️ No marcaste ⏹ Termina en el tiempo de descarga.\n\nInicio: '+_horaIni+'\n\n¿Guardar de todos modos sin la hora de término?')) return; }
   const rec={
     fecha, placas, ton_recibidas:ton, sin_placa:sinPlaca, obra:obraActiva,
     hora_captura:_hhmmss(new Date()), hora_inicio_tendido:_horaIni||'', hora_fin_tendido:_horaFin||'',
