@@ -332,6 +332,37 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
     </div>
 
+    <!-- EMULSIÓN — INICIO DE JORNADA (arriba de Datos del viaje) -->
+    <div class="fc" id="emulIniCard" style="border:1px solid #3a1a5a">
+      <h3>🛢️ Emulsión ECR-65 · Inicio de jornada</h3>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
+        Guarda el INICIO al arrancar la jornada, antes de capturar camiones.
+      </div>
+      <div id="emulIniBody">
+        <div class="fg">
+          <div class="field"><label>Lts INICIO petrolizadora</label><input type="number" id="f_emul_ini" placeholder="2500" inputmode="decimal" step="1" oninput="calcEmulsion()" style="font-size:22px;font-weight:700;color:var(--purple)"></div>
+          <div class="field ff">
+            <label>Tipo de riego</label>
+            <select id="f_emul_tipo" onchange="calcEmulsion()" style="font-size:15px;font-weight:700;color:var(--purple)">
+              <option value="liga">Riego de liga (0.7–1.0 lts/m²)</option>
+              <option value="impregnacion">Riego de impregnación (1.0–1.2 lts/m²)</option>
+            </select>
+          </div>
+          <div class="field"><label>Temp. aplicación (°C)</label><input type="number" id="f_emul_temp" value="70" inputmode="numeric" min="50" max="100" style="font-size:22px;font-weight:700;color:var(--gold)"></div>
+          <div class="field"><label>№ Remisión emulsión</label><input type="text" id="f_emul_rem" placeholder="RE-0001"></div>
+          <div class="field"><label>Proveedor</label>
+            <select id="f_emul_prov">
+              <option>Ergon Asfaltos México</option>
+              <option>Otro</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn-save" style="margin-top:8px;background:rgba(167,139,250,.14);border:1px solid #3a1a5a;color:var(--purple);padding:10px" onclick="guardarEmulInicio()">📥 GUARDAR INICIO</button>
+      </div>
+      <div id="emulIniStatus" style="font-size:11px;color:var(--muted);margin:6px 0"></div>
+      <button type="button" id="btnEditarEmulIni" onclick="editarEmulInicio()" style="display:none;background:none;border:none;color:var(--blue);font-size:11px;font-weight:700;cursor:pointer;text-decoration:underline;padding:0">✎ Corregir inicio</button>
+    </div>
+
     <!-- DATOS VIAJE -->
     <div class="fc">
       <h3>🚛 Datos del viaje</h3>
@@ -437,56 +468,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div class="rb" id="resBar"></div>
     </div>
 
-    <!-- EMULSIÓN DEL DÍA: INICIO y FINAL por separado -->
-    <div class="fc" style="border:1px solid #3a1a5a">
-      <h3>🛢️ Emulsión ECR-65</h3>
-      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">
-        Guarda el INICIO al arrancar la jornada y el FINAL cuando terminen los riegos. Los camiones se capturan sin necesidad de este dato.
-      </div>
-
-      <!-- BLOQUE INICIO -->
-      <div style="background:#100820;border:1px solid #3a1a5a;border-radius:8px;padding:12px;margin-bottom:10px">
-        <div style="font-size:11px;font-weight:700;color:var(--purple);margin-bottom:8px;letter-spacing:.08em">📥 AL ARRANCAR LA JORNADA</div>
-        <div class="fg">
-          <div class="field"><label>Lts INICIO petrolizadora</label><input type="number" id="f_emul_ini" placeholder="2500" inputmode="decimal" step="1" oninput="calcEmulsion()" style="font-size:22px;font-weight:700;color:var(--purple)"></div>
-          <div class="field ff">
-            <label>Tipo de riego</label>
-            <select id="f_emul_tipo" onchange="calcEmulsion()" style="font-size:15px;font-weight:700;color:var(--purple)">
-              <option value="liga">Riego de liga (0.7–1.0 lts/m²)</option>
-              <option value="impregnacion">Riego de impregnación (1.0–1.2 lts/m²)</option>
-            </select>
-          </div>
-          <div class="field"><label>Temp. aplicación (°C)</label><input type="number" id="f_emul_temp" value="70" inputmode="numeric" min="50" max="100" style="font-size:22px;font-weight:700;color:var(--gold)"></div>
-          <div class="field"><label>№ Remisión emulsión</label><input type="text" id="f_emul_rem" placeholder="RE-0001"></div>
-          <div class="field"><label>Proveedor</label>
-            <select id="f_emul_prov">
-              <option>Ergon Asfaltos México</option>
-              <option>Otro</option>
-            </select>
-          </div>
-        </div>
-        <div id="emulIniStatus" style="font-size:11px;color:var(--muted);margin:6px 0"></div>
-        <button class="btn-save" style="margin-top:8px;background:rgba(167,139,250,.14);border:1px solid #3a1a5a;color:var(--purple);padding:10px" onclick="guardarEmulInicio()">📥 GUARDAR INICIO</button>
-      </div>
-
-      <!-- BLOQUE FINAL -->
-      <div style="background:#100820;border:1px solid #3a1a5a;border-radius:8px;padding:12px">
-        <div style="font-size:11px;font-weight:700;color:var(--purple);margin-bottom:8px;letter-spacing:.08em">📤 AL TERMINAR LOS RIEGOS</div>
-        <div class="fg">
-          <div class="field"><label>Lts FINAL petrolizadora</label><input type="number" id="f_emul_fin" placeholder="1650" inputmode="decimal" step="1" oninput="calcEmulsion()" style="font-size:22px;font-weight:700;color:var(--purple)"></div>
-        </div>
-        <div class="cr" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-top:10px">
-          <div class="cb"><div class="cl">Lts usados</div><div class="cv" id="e_usados" style="color:var(--purple)">—</div></div>
-          <div class="cb"><div class="cl">m² del día</div><div class="cv" id="e_m2dia" style="color:var(--blue)">—</div></div>
-          <div class="cb"><div class="cl">Lts/m²</div><div class="cv" id="e_ltm2" style="color:var(--purple)">—</div></div>
-          <div class="cb" id="cb_norma"><div class="cl">Norma</div><div class="cv" id="e_norma" style="color:var(--muted)">0.7–1.0</div></div>
-        </div>
-        <div id="emulAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:600"></div>
-        <button class="btn-save" style="margin-top:8px;background:rgba(167,139,250,.14);border:1px solid #3a1a5a;color:var(--purple);padding:10px" onclick="guardarEmulFinal()">📤 GUARDAR FINAL Y RENDIMIENTO</button>
-      </div>
-    </div>
-
-    <!-- OBSERVACIONES -->
+    <!-- (Emulsión: bloque INICIO arriba de Datos del viaje · bloque FINAL abajo, antes de Último camión) -->
     <div class="fc">
       <h3>📝 Observaciones</h3>
       <div class="field">
@@ -509,6 +491,25 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="font-size:11px;color:var(--muted);margin-top:6px">Máx. 3 fotos · ticket báscula, placas, tendido</div>
       <div class="btn-foto" style="margin-top:10px;border-color:#3a2e00;background:rgba(240,180,41,.14)"><span>🔍</span> LEER BOLETA DE BÁSCULA (peso y folios)<input type="file" accept="image/*" capture="environment" onchange="leerBoleta(event)"></div>
       <div id="ocrPanel" style="display:none;margin-top:10px;padding:12px;border:1px solid #3a2e00;border-radius:8px;background:#15120a"></div>
+    </div>
+
+    <!-- EMULSIÓN — FINAL DE JORNADA (arriba del último camión del día) -->
+    <div class="fc" id="emulFinCard" style="border:1px solid #3a1a5a">
+      <h3>🛢️ Emulsión ECR-65 · Final de jornada</h3>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="emulFinHint">
+        Guarda el FINAL cuando terminen los riegos del día.
+      </div>
+      <div class="fg">
+        <div class="field"><label>Lts FINAL petrolizadora</label><input type="number" id="f_emul_fin" placeholder="1650" inputmode="decimal" step="1" oninput="calcEmulsion()" style="font-size:22px;font-weight:700;color:var(--purple)"></div>
+      </div>
+      <div class="cr" style="grid-template-columns:1fr 1fr 1fr 1fr;margin-top:10px">
+        <div class="cb"><div class="cl">Lts usados</div><div class="cv" id="e_usados" style="color:var(--purple)">—</div></div>
+        <div class="cb"><div class="cl">m² del día</div><div class="cv" id="e_m2dia" style="color:var(--blue)">—</div></div>
+        <div class="cb"><div class="cl">Lts/m²</div><div class="cv" id="e_ltm2" style="color:var(--purple)">—</div></div>
+        <div class="cb" id="cb_norma"><div class="cl">Norma</div><div class="cv" id="e_norma" style="color:var(--muted)">0.7–1.0</div></div>
+      </div>
+      <div id="emulAlert" style="display:none;margin-top:8px;padding:8px 12px;border-radius:8px;font-family:var(--mono);font-size:12px;font-weight:600"></div>
+      <button class="btn-save" style="margin-top:8px;background:rgba(167,139,250,.14);border:1px solid #3a1a5a;color:var(--purple);padding:10px" onclick="guardarEmulFinal()">📤 GUARDAR FINAL Y RENDIMIENTO</button>
     </div>
 
     <label id="ultimoWrap" style="display:flex;align-items:center;gap:10px;margin:4px 2px 10px;padding:11px 14px;background:rgba(240,180,41,.14);border:1px solid #3a2e00;border-radius:10px;cursor:pointer">
@@ -1279,8 +1280,17 @@ window.guardarEmulInicio = async function() {
     const p = setDoc(doc(db,'emulsion039',fecha), d, { merge:true });
     if (navigator.onLine) await p; else p.catch(()=>{});
     document.getElementById('emulIniStatus').textContent = '✓ Inicio guardado: ' + ini + ' lts';
+    document.getElementById('emulIniStatus').style.color = 'var(--green)';
+    const body=document.getElementById('emulIniBody'); if(body){ body.style.display='none'; delete body.dataset.userOpened; }
+    const btnEd=document.getElementById('btnEditarEmulIni'); if(btnEd) btnEd.style.display='inline-block';
+    if(typeof habilitarEmulFinal==='function') habilitarEmulFinal(true);
     toast('📥 Inicio de emulsión guardado');
   } catch(e) { toast('Error: '+e.message,'err'); }
+};
+// Reabrir el bloque de inicio por si hay que corregir el dato ya guardado
+window.editarEmulInicio=function(){
+  const body=document.getElementById('emulIniBody'); if(body){ body.style.display=''; body.dataset.userOpened='1'; }
+  const btnEd=document.getElementById('btnEditarEmulIni'); if(btnEd) btnEd.style.display='none';
 };
 
 // Guardar el FINAL y calcular rendimiento
@@ -1827,6 +1837,7 @@ const TIRO_COLS = [
   {k:'tprod',label:'T. Prod'},{k:'ttend',label:'T. Tend'},{k:'gan',label:'Ganancia'},{k:'per',label:'Pérdida'}
 ];
 let _tiroColsOff = new Set(JSON.parse(localStorage.getItem('t039_tiro_cols_off')||'[]'));
+let _tiroColsPanelOpen = false; // mantiene el desplegable de columnas abierto entre re-renders
 window.tiroToggleCol = function(k){
   if(_tiroColsOff.has(k)) _tiroColsOff.delete(k); else _tiroColsOff.add(k);
   localStorage.setItem('t039_tiro_cols_off', JSON.stringify([..._tiroColsOff]));
@@ -2314,7 +2325,7 @@ function renderTablaTiro(){
         <span style="font-weight:700;color:var(--gold)">📅 Días:</span>
         <button onclick="tiroTodosDias()" style="${chipBase};background:${todos?'var(--blue)':'var(--bg)'};color:${todos?'#fff':'var(--txt)'};border-color:${todos?'var(--blue)':'var(--bord)'}">📋 Todos</button>
         ${chips}
-        <details style="display:inline-block;position:relative">
+        <details ${_tiroColsPanelOpen?'open':''} ontoggle="_tiroColsPanelOpen=this.open" style="display:inline-block;position:relative">
           <summary style="${chipBase};display:inline-block;background:${_tiroColsOff.size?'var(--gold)':'var(--bg)'};color:${_tiroColsOff.size?'#1a1a1a':'var(--txt)'};border-color:${_tiroColsOff.size?'var(--gold)':'var(--bord)'};list-style:none">⚙️ Columnas${_tiroColsOff.size?` (${_tiroColsOff.size} oculta${_tiroColsOff.size>1?'s':''})`:''}</summary>
           <div style="position:absolute;z-index:60;background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-top:4px;display:grid;grid-template-columns:repeat(2,1fr);gap:5px;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.3)">
             ${TIRO_COLS.map(c=>`<label style="font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;color:var(--txt)"><input type="checkbox" ${_tiroShowCol(c.k)?'checked':''} onchange="tiroToggleCol('${c.k}')">${c.label}</label>`).join('')}
@@ -3133,22 +3144,63 @@ function actualizarStatusEmul(){
   const ed = emulDias[hoy];
   const st = document.getElementById('emulIniStatus');
   if (!st) return;
+  const body=document.getElementById('emulIniBody');
+  const btnEd=document.getElementById('btnEditarEmulIni');
   if (ed && ed.lts_inicio) {
     st.textContent = '✓ Inicio guardado: ' + ed.lts_inicio + ' lts';
     st.style.color = 'var(--green)';
+    if (body && body.style.display!=='none' && !body.dataset.userOpened) body.style.display='none';
+    if (btnEd) btnEd.style.display='inline-block';
     if (ed.lts_final) {
       document.getElementById('f_emul_fin').value = ed.lts_final;
     }
+    habilitarEmulFinal(true);
   } else {
     st.textContent = 'Sin inicio guardado para esta jornada';
     st.style.color = 'var(--muted)';
+    if (body) body.style.display='';
+    if (btnEd) btnEd.style.display='none';
+    habilitarEmulFinal(false);
   }
   calcEmulsion();
+}
+// Al no haber INICIO guardado, el bloque FINAL se ve deshabilitado (evita capturar lts finales sin referencia).
+function habilitarEmulFinal(on){
+  const card=document.getElementById('emulFinCard'); if(!card) return;
+  card.style.opacity = on?'1':'.45';
+  card.style.pointerEvents = on?'':'none';
+  const hint=document.getElementById('emulFinHint');
+  if(hint) hint.textContent = on ? 'Guarda el FINAL cuando terminen los riegos del día.' : 'Primero guarda el INICIO de la jornada (arriba) para habilitar este bloque.';
 }
 // ═══ GESTIÓN DE CONCEPTOS MÚLTIPLES POR CAMIÓN ═══
 let conceptosViaje = [];
 window._appLista = true;
 
+// ═══ CONTADOR DE TONELADAS RESTANTES (solo BACHEO/RENIV, contra catálogo) ═══
+// Suma lo ya guardado en Firestore/records para ese id de concepto.
+function tonCapturadoHistorico(id){
+  return records.reduce((s,r)=>{
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,ton:(r.ton_concepto!=null?r.ton_concepto:r.ton_recibidas)}];
+    return s+cs.filter(c=>c.id===id).reduce((s2,c)=>s2+(+c.ton||0),0);
+  },0);
+}
+// Meta en toneladas del catálogo (cantidad en m³ × densidad)
+function tonMetaConcepto(id){ const cat=getCatItem(id); return cat?+(cat.cantidad*DEN).toFixed(2):0; }
+// Ton ya puestas en OTROS renglones de este mismo camión (mismo concepto repetido en el viaje actual)
+function tonEnCapturaActual(id,excludeIdx){
+  return conceptosViaje.reduce((s,cv,idx)=>idx===excludeIdx?s:s+((cv.id===id)?(+cv.ton||0):0),0);
+}
+// Actualiza el badge "quedan X ton" de un renglón sin re-renderizar todo (no pierde el foco al escribir)
+window.actualizarContadorTon=function(i){
+  const cv=conceptosViaje[i]; if(!cv) return;
+  const el=document.getElementById('ton_restante_'+i); if(!el) return;
+  if(!/^(RENIV|BACHEO)/.test(cv.id||'')){ el.textContent=''; return; }
+  const meta=tonMetaConcepto(cv.id);
+  const usado=tonCapturadoHistorico(cv.id)+tonEnCapturaActual(cv.id,i)+(+cv.ton||0);
+  const restan=+(meta-usado).toFixed(2);
+  el.textContent = meta>0 ? `${restan>=0?restan.toFixed(2):'0.00'} ton restantes de ${meta.toFixed(2)}` : '';
+  el.style.color = restan<0 ? 'var(--red)' : (restan<meta*0.1 ? 'var(--gold)' : 'var(--muted)');
+};
 // Si solo hay 1 concepto, asigna automáticamente todas las ton del camión
 function autoAsignarTon(){
   const ton=parseFloat(document.getElementById('f_ton').value)||0;
@@ -3259,13 +3311,14 @@ function renderConceptosContainer(){
         <span id="consec_${i}" style="display:none;padding:3px 10px;background:var(--navy);border:1px solid var(--blue);border-radius:99px;font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap"></span>
         ${esRenivBacheo?`<div style="display:flex;align-items:center;gap:4px">
           <input type="number" value="${tonVal}" placeholder="Ton" step="0.01" inputmode="decimal"
-            oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calcResumenViaje()"
+            oninput="conceptosViaje[${i}].ton=parseFloat(this.value)||0;actualizarHintDist();calcResumenViaje();actualizarContadorTon(${i})"
             style="width:85px;font-size:18px;font-weight:700;color:${esUltimo?'var(--blue)':'var(--gold)'};background:var(--bg);border:1px solid ${esUltimo?'var(--blue)':'var(--bord)'};border-radius:6px;padding:6px;text-align:center">
           <span style="font-size:10px;color:var(--muted)">ton${esUltimo?' ←auto':''}</span>
         </div>`:''}
         ${conceptosViaje.length>1?`<button type="button" onclick="quitarConcepto(${i})" 
           style="padding:4px 10px;background:var(--red2);border:none;border-radius:6px;color:var(--red);font-weight:700;cursor:pointer;font-size:12px">✕</button>`:''}
       </div>
+      ${esRenivBacheo?`<div id="ton_restante_${i}" style="font-size:10px;color:var(--muted);margin:-4px 0 10px;font-weight:700"></div>`:''}
       <!-- Cadenamiento (carretera) o Referencia+Longitud (particular) -->
       ${esParticular()?`
       <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
@@ -3323,7 +3376,7 @@ function renderConceptosContainer(){
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px;display:flex;justify-content:space-between;align-items:center;gap:4px">
             <span>A KM (auto)</span>
-            <button type="button" id="f_sent_${i}" onclick="toggleSentidoConcepto(${i})" title="Sentido de ESTE concepto. ⬆️ sube KM · ⬇️ baja KM (cuando regresas por el otro carril). Toca para cambiar." style="background:var(--bg);border:1px solid ${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--bord)'};color:${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--muted)'};border-radius:5px;cursor:pointer;font-size:10px;font-weight:700;padding:1px 5px;line-height:16px;white-space:nowrap">${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'⬇️ baja':'⬆️ sube'}</button>
+            ${esRenivBacheo?`<button type="button" id="f_sent_${i}" onclick="toggleSentidoConcepto(${i})" title="Sentido de ESTE concepto. ⬆️ sube KM · ⬇️ baja KM (cuando regresas por el otro carril). Toca para cambiar." style="background:var(--bg);border:1px solid ${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--bord)'};color:${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'var(--gold)':'var(--muted)'};border-radius:5px;cursor:pointer;font-size:10px;font-weight:700;padding:1px 5px;line-height:16px;white-space:nowrap">${((cv.sentido)||(document.getElementById('f_sentido')||{}).value||'sube')==='baja'?'⬇️ baja':'⬆️ sube'}</button>`:''}
           </div>
           <div id="f_ka_${i}" style="width:100%;background:var(--bg);border:1px solid var(--blue);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--blue);min-height:32px;line-height:20px">${cv.ka?fmtCad(cv.ka):'—'}</div>
         </div>
@@ -3361,6 +3414,7 @@ function renderConceptosContainer(){
     </div>`;
   }).join('');
   calcResumenViaje();
+  conceptosViaje.forEach((_,i)=>actualizarContadorTon(i));
   // Mostrar consecutivos después de renderizar
   // Actualizar consecutivos en dos pasadas para garantizar que el DOM esté listo
   requestAnimationFrame(()=>{
@@ -3987,10 +4041,15 @@ window.repSetDia=function(f){
   if(_repDias.size===0) _repDias=new Set(fechas);
   renderReporte();
 };
-window.repTodos=function(){ _repDias=null; renderReporte(); };
+window.repTodos=function(){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
+  if(_repDias===null || (_repDias instanceof Set && _repDias.size===fechas.length)) _repDias=new Set(); // Todos -> Ninguno
+  else _repDias=new Set(fechas); // Ninguno (o parcial) -> Todos
+  renderReporte();
+};
 function _repRows(){
   const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
-  const sel=(_repDias instanceof Set && _repDias.size)?_repDias:new Set(fechas);
+  const sel=(_repDias instanceof Set)?_repDias:new Set(fechas);
   const rs=records.filter(r=>sel.has(r.fecha)).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||'')||(a.num_viaje_dia||0)-(b.num_viaje_dia||0));
   const rows=[];
   rs.forEach(v=>_conceptosDe(v).forEach(c=>{
@@ -4085,7 +4144,7 @@ function renderReporte() {
   lm.style.display='none';
   if (!records.length) { dc.innerHTML='<div style="text-align:center;padding:30px;color:var(--muted);font-size:13px">Sin datos</div>'; return; }
   const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))].sort((a,b)=>b.localeCompare(a));
-  const selD=(_repDias instanceof Set && _repDias.size)?_repDias:new Set(fechas);
+  const selD=(_repDias instanceof Set)?_repDias:new Set(fechas);
   const todosD=selD.size===fechas.length;
   const colArr=_repColsArr();
   const selC=new Set(colArr);
