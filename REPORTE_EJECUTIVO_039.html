@@ -721,9 +721,14 @@ function startExtrasListener(){
     });
   }catch(e){ console.warn('extras039 listener', e); }
 }
-// Reparte el volumen extra por clave de catálogo, respetando el filtro de obra (no el de fecha)
+// Reparte el volumen extra por clave de catálogo, respetando el filtro de obra.
+// El extra NO tiene fecha propia (import global sin día concreto), así que — igual que en la app de
+// campo — SOLO se suma cuando el filtro de fecha está en "Todas". Si filtras a uno o varios días
+// específicos, el extra no debe mezclarse ahí (aparecería RENIV/BACHEO en un día donde en realidad
+// solo se avanzó, por ejemplo, carpeta), para que el reporte coincida con lo que muestra la app.
 function calcExtras(){
   const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
+  if(filtros.fecha!=='all') return e;
   (_extras||[]).forEach(x=>{
     if(filtros.obra==='obra1' && +x.obra!==1) return;
     if(filtros.obra==='obra2' && +x.obra!==2) return;
