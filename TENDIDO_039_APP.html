@@ -1843,12 +1843,27 @@ const TIRO_COLS = [
 ];
 let _tiroColsOff = new Set(JSON.parse(localStorage.getItem('t039_tiro_cols_off')||'[]'));
 let _tiroColsPanelOpen = false; // mantiene el desplegable de columnas abierto entre re-renders
+let _tiroColsDraft = new Set(_tiroColsOff); // selección en curso mientras el panel está abierto (no se aplica hasta cerrar)
+// Marca/desmarca en el borrador SIN re-renderizar la tabla — así el checkbox no pierde el desplegable abierto.
 window.tiroToggleCol = function(k){
-  if(_tiroColsOff.has(k)) _tiroColsOff.delete(k); else _tiroColsOff.add(k);
-  localStorage.setItem('t039_tiro_cols_off', JSON.stringify([..._tiroColsOff]));
-  renderTablaTiro();
+  if(_tiroColsDraft.has(k)) _tiroColsDraft.delete(k); else _tiroColsDraft.add(k);
 };
-window.tiroColsReset = function(){ _tiroColsOff=new Set(); localStorage.setItem('t039_tiro_cols_off','[]'); renderTablaTiro(); };
+window.tiroColsReset = function(){ _tiroColsDraft=new Set(); document.querySelectorAll('#tiroColsPanel input[type=checkbox]').forEach(cb=>cb.checked=true); };
+// Se llama cuando el <details> del selector de columnas se abre o se cierra (evento nativo ontoggle).
+window.tiroColsPanelToggled = function(open){
+  _tiroColsPanelOpen = open;
+  if(open){
+    _tiroColsDraft = new Set(_tiroColsOff); // al abrir, parte de lo ya aplicado
+  } else {
+    // al cerrar: si cambió algo, aplica y refresca la tabla UNA sola vez
+    const cambio = _tiroColsDraft.size!==_tiroColsOff.size || [..._tiroColsDraft].some(k=>!_tiroColsOff.has(k));
+    if(cambio){
+      _tiroColsOff = new Set(_tiroColsDraft);
+      localStorage.setItem('t039_tiro_cols_off', JSON.stringify([..._tiroColsOff]));
+      renderTablaTiro();
+    }
+  }
+};
 function _tiroShowCol(k){ return !_tiroColsOff.has(k); }
 function _diasSelDefault(fechas){
   const ja=getJornadaActiva();
@@ -1924,6 +1939,12 @@ window.tiroVista=function(v){
   if(bs){ bs.style.background=v==='sup'?'var(--gold)':'var(--bg)'; bs.style.color=v==='sup'?'#1a1a1a':'var(--txt)'; }
   if(bc){ bc.style.background=v==='cli'?'var(--blue)':'var(--bg)'; bc.style.color=v==='cli'?'#fff':'var(--txt)'; }
 };
+// Etiqueta que dice a qué días corresponde la tabla de abajo, según el filtro de días activo en tiro
+function _scopeDiasLabel(){
+  if(!(_tiroDias instanceof Set) || !_tiroDias.size) return 'TOTAL acumulado';
+  if(_tiroDias.size===1){ const f=[..._tiroDias][0]; return 'del '+f.split('-').reverse().join('/').slice(0,5); }
+  return _tiroDias.size+' días seleccionados';
+}
 // Tabla de volúmenes acumulados por concepto. modo 'sup' = solo geométrico; 'cli' = geométrico + real + ganancia
 function _tablaVolConcepto(o1,o2,modo){
   // clave por tipo+obra
@@ -1947,7 +1968,7 @@ function _tablaVolConcepto(o1,o2,modo){
       return `<tr><td style="padding:3px 8px">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700">${v.toFixed(2)} m³</td></tr>`;
     }).join('');
     return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
-      <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen acumulado por concepto</div>
+      <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen · ${_scopeDiasLabel()}</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">${rows}
         <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
       </table></div>`;
@@ -1964,7 +1985,7 @@ function _tablaVolConcepto(o1,o2,modo){
     }).join('');
     const tGan=tGeo-tReal, gcT=tGan>=0?'#3ecf8e':'#ef4444';
     return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
-      <div style="background:rgba(59,130,246,.12);padding:6px 8px;font-size:11px;font-weight:800;color:#3b82f6">📊 Volumen acumulado por concepto</div>
+      <div style="background:rgba(59,130,246,.12);padding:6px 8px;font-size:11px;font-weight:800;color:#3b82f6">📊 Volumen y ganancia · ${_scopeDiasLabel()}</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <tr style="color:var(--muted);font-size:10px"><td style="padding:3px 8px">Concepto</td><td style="padding:3px 8px;text-align:right">Geométrico</td><td style="padding:3px 8px;text-align:right">Real</td><td style="padding:3px 8px;text-align:right">Ganancia</td></tr>
         ${rows}
@@ -2330,9 +2351,9 @@ function renderTablaTiro(){
         <span style="font-weight:700;color:var(--gold)">📅 Días:</span>
         <button onclick="tiroTodosDias()" style="${chipBase};background:${todos?'var(--blue)':'var(--bg)'};color:${todos?'#fff':'var(--txt)'};border-color:${todos?'var(--blue)':'var(--bord)'}">📋 Todos</button>
         ${chips}
-        <details ${_tiroColsPanelOpen?'open':''} ontoggle="_tiroColsPanelOpen=this.open" style="display:inline-block;position:relative">
+        <details ${_tiroColsPanelOpen?'open':''} ontoggle="tiroColsPanelToggled(this.open)" style="display:inline-block;position:relative">
           <summary style="${chipBase};display:inline-block;background:${_tiroColsOff.size?'var(--gold)':'var(--bg)'};color:${_tiroColsOff.size?'#1a1a1a':'var(--txt)'};border-color:${_tiroColsOff.size?'var(--gold)':'var(--bord)'};list-style:none">⚙️ Columnas${_tiroColsOff.size?` (${_tiroColsOff.size} oculta${_tiroColsOff.size>1?'s':''})`:''}</summary>
-          <div style="position:absolute;z-index:60;background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-top:4px;display:grid;grid-template-columns:repeat(2,1fr);gap:5px;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.3)">
+          <div id="tiroColsPanel" style="position:absolute;z-index:60;background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-top:4px;display:grid;grid-template-columns:repeat(2,1fr);gap:5px;max-width:280px;box-shadow:0 4px 12px rgba(0,0,0,.3)">
             ${TIRO_COLS.map(c=>`<label style="font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;color:var(--txt)"><input type="checkbox" ${_tiroShowCol(c.k)?'checked':''} onchange="tiroToggleCol('${c.k}')">${c.label}</label>`).join('')}
             <button type="button" onclick="tiroColsReset()" style="grid-column:1/-1;padding:4px 6px;font-size:11px;margin-top:4px">↺ Mostrar todas</button>
           </div>
