@@ -2049,7 +2049,7 @@ function _renderVistaAreas(rs,elS,elC){
     <div style="font-size:9.5px;color:var(--muted);padding:4px 2px">Ganancia = geométrico − real (m³). Real = ton ÷ ${DEN}.</div>`;
   tiroVista(_tiroVista);
 }
-function renderGraficoTiro(rs){
+function renderGraficoTiro(rs, esVistaTotal){
   const elS=document.getElementById('tiroGraficoSup'), elC=document.getElementById('tiroGraficoCli');
   if(!elS||!elC) return;
   if(esParticular()){ _renderVistaAreas(rs,elS,elC); return; }
@@ -2077,12 +2077,17 @@ function renderGraficoTiro(rs){
     });
   });
   window._tiroSinCarril=sinCarril;
-  // Inyectar VOLUMEN EXTRA (bacheo/reniv de generadores): solo geométrico, volReal=0, marcado extra:true
-  (_extras||[]).forEach(x=>{
-    const a=Math.min(x.kde,x.ka), b=Math.max(x.kde,x.ka); if(!(b>a)) return;
-    const side=ladoDe(x.lado); if(!side) return;
-    segs.push({a,b,side,num:null,placas:'',fecha:'',tipo:x.tipo,area:+x.area||0,espTeo:(x.area>0?(x.vol/x.area*100):0),espReal:0,volGeo:+x.vol||0,volReal:0,extra:true});
-  });
+  // Inyectar VOLUMEN EXTRA (bacheo/reniv de generadores): solo geométrico, volReal=0, marcado extra:true.
+  // El extra NO tiene fecha propia (es un import global), así que SOLO se suma cuando se ve el TOTAL
+  // acumulado (todos los días). Si filtras a un día específico, el extra no debe mezclarse ahí — de lo
+  // contrario aparecería RENIV/BACHEO en un día donde en realidad solo se avanzó, por ejemplo, carpeta.
+  if(esVistaTotal){
+    (_extras||[]).forEach(x=>{
+      const a=Math.min(x.kde,x.ka), b=Math.max(x.kde,x.ka); if(!(b>a)) return;
+      const side=ladoDe(x.lado); if(!side) return;
+      segs.push({a,b,side,num:null,placas:'',fecha:'',tipo:x.tipo,area:+x.area||0,espTeo:(x.area>0?(x.vol/x.area*100):0),espReal:0,volGeo:+x.vol||0,volReal:0,extra:true});
+    });
+  }
   const msgVacio='<div style="color:var(--muted);font-size:11px;padding:4px 0">Sin cadenamientos para graficar</div>';
   if(!segs.length){ elS.innerHTML=msgVacio; elC.innerHTML=msgVacio; return; }
   const esO2=s=> s.a>=247000 && s.a<=252000;
@@ -2362,7 +2367,7 @@ function renderTablaTiro(){
       <span style="color:var(--muted);font-size:11px">${rs.length} viaje(s) · ${sel.size} día(s) · una fila por concepto · <i>toca para elegir varios</i></span>
     </div>`;
   }
-  renderGraficoTiro(rs);
+  renderGraficoTiro(rs, todos);
   if(!rs.length){ wrap.innerHTML='<div style="padding:24px;text-align:center;color:var(--muted)">Sin viajes en los días elegidos</div>'; return; }
 
   // 1) Filas planas (una por concepto) con todos los campos derivados
