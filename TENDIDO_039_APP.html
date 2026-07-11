@@ -3623,21 +3623,29 @@ function renderAll() {
   else if (id==='rep-camiones') renderRepCamiones();
   else if (id==='rep-volumen') renderRepVolumen();
   else if (id==='reporte') renderReporte();
-  else renderList();
+  // Nota: antes había un "else renderList()" aquí que reconstruía TODA la lista de viajes
+  // (con fotos incluidas) en cada actualización de Firebase, aunque estuvieras en CAPTURA.
+  // Eso es lo que iba cargando de memoria/procesador la app según pasaban los días. Ya no corre
+  // salvo que la pestaña VIAJES esté realmente abierta.
 }
 
 // ═══ VIAJES LIST ═══
+let _listDiasVisibles = 10; // por defecto solo se dibujan los N días más recientes (rendimiento en celular)
+window.listVerMasDias = function(){ _listDiasVisibles += 15; renderList(); };
 function renderList() {
   const el=document.getElementById('listViajes');
   if (!records.length) { el.innerHTML='<div style="text-align:center;padding:40px;color:var(--muted);font-size:14px;font-weight:700">Sin viajes aún</div>'; return; }
   const bd={};
   records.forEach(r=>{ if(!bd[r.fecha]) bd[r.fecha]=[]; bd[r.fecha].push(r); });
   let html='';
-  // Acumulado de metros lineales hasta cada fecha (incluida)
+  // Acumulado de metros lineales hasta cada fecha (incluida) — se calcula sobre TODOS los días (es solo suma numérica, no DOM)
   const fechasAsc=Object.keys(bd).sort((a,b)=>a.localeCompare(b));
   const acumPorFecha={}; let acum=0;
   fechasAsc.forEach(f=>{ acum+=bd[f].reduce((s,r)=>s+(+r.longitud||0),0); acumPorFecha[f]=acum; });
-  Object.keys(bd).sort((a,b)=>b.localeCompare(a)).forEach(date=>{
+  const fechasDesc=fechasAsc.slice().reverse();
+  const totalDias=fechasDesc.length;
+  const fechasMostrar=fechasDesc.slice(0,_listDiasVisibles); // solo se DIBUJAN (con fotos) los días recientes
+  fechasMostrar.forEach(date=>{
     const rs=bd[date], tt=rs.reduce((s,r)=>s+r.ton_recibidas,0);
     const ml=rs.reduce((s,r)=>s+(+r.longitud||0),0);
     const d=new Date(date+'T12:00:00');
@@ -3688,6 +3696,9 @@ function renderList() {
       </div>`;
     });
   });
+  if(totalDias>_listDiasVisibles){
+    html+=`<button onclick="listVerMasDias()" style="width:100%;padding:12px;margin-top:8px;background:var(--surf);border:1px solid var(--bord);border-radius:10px;color:var(--gold);font-weight:700;font-size:13px;cursor:pointer">⬇ Ver días anteriores (${totalDias-_listDiasVisibles} más)</button>`;
+  }
   el.innerHTML=html;
 }
 
