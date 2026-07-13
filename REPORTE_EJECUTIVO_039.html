@@ -807,6 +807,8 @@ const _fmtMXNc = v => { // compacto: $23.6M / $263K / $850
   return '$'+Math.round(v);
 };
 // ── GASTOS ARMAQOP: lo que cobra por producir/colocar la mezcla, contra el volumen REAL (ton÷densidad) ──
+// Además compara contra lo que NOSOTROS le cobramos a SICT (catálogo E-7: geométrico + volumen extra),
+// para ver la utilidad por concepto.
 function buildGastos(recs){
   const vol={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
   recs.forEach(r=>{ _volRealPorConcepto(r).forEach(x=>{ if(vol[x.key]!=null) vol[x.key]+=x.vol; }); });
@@ -817,6 +819,22 @@ function buildGastos(recs){
     totalGasto+=gasto; totalVol+=v;
     return {k,label:c.label,obra:c.obra,vol:v,pu,gasto};
   });
+
+  // Cobro nuestro: catálogo E-7 = volumen GEOMÉTRICO de viajes + volumen EXTRA (mismo criterio que el
+  // resto del reporte: el extra solo cuenta si el filtro de fecha está en "Todas").
+  const execGeo=calcExec(recs);
+  const extrasExec=calcExtras();
+  let totalCobro=0, totalVolCobro=0, totalUtil=0;
+  const filasCmp=keys.map(k=>{
+    const c=CAT[k];
+    const volCobro=(execGeo[k]||0)+(extrasExec[k]||0);
+    const cobro=volCobro*c.pu;
+    const gasto=(vol[k]||0)*(+_gastosPU[k]||0);
+    const util=cobro-gasto;
+    totalCobro+=cobro; totalVolCobro+=volCobro; totalUtil+=util;
+    return {k,label:c.label,obra:c.obra,volCobro,cobro,gasto,util};
+  });
+
   return `
   <div class="section-hdr">💵 Gastos — ARMAQOP (productor y colocador de mezcla)</div>
   <div class="card">
@@ -843,6 +861,37 @@ function buildGastos(recs){
           <td style="padding:6px;text-align:right;font-weight:800;color:#dc2626">$${totalGasto.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
         </tr>
       </table>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="card-hdr"><h4>📊 Comparativo: lo que cobramos vs lo que pagamos</h4><div class="meta">Catálogo E-7 (geométrico + extra) vs ARMAQOP (real)</div></div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px">"Cobro" = lo que le facturamos a SICT con el catálogo E-7 (volumen geométrico de viajes + volumen extra importado, al precio unitario del catálogo). "Gasto" = lo que le pagamos a ARMAQOP (tabla de arriba, sobre volumen real). La diferencia es la utilidad bruta por concepto, sin contar otros costos de obra.</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="color:var(--gray);text-align:left;border-bottom:1px solid var(--border)">
+          <td style="padding:4px 6px">Concepto</td>
+          <td style="padding:4px 6px;text-align:right">Vol. cobro (m³)</td>
+          <td style="padding:4px 6px;text-align:right">Cobro ($)</td>
+          <td style="padding:4px 6px;text-align:right">Gasto ARMAQOP ($)</td>
+          <td style="padding:4px 6px;text-align:right">Utilidad ($)</td>
+        </tr>
+        ${filasCmp.map(f=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:5px 6px">${f.label} <span style="color:var(--gray);font-size:10px">${f.obra}</span></td>
+          <td style="padding:5px 6px;text-align:right;font-weight:700">${f.volCobro.toFixed(2)}</td>
+          <td style="padding:5px 6px;text-align:right;font-weight:700;color:#10b981">${f.cobro>0?'$'+f.cobro.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
+          <td style="padding:5px 6px;text-align:right;color:#dc2626">${f.gasto>0?'$'+f.gasto.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
+          <td style="padding:5px 6px;text-align:right;font-weight:800;color:${f.util>=0?'#10b981':'#dc2626'}">${(f.util>=0?'$':'-$')+Math.abs(f.util).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        </tr>`).join('')}
+        <tr style="border-top:2px solid var(--border)">
+          <td style="padding:6px;font-weight:800">TOTAL</td>
+          <td style="padding:6px;text-align:right;font-weight:800">${totalVolCobro.toFixed(2)} m³</td>
+          <td style="padding:6px;text-align:right;font-weight:800;color:#10b981">$${totalCobro.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+          <td style="padding:6px;text-align:right;font-weight:800;color:#dc2626">$${totalGasto.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+          <td style="padding:6px;text-align:right;font-weight:800;color:${totalUtil>=0?'#10b981':'#dc2626'}">${(totalUtil>=0?'$':'-$')+Math.abs(totalUtil).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        </tr>
+      </table>
+      ${filtros.fecha!=='all'?`<div style="font-size:10px;color:var(--gray);margin-top:8px">Nota: filtraste fechas específicas — el volumen extra no se incluye aquí (solo cuenta en la vista "Todas las fechas"), así que "Cobro" en este momento es solo geométrico de viajes de esos días.</div>`:''}
     </div>
   </div>`;
 }
