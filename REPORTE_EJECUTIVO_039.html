@@ -670,7 +670,17 @@ function buildFechaFilter(){
   const cont=document.getElementById('filtFechas'); if(!cont) return;
   const sel=filtros.fecha, todas=(sel==='all');
   const chip=(active,onclick,txt)=>`<button class="f-chip${active?' active':''}" onclick="${onclick}">${txt}</button>`;
-  let html=chip(todas,'setFechasTodas()','Todas');
+  let html=chip(todas,'setFechasTodas()','📋 Todas');
+  // Botones rápidos por MES (junio, julio, agosto...) — seleccionan de un jalón todos los días de ese mes
+  const NOMBRES_MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const meses=[...new Set(fechas.map(f=>f.slice(0,7)))].sort();
+  meses.forEach(m=>{
+    const mm=+m.slice(5,7);
+    const label=NOMBRES_MES[mm-1].toUpperCase();
+    const fechasMes=fechas.filter(f=>f.startsWith(m));
+    const activo=Array.isArray(sel) && sel.length===fechasMes.length && fechasMes.every(f=>sel.includes(f));
+    html+=chip(activo, `setFechasMes('${m}')`, '🗓️ '+label);
+  });
   fechas.forEach(f=>{
     const d=new Date(f+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
@@ -688,6 +698,7 @@ function buildFechaFilter(){
   const res=document.getElementById('fechaResumen');
   if(res){
     if(todas) res.textContent=`Mostrando todos los días (${fechas.length})`;
+    else if(nSel===0) res.textContent=`Ningún día seleccionado`;
     else {
       const ord=sel.slice().sort((a,b)=>a.localeCompare(b)).map(f=>new Date(f+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'}));
       res.textContent=`${nSel} día(s): ${ord.join(', ')}`;
@@ -698,7 +709,19 @@ window.toggleFechaPanel=function(){
   const p=document.getElementById('fechaPanel');
   if(p) p.style.display = p.style.display==='none' ? 'block' : 'none';
 };
-window.setFechasTodas=function(){ filtros.fecha='all'; buildFechaFilter(); applyFilters(); };
+// "Todas" alterna TODOS los días <-> NINGUNO, igual que en la app de Tendido
+window.setFechasTodas=function(){
+  const fechas=[...new Set(allRecs.map(r=>r.fecha))];
+  if(filtros.fecha==='all') filtros.fecha=[]; // Todas -> Ninguno
+  else filtros.fecha='all'; // Ninguno (o selección parcial) -> Todas
+  buildFechaFilter(); applyFilters();
+};
+// Selecciona de un jalón todos los días de un mes (formato 'YYYY-MM')
+window.setFechasMes=function(mes){
+  const fechas=[...new Set(allRecs.map(r=>r.fecha))];
+  filtros.fecha=fechas.filter(f=>f.startsWith(mes));
+  buildFechaFilter(); applyFilters();
+};
 window.toggleFechaFiltro=function(f){
   if(!Array.isArray(filtros.fecha)) filtros.fecha=[];
   const i=filtros.fecha.indexOf(f);
