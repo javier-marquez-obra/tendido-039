@@ -357,6 +357,7 @@ body.ppt-mode .ppt-watermark{display:block}
     <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
     <button id="sec-rutas"    onclick="toggleSec('rutas')"    class="sec-btn">🗺️ Distancias planta</button>
     <button id="sec-tabla"    onclick="toggleSec('tabla')"    class="sec-btn">📋 Detalle de viajes</button>
+    <button id="sec-gastos"   onclick="toggleSec('gastos')"   class="sec-btn">💵 Gastos ARMAQOP</button>
   </div>
 </div>
 
@@ -528,6 +529,31 @@ function _conceptosReales(r){
 // Reparte el volumen GEOMÉTRICO del viaje (área×espesor, campo c.volumen de cada concepto) entre las claves.
 // Alias histórico de _conceptosReales — se mantiene por compatibilidad con el módulo de comparación.
 const _conceptosGeo = _conceptosReales;
+
+// ── VOLUMEN REAL (ton÷densidad) POR CONCEPTO — solo para el módulo de Gastos ARMAQOP ──
+// A diferencia de _conceptosReales (que reparte el GEOMÉTRICO, el oficial de todo el reporte),
+// esto reparte el REAL: en viajes con un solo concepto usa el total de ton_recibidas del camión;
+// en viajes con 2+ conceptos usa la ton que se capturó por concepto en campo (c.ton).
+function _volRealPorConcepto(r){
+  const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
+  if(cs && cs.length>1){
+    return cs.map(c=>({key:_keyDeConcepto(c), vol:(+(c.ton||0))/DEN})).filter(x=>x.key);
+  }
+  if(cs && cs.length===1){
+    const key=_keyDeConcepto(cs[0]);
+    return key?[{key, vol:(+(r.ton_recibidas||0))/DEN}]:[];
+  }
+  const key=_keyFromLabel(r.concepto)||_keyHeur(r);
+  return key?[{key, vol:(+(r.ton_recibidas||0))/DEN}]:[];
+}
+// Precios que cobra ARMAQOP por m³ real colocado, por concepto — persisten en localStorage
+let _gastosPU={}; try{ _gastosPU=JSON.parse(localStorage.getItem('rep039_gastos_pu')||'{}')||{}; }catch(e){ _gastosPU={}; }
+window.setGastoPU=function(key,val){
+  const n=parseFloat(val);
+  if(isFinite(n)&&n>=0) _gastosPU[key]=n; else delete _gastosPU[key];
+  try{ localStorage.setItem('rep039_gastos_pu', JSON.stringify(_gastosPU)); }catch(e){}
+  applyFilters();
+};
 // m³ a favor: geométrico − ton÷densidad (ahorro real de material). Solo carpeta. Referencia interna, no oficial.
 function _favDe(r){
   const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:null;
@@ -551,7 +577,8 @@ let secciones={
   graficas:true,
   faltante:true,
   rutas:true,
-  tabla:true
+  tabla:true,
+  gastos:true
 };
 
 // ── FIREBASE ──
@@ -779,6 +806,46 @@ const _fmtMXNc = v => { // compacto: $23.6M / $263K / $850
   if(a>=1e3) return '$'+(v/1e3).toFixed(0)+'K';
   return '$'+Math.round(v);
 };
+// ── GASTOS ARMAQOP: lo que cobra por producir/colocar la mezcla, contra el volumen REAL (ton÷densidad) ──
+function buildGastos(recs){
+  const vol={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
+  recs.forEach(r=>{ _volRealPorConcepto(r).forEach(x=>{ if(vol[x.key]!=null) vol[x.key]+=x.vol; }); });
+  const keys=Object.keys(CAT);
+  let totalGasto=0, totalVol=0;
+  const filas=keys.map(k=>{
+    const c=CAT[k], v=vol[k]||0, pu=+_gastosPU[k]||0, gasto=v*pu;
+    totalGasto+=gasto; totalVol+=v;
+    return {k,label:c.label,obra:c.obra,vol:v,pu,gasto};
+  });
+  return `
+  <div class="section-hdr">💵 Gastos — ARMAQOP (productor y colocador de mezcla)</div>
+  <div class="card">
+    <div class="card-hdr"><h4>💵 Costo por volumen real colocado</h4><div class="meta">Vol. real (ton÷densidad), no geométrico</div></div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Captura aquí lo que ARMAQOP cobra por m³ de cada concepto. El volumen se toma del REAL ejecutado (toneladas recibidas ÷ ${DEN}), igual que factura ARMAQOP, no del geométrico oficial del reporte.</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="color:var(--gray);text-align:left;border-bottom:1px solid var(--border)">
+          <td style="padding:4px 6px">Concepto</td>
+          <td style="padding:4px 6px;text-align:right">Vol. real (m³)</td>
+          <td style="padding:4px 6px;text-align:right">$/m³ ARMAQOP</td>
+          <td style="padding:4px 6px;text-align:right">Gasto ($)</td>
+        </tr>
+        ${filas.map(f=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:5px 6px">${f.label} <span style="color:var(--gray);font-size:10px">${f.obra}</span></td>
+          <td style="padding:5px 6px;text-align:right;font-weight:700">${f.vol.toFixed(2)}</td>
+          <td style="padding:5px 6px;text-align:right"><input type="number" min="0" step="0.01" value="${f.pu||''}" placeholder="0.00" onchange="setGastoPU('${f.k}',this.value)" style="width:90px;padding:4px 6px;border:1px solid var(--gray4);border-radius:5px;background:var(--white);color:var(--txt);font-size:12px;text-align:right"></td>
+          <td style="padding:5px 6px;text-align:right;font-weight:800;color:${f.gasto>0?'#dc2626':'var(--gray)'}">${f.gasto>0?'$'+f.gasto.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}</td>
+        </tr>`).join('')}
+        <tr style="border-top:2px solid var(--border)">
+          <td style="padding:6px;font-weight:800">TOTAL</td>
+          <td style="padding:6px;text-align:right;font-weight:800">${totalVol.toFixed(2)} m³</td>
+          <td></td>
+          <td style="padding:6px;text-align:right;font-weight:800;color:#dc2626">$${totalGasto.toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+        </tr>
+      </table>
+    </div>
+  </div>`;
+}
 function buildEmulsion(recs){
   if(!recs.length) return '';
   const bd={};
@@ -1752,6 +1819,9 @@ function render(){
 
   <!-- ANÁLISIS DE EMULSIÓN -->
   ${secciones.emulsion ? buildEmulsion(filtered) : ''}
+
+  <!-- GASTOS ARMAQOP -->
+  ${secciones.gastos ? buildGastos(filtered) : ''}
 
   <!-- ANÁLISIS DE TENDENCIA -->
   ${secciones.tendencia ? buildTendencia(filtered) : ''}
