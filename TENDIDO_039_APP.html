@@ -266,6 +266,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div><label>Contraseña</label><input type="password" id="lp" placeholder="••••••••" autocomplete="current-password"></div>
     <button class="btn-enter" onclick="doLogin()">ENTRAR</button>
     <div class="l-hint">Ingresa tu correo y contraseña</div>
+    <div style="text-align:center;margin-top:10px">
+      <a href="#" onclick="olvideContrasena();return false" style="font-size:12px;color:var(--gold);text-decoration:underline">¿Olvidaste tu contraseña?</a>
+    </div>
   </div>
 </div>
 
@@ -617,7 +620,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, addDoc, setDoc, doc, getDoc, getDocFromServer, updateDoc, deleteDoc, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
   apiKey: "AIzaSyA9fVBF7SvhFh60SwmTY2LOIe32eaKxO1s",
@@ -1017,6 +1020,19 @@ window.doLogin = async function() {
     toast(M[e.code]||'No se pudo entrar','err');
   } finally {
     if(btn){ btn.disabled=false; btn.textContent='ENTRAR'; }
+  }
+};
+
+// Envía correo de recuperación de contraseña (Firebase Auth) al correo escrito en el campo de login
+window.olvideContrasena = async function() {
+  const email = document.getElementById('ln').value.trim();
+  if (!email) { toast('Escribe tu correo arriba y luego toca "¿Olvidaste tu contraseña?"','err'); return; }
+  try {
+    await sendPasswordResetEmail(auth, email);
+    toast('📧 Te mandamos un correo a '+email+' para poner una nueva contraseña. Revisa spam si no te llega.');
+  } catch(e) {
+    const M={'auth/invalid-email':'Correo inválido','auth/user-not-found':'Ese correo no está registrado','auth/too-many-requests':'Demasiados intentos, espera un momento','auth/network-request-failed':'Sin conexión'};
+    toast(M[e.code]||'No se pudo enviar el correo','err');
   }
 };
 
