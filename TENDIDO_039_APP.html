@@ -812,6 +812,38 @@ async function sha256(str) {
 const HASH_ADMIN = '3c175c4523ae887601d750af6eeabd14b249ff3d92679573e86c289edd98846b';
 const HASH_OP    = 'ad06fd7cfccf28a9e03af9174db612c324b26685d645badcdc57380921c1c271';
 const DEN        = 2.20;
+// ML por TIPO de concepto — NUNCA se suman/mezclan entre sí. Cada concepto (carpeta/reniv/bacheo)
+// lleva su propio acumulado de metros lineales, independiente de los otros.
+function _mlPorTipo(recs){
+  const out={carpeta:0, reniv:0, bacheo:0};
+  (recs||[]).forEach(r=>{
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,longitud:r.longitud}];
+    cs.forEach(c=>{
+      const tipo=/^RENIV/.test(c.id||'')?'reniv':(/^BACHEO/.test(c.id||'')?'bacheo':'carpeta');
+      out[tipo]+=(+c.longitud||0);
+    });
+  });
+  return out;
+}
+// ML del CAMIÓN individual (su propio recorrido, no un acumulado): resta cadenamiento min/max
+// entre sus conceptos. Sirve solo para mostrar "este camión hizo tantos metros", NUNCA para sumar
+// entre varios camiones/días — eso siempre se hace por tipo de concepto con _mlPorTipo().
+function _longTotalPorCadenamiento(conceptos){
+  const pts=[];
+  (conceptos||[]).forEach(cv=>{
+    if(cv.kde!=null&&!isNaN(+cv.kde)) pts.push(+cv.kde);
+    if(cv.ka!=null&&!isNaN(+cv.ka)) pts.push(+cv.ka);
+  });
+  if(pts.length<2) return +(conceptos||[]).reduce((s,cv)=>s+(+cv.longitud||0),0).toFixed(2);
+  return +(Math.max(...pts)-Math.min(...pts)).toFixed(2);
+}
+function _fmtMlPorTipo(o){
+  const partes=[];
+  if(o.carpeta>0) partes.push('Carpeta '+o.carpeta.toFixed(2)+'m');
+  if(o.reniv>0)   partes.push('Reniv '+o.reniv.toFixed(2)+'m');
+  if(o.bacheo>0)  partes.push('Bacheo '+o.bacheo.toFixed(2)+'m');
+  return partes.join(' · ')||'0 m';
+}
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
 
@@ -1036,8 +1068,7 @@ function updateCounter() {
   const hb = document.getElementById('viajeHoy');
   const lb = document.getElementById('viajeFechaLbl');
   if (nb) nb.textContent = '#'+(hr.length+1);
-  const mlHoy = hr.reduce((s,r) => s+(+r.longitud||0), 0);
-  if (hb) hb.textContent = hr.length+' vj · '+ton.toFixed(1)+' ton · '+mlHoy.toFixed(2)+' m';
+  if (hb) hb.textContent = hr.length+' vj · '+ton.toFixed(1)+' ton';
   // La etiqueta muestra HOY si el día de tiro es hoy; si está fijado a otro día, la fecha
   if (lb) lb.textContent = (dia===hoyLocal()) ? 'Hoy' : dia.split('-').reverse().join('/');
 }
@@ -1596,7 +1627,7 @@ window.guardar = async function() {
     // Totales del camión (suma de todos los conceptos)
     area_total:+conceptosGuardar.reduce((s,cv)=>s+cv.area,0).toFixed(4),
     vol_total:+conceptosGuardar.reduce((s,cv)=>s+cv.volumen,0).toFixed(4),
-    long_total:+conceptosGuardar.reduce((s,cv)=>s+cv.longitud,0).toFixed(2),
+    long_total:_longTotalPorCadenamiento(conceptosGuardar),
     vale:document.getElementById('f_vale').value.trim(),
     remision:document.getElementById('f_remision').value.trim(),
     kde, ka, longitud:lng,
@@ -3130,7 +3161,7 @@ window.saveEdit=async function() {
       importe_viaje:+editConceptos.reduce((s,cv)=>s+(cv.importe||0),0).toFixed(2),
       area_total:+editConceptos.reduce((s,cv)=>s+(cv.area||0),0).toFixed(4),
       vol_total:+editConceptos.reduce((s,cv)=>s+(cv.volumen||0),0).toFixed(4),
-      long_total:+editConceptos.reduce((s,cv)=>s+(cv.longitud||0),0).toFixed(2),
+      long_total:_longTotalPorCadenamiento(editConceptos),
       ancho:+aw.toFixed(3), ancho_ini:(concPpal.ancho_ini!=null?concPpal.ancho_ini:null), ancho_fin:(concPpal.ancho_fin!=null?concPpal.ancho_fin:null),
       esp_teorico:et,
       vale:document.getElementById('e_v').value.trim(),
@@ -3644,21 +3675,25 @@ function renderList() {
   const bd={};
   records.forEach(r=>{ if(!bd[r.fecha]) bd[r.fecha]=[]; bd[r.fecha].push(r); });
   let html='';
-  // Acumulado de metros lineales hasta cada fecha (incluida) — se calcula sobre TODOS los días (es solo suma numérica, no DOM)
+  // Acumulado de metros lineales POR TIPO de concepto hasta cada fecha (incluida) — nunca se mezclan
   const fechasAsc=Object.keys(bd).sort((a,b)=>a.localeCompare(b));
-  const acumPorFecha={}; let acum=0;
-  fechasAsc.forEach(f=>{ acum+=bd[f].reduce((s,r)=>s+(+r.longitud||0),0); acumPorFecha[f]=acum; });
+  const acumPorFecha={}; const acum={carpeta:0,reniv:0,bacheo:0};
+  fechasAsc.forEach(f=>{
+    const t=_mlPorTipo(bd[f]);
+    acum.carpeta+=t.carpeta; acum.reniv+=t.reniv; acum.bacheo+=t.bacheo;
+    acumPorFecha[f]={...acum};
+  });
   const fechasDesc=fechasAsc.slice().reverse();
   const totalDias=fechasDesc.length;
   const fechasMostrar=fechasDesc.slice(0,_listDiasVisibles); // solo se DIBUJAN (con fotos) los días recientes
   fechasMostrar.forEach(date=>{
     const rs=bd[date], tt=rs.reduce((s,r)=>s+r.ton_recibidas,0);
-    const ml=rs.reduce((s,r)=>s+(+r.longitud||0),0);
+    const mlTipo=_mlPorTipo(rs);
     const d=new Date(date+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
     const ed=emulDias[date];
     const edTxt = ed ? `🛢️ ${ed.lts_inicio!=null?ed.lts_inicio+' lts inicio':''}${ed.lts_final!=null?' · '+ed.lts_final+' lts final · usó '+ed.lts_usados+' lts':' · SIN CIERRE'}` : '';
-    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj · ${ml.toFixed(2)} m<br><span style="font-size:10px;color:var(--muted)">ACUM. OBRA: ${acumPorFecha[date].toFixed(2)} m${edTxt?' · '+edTxt:''}</span></div></div>`;
+    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">ACUM. OBRA: ${_fmtMlPorTipo(acumPorFecha[date])}${edTxt?' · '+edTxt:''}</span></div></div>`;
     rs.forEach(r=>{
       const G=r.gp==='GANANCIA', ce=puedeEditar(r);
       html+=`<div class="rc${ce?'':' no-edit'}" onclick="${ce?`openEdit('${r._id}')`:''}" >
@@ -3693,7 +3728,7 @@ function renderList() {
           : (r.concepto||'CARPETA 3CM O1')+(r.ton_concepto&&r.ton_concepto!==r.ton_recibidas?' · '+r.ton_concepto.toFixed(2)+' ton':'')
         )
       }</div>
-      <div class="rk">km ${fmtCad(r.kde)} → ${fmtCad(r.ka)} · ${(+r.longitud).toFixed(2)} m<span class="cp">${r.carril}</span></div>
+      <div class="rk">km ${fmtCad(r.kde)} → ${fmtCad(r.ka)} · ${(+(r.long_total||r.longitud||0)).toFixed(2)} m<span class="cp">${r.carril}</span></div>
         ${r.observaciones?`<div class="obs-tag">📝 ${r.observaciones.substring(0,60)}${r.observaciones.length>60?'...':''}</div>`:''}
         ${r.emulsion_lts?`<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
           <span style="font-family:var(--mono);font-size:11px;background:rgba(167,139,250,.14);border:1px solid #3a1a5a;color:var(--purple);padding:2px 8px;border-radius:4px">🛢️ ${r.emulsion_lts} lts ECR-65 · ${r.emulsion_tipo==='impregnacion'?'Impreg.':'Liga'} · ${Math.round(r.emulsion_temp||70)}°C</span>
@@ -3750,10 +3785,10 @@ function renderRepCamiones() {
   </div>`;
 
   const byCam={};
-  recSel.forEach(r=>{ if(!byCam[r.placas]) byCam[r.placas]={viajes:0,ton:0,area:0,long:0}; byCam[r.placas].viajes++; byCam[r.placas].ton+=(r.ton_recibidas||0); byCam[r.placas].area+=(r.area||0); byCam[r.placas].long+=(r.longitud||0); });
+  recSel.forEach(r=>{ if(!byCam[r.placas]) byCam[r.placas]={viajes:0,ton:0,area:0,long:0}; byCam[r.placas].viajes++; byCam[r.placas].ton+=(r.ton_recibidas||0); byCam[r.placas].area+=(r.area||0); byCam[r.placas].long+=(+(r.long_total||r.longitud)||0); });
   const totalTon=recSel.reduce((s,r)=>s+(r.ton_recibidas||0),0);
   const totalArea=recSel.reduce((s,r)=>s+(r.area||0),0);
-  const totalLong=recSel.reduce((s,r)=>s+(r.longitud||0),0);
+  const totalLong=recSel.reduce((s,r)=>s+(+(r.long_total||r.longitud)||0),0);
   const maxLong=Math.max(...Object.values(byCam).map(c=>c.long),1);
   const lblFecha = multi?`${sel.size} días`:(()=>{ const d=new Date([...sel][0]+'T12:00:00'); return d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}).toUpperCase(); })();
 
@@ -3795,7 +3830,7 @@ function renderRepVolumen() {
   const totVol=records.reduce((s,r)=>s+r.volumen,0);
   const totArea=records.reduce((s,r)=>s+r.area,0);
   const totTon=records.reduce((s,r)=>s+r.ton_recibidas,0);
-  const totLong=records.reduce((s,r)=>s+r.longitud,0);
+  const totLong=records.reduce((s,r)=>s+(+(r.long_total||r.longitud)||0),0);
   const totFav=records.reduce((s,r)=>s+r.m3_fav,0);
 
   // Por actividad (agrupado)
@@ -3806,7 +3841,7 @@ function renderRepVolumen() {
     const dVol=rs.reduce((s,r)=>s+r.volumen,0);
     const dArea=rs.reduce((s,r)=>s+r.area,0);
     const dTon=rs.reduce((s,r)=>s+r.ton_recibidas,0);
-    const dLong=rs.reduce((s,r)=>s+r.longitud,0);
+    const dLong=rs.reduce((s,r)=>s+(+(r.long_total||r.longitud)||0),0);
     acumVol+=dVol;
     // Emulsión del día: prioridad al CIERRE DE TANQUE (lts inicio/final → lts_usados),
     // y si no hay cierre, se usa el campo capturado en un viaje (emulsion_lts).
@@ -4308,7 +4343,7 @@ window.exportPagoCSV = function() {
   if(!rs.length){ toast('Sin datos en los días elegidos','err'); return; }
   const _n=(x,d=2)=>(x!=null&&x!==''&&!isNaN(+x))?+(+x).toFixed(d):'';
   const h=['FECHA','PLACAS','VIAJE#','№ VALE','№ REMISION','TON','AREA_M2','LONG_M','VOL_M3','GP','M3_FAV','OBSERVACIONES'];
-  const data=rs.map(r=>[r.fecha,r.placas,r.num_viaje_dia||'',r.vale||'',r.remision||'',_n(r.ton_recibidas),_n(r.area),_n(r.longitud,0),_n(r.volumen,3),r.gp||'',_n(r.m3_fav,3),(r.observaciones||'')]);
+  const data=rs.map(r=>[r.fecha,r.placas,r.num_viaje_dia||'',r.vale||'',r.remision||'',_n(r.ton_recibidas),_n(r.area),_n((r.long_total||r.longitud),0),_n(r.volumen,3),r.gp||'',_n(r.m3_fav,3),(r.observaciones||'')]);
   const n=data.length;
   const aoa=[h,...data,['TOTAL','','','','',0,0,0,0,'',0,'']];
   const ws=XLSX.utils.aoa_to_sheet(aoa);
@@ -4341,7 +4376,7 @@ window.exportGeneradorSICT = function() {
     acum+=dVol;
     const dTon=rs.reduce((s,r)=>s+r.ton_recibidas,0);
     const dArea=rs.reduce((s,r)=>s+r.area,0);
-    const dLong=rs.reduce((s,r)=>s+r.longitud,0);
+    const dLong=rs.reduce((s,r)=>s+(+(r.long_total||r.longitud)||0),0);
     const kmMin=Math.min(...rs.map(r=>r.kde));
     const kmMax=Math.max(...rs.map(r=>r.ka));
     const anchoProm=(dArea/dLong||0).toFixed(2);
