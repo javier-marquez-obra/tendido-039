@@ -1133,7 +1133,7 @@ function buildFinanciero(exec){
   // Nota: para RENIV/BACHEO el "real" suele salir en 0 cuando ese volumen se registró vía Excel/generador
   // (esos imports no traen dato de tonelaje real) — por eso su "ganancia" no es un ahorro de material como
   // en carpeta, sino simplemente volumen reconocido sin peso capturado. El KPI "M³ GANANCIA" de arriba
-  // sigue siendo SOLO de carpeta a propósito, porque ahí sí representa margen real de material.
+  // ahora es la suma de este mismo total (todos los conceptos), esta tabla es su desglose.
   const extrasExec=calcExtras();
   const volReal={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
   filtered.forEach(r=>{ _volRealPorConcepto(r).forEach(x=>{ if(volReal[x.key]!=null) volReal[x.key]+=x.vol; }); });
@@ -1169,7 +1169,7 @@ function buildFinanciero(exec){
           <td style="padding:6px;text-align:right;font-weight:800;color:${totGan>=0?'#10b981':'#dc2626'}">${totGan>=0?'+':''}${totGan.toFixed(2)}</td>
         </tr>
       </table>
-      <div style="font-size:10px;color:var(--gray);margin-top:8px">Ganancia = geométrico − real (m³). En RENIV/BACHEO cargado vía Excel/generador, el real sale en 0 (no trae tonelaje), así que su "ganancia" aquí es solo volumen sin peso capturado — no confundir con el margen de material de carpeta.</div>
+      <div style="font-size:10px;color:var(--gray);margin-top:8px">Ganancia = geométrico − real (m³). En RENIV/BACHEO cargado vía Excel/generador, el real sale en 0 (no trae tonelaje), así que su "ganancia" aquí es solo volumen sin peso capturado — no confundir con el margen de material de carpeta. El TOTAL de esta tabla es el mismo número del KPI "M³ GANANCIA" de arriba.</div>
     </div>
   </div>`;
 
@@ -1861,13 +1861,17 @@ function render(){
   const volAcum=filtered.reduce((s,r)=>s+_volR(r),0);
   const areaAcum=filtered.reduce((s,r)=>s+r.area,0);
   const longAcum=filtered.reduce((s,r)=>s+r.longitud,0);
-  const m3FavAcum=filtered.reduce((s,r)=>s+_favDe(r),0);
-  const favTon=m3FavAcum*DEN;
   const emulAcum=filtered.reduce((s,r)=>s+(r.emulsion_lts||0),0);
   const exec=calcExec(filtered);
   const extrasExec=calcExtras();
   const extraTotal=Object.values(extrasExec).reduce((s,v)=>s+v,0);
   Object.keys(exec).forEach(k=>{ exec[k]=+(exec[k]+(extrasExec[k]||0)).toFixed(3); });
+  // m³ ganancia: ahora es el TOTAL de los 5 conceptos (geométrico+extra − real), no solo carpeta.
+  // Ver la tabla "Volumen y ganancia por concepto" (sección Físico-financiero) para el desglose.
+  const volRealPC={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
+  filtered.forEach(r=>{ _volRealPorConcepto(r).forEach(x=>{ if(volRealPC[x.key]!=null) volRealPC[x.key]+=x.vol; }); });
+  const m3FavAcum=Object.keys(CAT).reduce((s,k)=>s+((exec[k]||0)-(volRealPC[k]||0)),0);
+  const favTon=m3FavAcum*DEN;
   const cambio=tonAyer>0?((tonHoy-tonAyer)/tonAyer*100).toFixed(1):null;
   const volAcumConExtra=+(volAcum+extraTotal).toFixed(3);
   const pctAvance=(volAcumConExtra/TOT_VOL*100).toFixed(1);
@@ -1900,7 +1904,7 @@ function render(){
     <div class="kpi green"><span class="kpi-icon">📐</span><div class="kpi-label">Volumen hoy m³</div><div class="kpi-value">${volHoy.toFixed(2)}</div><div class="kpi-sub">geométrico · ${tonHoy.toFixed(1)} ton báscula</div></div>
     <div class="kpi gold"><span class="kpi-icon">📦</span><div class="kpi-label">Ton acumuladas</div><div class="kpi-value">${tonAcum.toFixed(0)}</div><div class="kpi-sub">${filtered.length} viajes · ${Object.keys(byCam).length} camiones</div></div>
     <div class="kpi blue"><span class="kpi-icon">🧱</span><div class="kpi-label">Vol. acum m³</div><div class="kpi-value">${volAcumConExtra.toFixed(1)}</div><div class="kpi-sub">${pctAvance}% del catálogo total${extraTotal>0?` · <span style="color:#a78bfa">incluye +${extraTotal.toFixed(1)} m³ extra</span>`:''}</div></div>
-    <div class="kpi green"><span class="kpi-icon">💰</span><div class="kpi-label">m³ ganancia</div><div class="kpi-value">${m3FavAcum>=0?'+':''}${m3FavAcum.toFixed(2)}</div><div class="kpi-sub">${(m3FavAcum>=0?'+':'')}${favTon.toFixed(1)} ton a favor</div></div>
+    <div class="kpi green"><span class="kpi-icon">💰</span><div class="kpi-label">m³ ganancia</div><div class="kpi-value">${m3FavAcum>=0?'+':''}${m3FavAcum.toFixed(2)}</div><div class="kpi-sub">${(m3FavAcum>=0?'+':'')}${favTon.toFixed(1)} ton a favor · todos los conceptos</div></div>
     <div class="kpi purple"><span class="kpi-icon">🛢️</span><div class="kpi-label">Emulsión ECR-65</div><div class="kpi-value">${emulAcum>0?emulAcum.toFixed(0):'—'}</div><div class="kpi-sub">${emulAcum>0&&areaAcum>0?(emulAcum/areaAcum).toFixed(3)+' lts/m²':'Sin registro'}</div></div>
   </div>` : ''}
 
