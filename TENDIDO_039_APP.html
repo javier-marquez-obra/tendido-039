@@ -816,13 +816,16 @@ const DEN        = 2.20;
 // lleva su propio acumulado de metros lineales, independiente de los otros.
 function _mlPorTipo(recs){
   const out={carpeta:0, reniv:0, bacheo:0};
+  const carrilesCarpeta=new Set();
   (recs||[]).forEach(r=>{
-    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,longitud:r.longitud}];
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,longitud:r.longitud,carril:r.carril}];
     cs.forEach(c=>{
       const tipo=/^RENIV/.test(c.id||'')?'reniv':(/^BACHEO/.test(c.id||'')?'bacheo':'carpeta');
       out[tipo]+=(+c.longitud||0);
+      if(tipo==='carpeta' && c.carril) carrilesCarpeta.add(c.carril);
     });
   });
+  out._carrilesCarpeta=carrilesCarpeta.size||1;
   return out;
 }
 // ML del CAMIÓN individual (su propio recorrido, no un acumulado): resta cadenamiento min/max
@@ -843,6 +846,49 @@ function _fmtMlPorTipo(o){
   if(o.reniv>0)   partes.push('Reniv '+o.reniv.toFixed(2)+'m');
   if(o.bacheo>0)  partes.push('Bacheo '+o.bacheo.toFixed(2)+'m');
   return partes.join(' · ')||'0 m';
+}
+// Igual que _fmtMlPorTipo, pero para el ACUM. OBRA le agrega un dato de referencia en carpeta:
+// el kilometraje PROMEDIO (ML de carpeta ÷ número de carriles trabajados). No es un acumulado
+// por carril — es un solo número aproximado para tener una idea del avance en km, nada más.
+function _fmtMlPorTipoAcum(o){
+  const partes=[];
+  if(o.carpeta>0){
+    const nCarr=o._carrilesCarpeta||1;
+    let txt='Carpeta '+o.carpeta.toFixed(2)+'m';
+    if(nCarr>1) txt+=' (≈'+(o.carpeta/nCarr/1000).toFixed(3)+'km prom./carril, solo referencia)';
+    partes.push(txt);
+  }
+  if(o.reniv>0)   partes.push('Reniv '+o.reniv.toFixed(2)+'m');
+  if(o.bacheo>0)  partes.push('Bacheo '+o.bacheo.toFixed(2)+'m');
+  return partes.join(' · ')||'0 m';
+}
+// Resumen físico del día: cadenamiento trabajado, carril(es), espesor real promedio y rendimiento
+// de emulsión (lts/m² contra la norma del tipo de riego guardado ese día).
+function _resumenDia(rs, ed){
+  let areaTot=0, tonTot=0;
+  const kms=[]; const carriles=new Set();
+  (rs||[]).forEach(r=>{
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril,area:r.area}];
+    cs.forEach(c=>{
+      if(c.kde!=null&&!isNaN(+c.kde)) kms.push(+c.kde);
+      if(c.ka!=null&&!isNaN(+c.ka)) kms.push(+c.ka);
+      if(c.carril) carriles.add(c.carril);
+    });
+    areaTot+=(+r.area_total||+r.area||0);
+    tonTot+=(+r.ton_recibidas||0);
+  });
+  const kdeMin = kms.length?Math.min(...kms):null;
+  const kaMax  = kms.length?Math.max(...kms):null;
+  const espProm = areaTot>0 ? (tonTot/(areaTot*DEN)*100) : 0;
+  let rendTxt='';
+  if(ed && ed.lts_usados!=null && areaTot>0){
+    const ltm2=ed.lts_usados/areaTot;
+    const normas={liga:{min:0.7,max:1.0},impregnacion:{min:1.0,max:1.2}};
+    const norma=normas[ed.tipo]||normas.liga;
+    const ok = ltm2>=norma.min && ltm2<=norma.max;
+    rendTxt = ltm2.toFixed(2)+' lts/m² '+(ok?'✓':(ltm2<norma.min?'⚠️bajo':'⚠️alto'));
+  }
+  return {kdeMin, kaMax, carriles:[...carriles], espProm, rendTxt};
 }
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
@@ -3677,11 +3723,15 @@ function renderList() {
   let html='';
   // Acumulado de metros lineales POR TIPO de concepto hasta cada fecha (incluida) — nunca se mezclan
   const fechasAsc=Object.keys(bd).sort((a,b)=>a.localeCompare(b));
-  const acumPorFecha={}; const acum={carpeta:0,reniv:0,bacheo:0};
+  const acumPorFecha={}; const acum={carpeta:0,reniv:0,bacheo:0}; const carrilSetAcum=new Set();
   fechasAsc.forEach(f=>{
     const t=_mlPorTipo(bd[f]);
     acum.carpeta+=t.carpeta; acum.reniv+=t.reniv; acum.bacheo+=t.bacheo;
-    acumPorFecha[f]={...acum};
+    bd[f].forEach(r=>{
+      const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,carril:r.carril}];
+      cs.forEach(c=>{ if(!/^(RENIV|BACHEO)/.test(c.id||'') && c.carril) carrilSetAcum.add(c.carril); });
+    });
+    acumPorFecha[f]={...acum, _carrilesCarpeta:carrilSetAcum.size||1};
   });
   const fechasDesc=fechasAsc.slice().reverse();
   const totalDias=fechasDesc.length;
@@ -3689,11 +3739,16 @@ function renderList() {
   fechasMostrar.forEach(date=>{
     const rs=bd[date], tt=rs.reduce((s,r)=>s+r.ton_recibidas,0);
     const mlTipo=_mlPorTipo(rs);
+    const ed=emulDias[date];
+    const rd=_resumenDia(rs, ed);
     const d=new Date(date+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
-    const ed=emulDias[date];
     const edTxt = ed ? `🛢️ ${ed.lts_inicio!=null?ed.lts_inicio+' lts inicio':''}${ed.lts_final!=null?' · '+ed.lts_final+' lts final · usó '+ed.lts_usados+' lts':' · SIN CIERRE'}` : '';
-    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">ACUM. OBRA: ${_fmtMlPorTipo(acumPorFecha[date])}${edTxt?' · '+edTxt:''}</span></div></div>`;
+    const cadTxt = rd.kdeMin!=null&&rd.kaMax!=null ? `📍 ${fmtCad(rd.kdeMin)} → ${fmtCad(rd.kaMax)}` : '';
+    const carrilTxt = rd.carriles.length ? '· '+rd.carriles.join('/') : '';
+    const espTxt = rd.espProm>0 ? `· Esp. prom ${rd.espProm.toFixed(2)}cm` : '';
+    const rendEmulTxt = rd.rendTxt ? `· 🛢️ ${rd.rendTxt}` : '';
+    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">ACUM. OBRA: ${_fmtMlPorTipoAcum(acumPorFecha[date])}${edTxt?' · '+edTxt:''}</span><br><span style="font-size:10px;color:var(--muted)">${cadTxt} ${carrilTxt} ${espTxt} ${rendEmulTxt}</span></div></div>`;
     rs.forEach(r=>{
       const G=r.gp==='GANANCIA', ce=puedeEditar(r);
       html+=`<div class="rc${ce?'':' no-edit'}" onclick="${ce?`openEdit('${r._id}')`:''}" >
