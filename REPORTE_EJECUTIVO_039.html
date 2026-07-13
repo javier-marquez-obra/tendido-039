@@ -1128,6 +1128,51 @@ function buildFinanciero(exec){
     </div>`;
   }).join('');
 
+  // Volumen y ganancia POR CONCEPTO — mismo criterio que la tabla de la app de campo (tabla de tiro):
+  // Geométrico incluye extra (Excel/generadores); Real = ton÷densidad; Ganancia = Geométrico − Real.
+  // Nota: para RENIV/BACHEO el "real" suele salir en 0 cuando ese volumen se registró vía Excel/generador
+  // (esos imports no traen dato de tonelaje real) — por eso su "ganancia" no es un ahorro de material como
+  // en carpeta, sino simplemente volumen reconocido sin peso capturado. El KPI "M³ GANANCIA" de arriba
+  // sigue siendo SOLO de carpeta a propósito, porque ahí sí representa margen real de material.
+  const extrasExec=calcExtras();
+  const volReal={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
+  filtered.forEach(r=>{ _volRealPorConcepto(r).forEach(x=>{ if(volReal[x.key]!=null) volReal[x.key]+=x.vol; }); });
+  const filasGan=keys.map(k=>{
+    const geo=(exec[k]||0)+(extrasExec[k]||0);
+    const real=volReal[k]||0;
+    return {k,label:CAT[k].label,geo,real,gan:geo-real};
+  });
+  const totGeo=filasGan.reduce((s,f)=>s+f.geo,0);
+  const totReal=filasGan.reduce((s,f)=>s+f.real,0);
+  const totGan=totGeo-totReal;
+  const tablaGanancia=`
+  <div class="card" style="margin-top:14px">
+    <div class="card-hdr"><h4>📊 Volumen y ganancia por concepto</h4><div class="meta">Igual criterio que la tabla de tiro en la app de campo</div></div>
+    <div class="card-body">
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="color:var(--gray);text-align:left;border-bottom:1px solid var(--border)">
+          <td style="padding:4px 6px">Concepto</td>
+          <td style="padding:4px 6px;text-align:right">Geométrico</td>
+          <td style="padding:4px 6px;text-align:right">Real</td>
+          <td style="padding:4px 6px;text-align:right">Ganancia</td>
+        </tr>
+        ${filasGan.map(f=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:5px 6px">${f.label}</td>
+          <td style="padding:5px 6px;text-align:right">${f.geo.toFixed(2)}</td>
+          <td style="padding:5px 6px;text-align:right">${f.real.toFixed(2)}</td>
+          <td style="padding:5px 6px;text-align:right;font-weight:700;color:${f.gan>=0?'#10b981':'#dc2626'}">${f.gan>=0?'+':''}${f.gan.toFixed(2)}</td>
+        </tr>`).join('')}
+        <tr style="border-top:2px solid var(--border)">
+          <td style="padding:6px;font-weight:800">TOTAL</td>
+          <td style="padding:6px;text-align:right;font-weight:800">${totGeo.toFixed(2)}</td>
+          <td style="padding:6px;text-align:right;font-weight:800">${totReal.toFixed(2)}</td>
+          <td style="padding:6px;text-align:right;font-weight:800;color:${totGan>=0?'#10b981':'#dc2626'}">${totGan>=0?'+':''}${totGan.toFixed(2)}</td>
+        </tr>
+      </table>
+      <div style="font-size:10px;color:var(--gray);margin-top:8px">Ganancia = geométrico − real (m³). En RENIV/BACHEO cargado vía Excel/generador, el real sale en 0 (no trae tonelaje), así que su "ganancia" aquí es solo volumen sin peso capturado — no confundir con el margen de material de carpeta.</div>
+    </div>
+  </div>`;
+
   return `
   <div class="section-hdr">💰 Físico-financiero — avance económico por concepto</div>
   <div class="card">
@@ -1150,7 +1195,8 @@ function buildFinanciero(exec){
       </div>
       ${barras}
     </div>
-  </div>`;
+  </div>
+  ${tablaGanancia}`;
 }
 
 // ── AVANCE: PROGRAMA vs REAL (curvas S financiera y volumen + barras por período) ──
