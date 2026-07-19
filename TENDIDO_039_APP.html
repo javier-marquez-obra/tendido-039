@@ -1041,10 +1041,10 @@ async function cargarSesion(user) {
   let perfil = { nombre:user.email, rol:'capturista', obras:[], activo:true };
   let snap=null;
   try {
-    snap = await getDocFromServer(doc(db,'usuarios',user.uid)); // siempre fresco, evita caché viejo
+    snap = await _conLimiteEspera(getDocFromServer(doc(db,'usuarios',user.uid)), 10000); // siempre fresco, evita caché viejo
   } catch(e1) {
-    console.warn('Rol: falló lectura de servidor, intento caché:', e1?.code||e1);
-    try { snap = await getDoc(doc(db,'usuarios',user.uid)); } catch(e2){ console.warn('Rol: también falló caché:', e2?.code||e2); }
+    console.warn('Rol: falló lectura de servidor, intento caché:', e1?.code||e1?.message||e1);
+    try { snap = await _conLimiteEspera(getDoc(doc(db,'usuarios',user.uid)), 10000); } catch(e2){ console.warn('Rol: también falló caché (señal mala) — entra como capturista por ahora:', e2?.code||e2?.message||e2); }
   }
   if (snap && snap.exists()) perfil = { ...perfil, ...snap.data() };
   else console.warn('Rol: no se encontró documento usuarios/'+user.uid+' → queda como capturista');
@@ -1117,7 +1117,7 @@ async function renumerarDia(fecha, cambios) {
   for (let i = 0; i < lista.length; i++) {
     if (lista[i].num !== i + 1) {
       const p = updateDoc(doc(db, COL, lista[i]._id), { num_viaje_dia: i + 1 });
-      if (navigator.onLine) await p; else p.catch(()=>{});
+      if (navigator.onLine) await _conLimiteEspera(p).catch(()=>{}); else p.catch(()=>{});
     }
   }
 }
@@ -1375,7 +1375,7 @@ window.guardarEmulInicio = async function() {
   };
   try {
     const p = setDoc(doc(db,'emulsion039',fecha), d, { merge:true });
-    if (navigator.onLine) await p; else p.catch(()=>{});
+    if (navigator.onLine) await _conLimiteEspera(p).catch(()=>{}); else p.catch(()=>{});
     document.getElementById('emulIniStatus').textContent = '✓ Inicio guardado: ' + ini + ' lts';
     document.getElementById('emulIniStatus').style.color = 'var(--green)';
     const body=document.getElementById('emulIniBody'); if(body){ body.style.display='none'; delete body.dataset.userOpened; }
@@ -1410,7 +1410,7 @@ window.guardarEmulFinal = async function() {
   };
   try {
     const p = setDoc(doc(db,'emulsion039',fecha), d, { merge:true });
-    if (navigator.onLine) await p; else p.catch(()=>{});
+    if (navigator.onLine) await _conLimiteEspera(p).catch(()=>{}); else p.catch(()=>{});
     calcEmulsion();
     toast('📤 Final guardado · Rendimiento: '+(d.lts_m2||'—')+' lts/m²');
   } catch(e) { toast('Error: '+e.message,'err'); }
@@ -1442,7 +1442,7 @@ window.guardarEmulsionDia = async function() {
   }
   try {
     const p = setDoc(doc(db,'emulsion039',fecha), d, { merge:true });
-    if (navigator.onLine) await p; else p.catch(()=>{});
+    if (navigator.onLine) await _conLimiteEspera(p).catch(()=>{}); else p.catch(()=>{});
     toast(navigator.onLine ? '✓ Emulsión del día guardada' : '📴 Emulsión guardada en el dispositivo');
   } catch(e) { toast('Error: '+e.message,'err'); }
 };
@@ -1609,6 +1609,15 @@ function restaurarOpcionesExtra(){
   });
 }
 restaurarOpcionesExtra();
+// Si la señal está intermitente (el celular cree tener internet pero el guardado no confirma),
+// no dejamos la app colgada esperando para siempre — después de este límite, lo tratamos como
+// "guardado local, sube después" (Firestore sigue reintentando solo gracias a la caché offline).
+function _conLimiteEspera(promesa, ms=15000){
+  return Promise.race([
+    promesa,
+    new Promise((_,rej)=>setTimeout(()=>rej(new Error('TIMEOUT_RED')), ms))
+  ]);
+}
 window.guardar = async function() {
   const sinPlaca=!!(document.getElementById('f_sinplaca')||{}).checked;
   const placas=sinPlaca?'SIN PLACA':normPlacas(document.getElementById('f_placas').value);
@@ -1713,8 +1722,16 @@ window.guardar = async function() {
   try {
     const p = addDoc(collection(db,COL),rec);
     if (navigator.onLine) {
-      await p;
-      resetForm(rec.ka); toast('✓ Viaje #'+rec.num_viaje_dia+' guardado');
+      try {
+        await _conLimiteEspera(p);
+        resetForm(rec.ka); toast('✓ Viaje #'+rec.num_viaje_dia+' guardado');
+      } catch(errRed) {
+        if (errRed.message==='TIMEOUT_RED') {
+          p.catch(()=>{}); // sigue subiendo solo en cuanto la señal mejore (persistencia offline)
+          resetForm(rec.ka);
+          toast('📶 Señal lenta — Viaje #'+rec.num_viaje_dia+' guardado, subiendo en segundo plano');
+        } else { throw errRed; }
+      }
     } else {
       p.catch(()=>{});
       resetForm(rec.ka); toast('📴 Viaje #'+rec.num_viaje_dia+' guardado EN EL DISPOSITIVO · se subirá al recuperar señal');
@@ -3237,7 +3254,7 @@ window.saveEdit=async function() {
       ton_reales:+(vol*DEN).toFixed(4), esp_real:+er.toFixed(6),
       gp:mf>=0?'GANANCIA':'PERDIDA', m3_fav:+mf.toFixed(6)
     });
-    if (navigator.onLine) await _pUpd; else _pUpd.catch(()=>{});
+    if (navigator.onLine) await _conLimiteEspera(_pUpd).catch(()=>{}); else _pUpd.catch(()=>{});
     if (fechaNueva !== fechaAnterior) {
       toast('⟳ Recalculando números de viaje...');
       await renumerarDia(fechaNueva, { [editId]: fechaNueva });
@@ -3253,7 +3270,7 @@ window.delRec=async function() {
     const rDel = records.find(x => x._id === editId);
     const fechaDel = rDel ? rDel.fecha : null;
     const _pDel = deleteDoc(doc(db,COL,editId));
-    if (navigator.onLine) await _pDel; else _pDel.catch(()=>{});
+    if (navigator.onLine) await _conLimiteEspera(_pDel).catch(()=>{}); else _pDel.catch(()=>{});
     if (fechaDel) await renumerarDia(fechaDel, { [editId]: '__eliminado__' });
     closeEdit(); toast('🗑 Eliminado');
   } catch(e) { toast('Error: '+e.message,'err'); }
