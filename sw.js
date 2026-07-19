@@ -1,13 +1,9 @@
-// TENDIDO 039 · Service Worker · v3 · network-first en HTML, nunca cachea navegación
-const CACHE = 'tendido039-v3';
-
-// Solo recursos estáticos pesados que casi nunca cambian
-const PRECACHE = [
-  // No precacheamos el HTML — siempre lo jalamos de la red
-];
+// TENDIDO 039 · Service Worker · v4 · network-first CON LÍMITE DE TIEMPO en HTML,
+// con respaldo en caché para no quedarse pegado cuando la señal está lenta (no caída, solo lenta).
+const CACHE = 'tendido039-v4';
+const HTML_TIMEOUT_MS = 4000; // si la red no responde en 4s, usa la última copia guardada
 
 self.addEventListener('install', e => {
-  // skipWaiting inmediato: el nuevo SW toma control sin esperar cierre de pestañas
   self.skipWaiting();
 });
 
@@ -35,23 +31,45 @@ self.addEventListener('fetch', e => {
     url.hostname.includes('googleapis.com')
   ) return;
 
-  // HTML principal: SIEMPRE red primero, sin guardar en caché
-  // Esto garantiza que GitHub Pages entregue la versión más reciente
-  if (
+  // sw.js mismo: nunca cachear
+  if (url.pathname.endsWith('sw.js')) return;
+
+  // HTML principal: red primero, PERO con límite de tiempo — si la señal está lenta,
+  // no se queda pegado esperando: usa la última versión guardada mientras la red responde,
+  // y esa respuesta lenta, cuando llegue, actualiza la caché para la próxima vez.
+  const esHTML = (
     req.mode === 'navigate' ||
     url.pathname.endsWith('.html') ||
     url.pathname === '/' ||
     url.pathname.endsWith('/')
-  ) {
-    e.respondWith(
-      fetch(req, { cache: 'no-store' })
-        .catch(() => caches.match(req, { ignoreSearch: true }))
-    );
+  );
+  if (esHTML) {
+    e.respondWith((async () => {
+      const cache = await caches.open(CACHE);
+      const fetchFresco = fetch(req, { cache: 'no-store' }).then(res => {
+        if (res && res.ok) cache.put(req, res.clone());
+        return res;
+      }).catch(() => null);
+
+      const conLimite = Promise.race([
+        fetchFresco,
+        new Promise(resolve => setTimeout(() => resolve(null), HTML_TIMEOUT_MS))
+      ]);
+
+      const rapido = await conLimite;
+      if (rapido) return rapido; // la red respondió a tiempo: úsala (más reciente)
+
+      // La red tardó más de lo normal (o falló): usa lo último guardado para no colgar la pantalla
+      const guardado = await cache.match(req, { ignoreSearch: true });
+      if (guardado) return guardado;
+
+      // Sin caché previa (primera vez que se abre sin buena señal): esperar la red aunque tarde
+      const tardia = await fetchFresco;
+      if (tardia) return tardia;
+      return new Response('Sin señal y sin versión guardada todavía. Conéctate una vez con buena señal para dejar la app lista para usarse sin internet.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
+    })());
     return;
   }
-
-  // sw.js mismo: nunca cachear
-  if (url.pathname.endsWith('sw.js')) return;
 
   // Recursos estáticos (CDN Firebase SDK, fuentes, íconos):
   // caché primero → si no existe, descarga y guarda
