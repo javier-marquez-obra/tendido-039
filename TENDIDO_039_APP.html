@@ -325,11 +325,15 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
       <div id="catalogoObraLbl" style="font-size:12px;color:var(--muted);margin-bottom:6px"></div>
       <div style="font-size:11px;color:var(--gold);background:rgba(240,180,41,.1);border:1px solid #3a2e00;border-radius:8px;padding:8px 10px;margin-bottom:12px">
-        ⚠️ El <b>ID</b> debe empezar con <b>RENIV-</b>, <b>BACHEO-</b> o <b>CARPETA</b> (ej. <code>CARPETA5-O1</code>) para que la app sepa clasificarlo bien (toneladas por concepto, cadenamiento, avance, etc.). Termina en <b>-O1</b> o <b>-O2</b> según el tramo.
+        ⚠️ El <b>ID</b> debe empezar con <b>RENIV-</b>, <b>BACHEO-</b> o <b>CARPETA</b> (ej. <code>CARPETA5-O1</code>) para que la app sepa clasificarlo bien (toneladas por concepto, cadenamiento, avance, etc.). El <b>subtramo</b> (columna de la derecha) puede ser cualquier texto que tú definas — O1, O2, O3, o el nombre que uses — la app lo toma directo de ahí, no de una parte fija del ID.
       </div>
       <input type="file" id="catExcelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="leerCatalogoExcel(this.files[0]);this.value=''">
       <button onclick="document.getElementById('catExcelFile').click()" style="width:100%;margin-bottom:10px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:8px;font-size:12px;font-weight:700;cursor:pointer">📥 Importar desde Excel/CSV</button>
       <div style="font-size:10px;color:var(--muted);margin:-6px 0 12px">Columnas esperadas (en cualquier orden, con encabezado en la primera fila): <b>ID, Concepto, Unidad, Cantidad, Precio</b>. Revisa y corrige después de importar — no se guarda automático.</div>
+      <div style="font-weight:800;color:var(--gold);font-size:12px;margin-bottom:6px">📍 Rangos de kilometraje por subtramo</div>
+      <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Define aquí el kilometraje de inicio y fin de CADA subtramo. Esto es lo que usa el "Importar generador (extra)" para saber a qué subtramo pertenece cada renglón del Excel — ya no asume que solo hay 2.</div>
+      <div id="catRangosBody"></div>
+      <button onclick="_catRangoAgregar()" style="width:100%;margin-bottom:14px;background:var(--surf);border:1px solid var(--bord);border-radius:6px;color:var(--txt);padding:6px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar subtramo</button>
       <div id="catalogoBody"></div>
       <button onclick="_catAgregar()" style="width:100%;margin-top:6px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:8px;font-size:12px;font-weight:700;cursor:pointer">+ Agregar concepto</button>
       <div style="display:flex;gap:8px;margin-top:14px">
@@ -399,6 +403,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <button type="button" class="be" id="btnResetTend" onclick="resetTendido()" style="font-size:11px;padding:6px 10px">↺</button>
       </div>
       <div id="tendInfo" style="font-family:var(--mono);font-size:13px;font-weight:700;margin-top:8px;color:var(--muted)">Toca ▶ cuando el camión empieza a descargar. Marca ⏹ Termina antes de guardar el viaje.</div>
+    </div>
+
+    <!-- TRAMO DE CAPTURA — decide qué subtramo se está cargando, filtra el menú de conceptos.
+         Los botones se generan según los subtramos que tenga definidos el catálogo de la obra activa. -->
+    <div class="fc" id="tramoCapturaCard" style="display:none;border:2px solid var(--gold)">
+      <h3>🛣️ Tramo que estás cargando</h3>
+      <div id="tramoCapturaBtns" style="display:flex;gap:8px;flex-wrap:wrap"></div>
+      <div style="font-size:10px;color:var(--muted);margin-top:6px">El menú de conceptos de abajo solo muestra los del tramo que elijas aquí — así no se puede capturar para el tramo equivocado por accidente. Se recuerda tu elección en este celular. Si un concepto quedó en el tramo que no es, corrígelo en 📋 Catálogo.</div>
     </div>
 
     <!-- DATOS VIAJE -->
@@ -730,7 +742,46 @@ function aplicarObraActiva(){
   if(be) be.style.display = (_sess && _sess.rol==='admin' && obraActiva!=='039') ? '' : 'none';
   const bc=document.getElementById('btnConfigCatalogo');
   if(bc) bc.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
+  _actualizarTramoCapturaUI();
   try{ if(window._appLista && typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
+}
+// ── TRAMO/SUBTRAMO DE CAPTURA — decide qué concepto se puede elegir, para no cargar el subtramo
+// equivocado. Los subtramos NO están fijos a "O1/O2": se toman del catálogo de la obra activa
+// (campo "obra" de cada concepto, editable en 📋 Catálogo) — puede haber 2, 3 o los que hagan falta.
+let tramoCaptura = localStorage.getItem('t039_tramo_captura')||'O1';
+// Lista de subtramos distintos que existen en el catálogo activo, en el orden en que aparecen
+function _subtramosDeObra(){
+  const vistos=[]; catalogoActivo.forEach(c=>{ const t=c.obra||'O1'; if(!vistos.includes(t)) vistos.push(t); });
+  return vistos;
+}
+function _obraTieneAmbosTramos(){ return _subtramosDeObra().length>1; }
+function _actualizarTramoCapturaUI(){
+  const card=document.getElementById('tramoCapturaCard'); const wrap=document.getElementById('tramoCapturaBtns');
+  if(!card||!wrap) return;
+  const subtramos=_subtramosDeObra();
+  card.style.display = subtramos.length>1 ? '' : 'none';
+  if(subtramos.length<=1) return;
+  if(!subtramos.includes(tramoCaptura)) tramoCaptura=subtramos[0];
+  wrap.innerHTML = subtramos.map(t=>{
+    const activo = t===tramoCaptura;
+    return `<button type="button" onclick="setTramoCaptura('${t.replace(/'/g,"\\'")}')" style="flex:1;padding:12px;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer;background:${activo?'var(--gold)':'var(--bg)'};color:${activo?'#000':'var(--txt)'};border:1px solid ${activo?'var(--gold)':'var(--bord)'}">${t}</button>`;
+  }).join('');
+}
+window.setTramoCaptura=function(t){
+  tramoCaptura=t; localStorage.setItem('t039_tramo_captura',t);
+  _actualizarTramoCapturaUI();
+  // El primer concepto del camión pasa a ser del subtramo elegido, para no dejar uno del tramo viejo
+  if(typeof conceptosViaje!=='undefined' && conceptosViaje && conceptosViaje[0]){
+    const opciones=catalogoActivo.filter(c=>tramoDeConcepto(c.id)===t);
+    if(opciones.length) conceptosViaje[0].id=opciones[0].id;
+  }
+  if(typeof renderConceptosContainer==='function') renderConceptosContainer();
+  toast('Cargando para '+t,'ok');
+};
+// Lista de conceptos filtrada al subtramo activo (o el catálogo completo si la obra no tiene 2+ subtramos)
+function _conceptosDelTramoActivo(){
+  if(!_obraTieneAmbosTramos()) return catalogoActivo;
+  return catalogoActivo.filter(c=>tramoDeConcepto(c.id)===tramoCaptura);
 }
 window.cambiarObra=function(v){
   if(!OBRAS[v]) return;
@@ -786,31 +837,68 @@ window.abrirConfigCatalogo=function(){
   _catObra=obraActiva;
   const base=conceptosDeObra(obraActiva);
   _catEdit = base.map(c=>({id:c.id||'',label:c.label||'',unidad:c.unidad||'m³',cantidad:c.cantidad!=null?c.cantidad:'',pu:c.pu!=null?c.pu:'',obra:c.obra||'O1'}));
+  _catRangos = _rangosTramoDeObra(obraActiva).map(r=>({nombre:r.nombre,min:r.min,max:r.max}));
   const lbl=document.getElementById('catalogoObraLbl');
   if(lbl) lbl.textContent='Obra: '+((OBRAS[obraActiva]&&OBRAS[obraActiva].nombre)||obraActiva)+' · cantidad y precio unitario según la unidad de cada concepto.';
   _renderConfigCatalogo();
+  _renderCatRangos();
   document.getElementById('catalogoModal').style.display='flex';
 };
 window.cerrarConfigCatalogo=function(){ document.getElementById('catalogoModal').style.display='none'; };
 function _renderConfigCatalogo(){
   const body=document.getElementById('catalogoBody');
-  body.innerHTML = `<div style="display:grid;grid-template-columns:1.5fr 1.5fr .6fr .8fr .8fr .6fr auto;gap:5px;margin-bottom:4px;font-size:9px;color:var(--muted);font-weight:700">
-    <div>ID</div><div>CONCEPTO</div><div>UNIDAD</div><div>CANTIDAD</div><div>PRECIO $</div><div>TRAMO</div><div></div>
+  // Sugerencias del datalist: subtramos que ya se usaron en esta misma tabla, para no repetir tecleo
+  const subtramosUsados=[...new Set(_catEdit.map(c=>(c.obra||'').trim()).filter(Boolean))];
+  const datalistId='catTramosSugeridos';
+  body.innerHTML = `<datalist id="${datalistId}">${subtramosUsados.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">`).join('')}</datalist>` +
+  `<div style="display:grid;grid-template-columns:1.5fr 1.5fr .6fr .8fr .8fr .9fr auto;gap:5px;margin-bottom:4px;font-size:9px;color:var(--muted);font-weight:700">
+    <div>ID</div><div>CONCEPTO</div><div>UNIDAD</div><div>CANTIDAD</div><div>PRECIO $</div><div>SUBTRAMO</div><div></div>
   </div>` + _catEdit.map((c,i)=>`
-    <div style="display:grid;grid-template-columns:1.5fr 1.5fr .6fr .8fr .8fr .6fr auto;gap:5px;margin-bottom:6px;align-items:center">
+    <div style="display:grid;grid-template-columns:1.5fr 1.5fr .6fr .8fr .8fr .9fr auto;gap:5px;margin-bottom:6px;align-items:center">
       <input value="${(c.id||'').replace(/"/g,'&quot;')}" oninput="_catEdit[${i}].id=this.value.toUpperCase()" placeholder="CARPETA5-O1" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
       <input value="${(c.label||'').replace(/"/g,'&quot;')}" oninput="_catEdit[${i}].label=this.value" placeholder="Carpeta 5cm" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
       <input value="${(c.unidad||'m³').replace(/"/g,'&quot;')}" oninput="_catEdit[${i}].unidad=this.value" placeholder="m³" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
       <input type="number" step="0.01" inputmode="decimal" value="${c.cantidad}" oninput="_catEdit[${i}].cantidad=parseFloat(this.value)||0" placeholder="0" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
       <input type="number" step="0.01" inputmode="decimal" value="${c.pu}" oninput="_catEdit[${i}].pu=parseFloat(this.value)||0" placeholder="0" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
-      <select onchange="_catEdit[${i}].obra=this.value" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
-        <option value="O1" ${c.obra==='O1'?'selected':''}>O1</option>
-        <option value="O2" ${c.obra==='O2'?'selected':''}>O2</option>
-      </select>
+      <input list="${datalistId}" value="${(c.obra||'').replace(/"/g,'&quot;')}" oninput="_catEdit[${i}].obra=this.value;_catRefrescarSugerencias()" placeholder="O1, O2, RamalNorte..." title="Escribe el nombre del subtramo al que pertenece este concepto — puede ser cualquier texto, no solo O1/O2" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
       <button onclick="_catQuitar(${i})" title="Quitar concepto" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:6px 8px;cursor:pointer">✕</button>
     </div>`).join('') || '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin conceptos · agrega al menos uno o impórtalos desde Excel.</div>';
 }
-window._catAgregar=function(){ _catEdit.push({id:'',label:'',unidad:'m³',cantidad:'',pu:'',obra:'O1'}); _renderConfigCatalogo(); };
+// Actualiza solo el datalist de sugerencias sin redibujar toda la tabla (para no perder el foco al teclear)
+window._catRefrescarSugerencias=function(){
+  const dl=document.getElementById('catTramosSugeridos'); if(!dl) return;
+  const subtramosUsados=[...new Set(_catEdit.map(c=>(c.obra||'').trim()).filter(Boolean))];
+  dl.innerHTML=subtramosUsados.map(t=>`<option value="${t.replace(/"/g,'&quot;')}">`).join('');
+};
+// ── RANGOS DE KILOMETRAJE POR SUBTRAMO — de aquí saca el importador de generador a qué subtramo
+// pertenece cada fila del Excel. Configurable por obra; si una obra no define los suyos, usa el
+// rango clásico de la 039 (O1/O2) como respaldo, para no romper lo que ya funciona.
+let _catRangos=[];
+function _rangosTramoDeObra(clave){
+  const o=OBRAS[clave||obraActiva];
+  if(o && Array.isArray(o.rangosTramo) && o.rangosTramo.length) return o.rangosTramo;
+  return [{nombre:'O1',min:46200,max:58700},{nombre:'O2',min:247600,max:251600}];
+}
+// Devuelve el NOMBRE del subtramo cuyo rango contiene ese kilometraje (o el primero si no cae en ninguno)
+function subtramoPorKm(km){
+  const rangos=_rangosTramoDeObra();
+  if(km==null||isNaN(km)) return rangos[0]?rangos[0].nombre:'O1';
+  const hit=rangos.find(r=>km>=r.min && km<=r.max);
+  return hit ? hit.nombre : (rangos[0]?rangos[0].nombre:'O1');
+}
+function _renderCatRangos(){
+  const body=document.getElementById('catRangosBody'); if(!body) return;
+  body.innerHTML = _catRangos.map((r,i)=>`
+    <div style="display:grid;grid-template-columns:1.4fr 1fr 1fr auto;gap:5px;margin-bottom:6px;align-items:center">
+      <input value="${(r.nombre||'').replace(/"/g,'&quot;')}" oninput="_catRangos[${i}].nombre=this.value" placeholder="Nombre (ej. O1)" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
+      <input type="number" step="0.01" value="${r.min}" oninput="_catRangos[${i}].min=parseFloat(this.value)||0" placeholder="km inicio" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
+      <input type="number" step="0.01" value="${r.max}" oninput="_catRangos[${i}].max=parseFloat(this.value)||0" placeholder="km fin" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
+      <button onclick="_catRangoQuitar(${i})" title="Quitar" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:6px 8px;cursor:pointer">✕</button>
+    </div>`).join('') || '<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin subtramos definidos — se usará el rango clásico O1/O2 de la 039.</div>';
+}
+window._catRangoAgregar=function(){ _catRangos.push({nombre:'',min:0,max:0}); _renderCatRangos(); };
+window._catRangoQuitar=function(i){ _catRangos.splice(i,1); _renderCatRangos(); };
+window._catAgregar=function(){ _catEdit.push({id:'',label:'',unidad:'m³',cantidad:'',pu:'',obra:_catEdit.length?(_catEdit[_catEdit.length-1].obra||'O1'):'O1'}); _renderConfigCatalogo(); };
 // Importa un catálogo desde Excel/CSV: busca columnas por nombre (flexible, sin importar el orden
 // ni mayúsculas/minúsculas). No guarda solo — llena la tabla para que el admin revise y corrija.
 window.leerCatalogoExcel=function(file){
@@ -859,6 +947,7 @@ window.guardarConfigCatalogo=function(){
   if(malFormado.length && !confirm('Estos ID no siguen el patrón RENIV-/BACHEO/CARPETA, y algunas funciones (ton por concepto, cadenamiento, avance) podrían no clasificarlos bien:\n\n'+malFormado.map(c=>c.id).join(', ')+'\n\n¿Guardar de todos modos?')) return;
   if(!OBRAS[_catObra]) OBRAS[_catObra]={clave:_catObra,nombre:_catObra};
   OBRAS[_catObra].conceptos = limpio.map(c=>({id:c.id.trim(),label:c.label.trim(),unidad:(c.unidad||'m³').trim(),cantidad:+c.cantidad||0,pu:+c.pu||0,obra:c.obra||'O1'}));
+  OBRAS[_catObra].rangosTramo = _catRangos.filter(r=>(r.nombre||'').trim()).map(r=>({nombre:r.nombre.trim(),min:+r.min||0,max:+r.max||0}));
   guardarObras(OBRAS);
   document.getElementById('catalogoModal').style.display='none';
   toast('Catálogo de "'+((OBRAS[_catObra]&&OBRAS[_catObra].nombre)||_catObra)+'" guardado ('+limpio.length+' concepto(s))','ok');
@@ -941,19 +1030,20 @@ const DEN        = 2.20;
 // y carpeta de O2 (MEX-80) son físicamente carreteras distintas, así que cada tramo lleva su propio
 // desglose. El tramo se determina por el sufijo del ID del concepto (termina en -O1 o -O2).
 function _mlPorTipo(recs){
-  const out={O1:{carpeta:0,reniv:0,bacheo:0}, O2:{carpeta:0,reniv:0,bacheo:0}};
-  const carrilesCarpeta={O1:new Set(),O2:new Set()};
+  const out={};
+  const carrilesCarpeta={};
   (recs||[]).forEach(r=>{
     const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,longitud:r.longitud,carril:r.carril}];
     cs.forEach(c=>{
       const tipo=/^RENIV/.test(c.id||'')?'reniv':(/^BACHEO/.test(c.id||'')?'bacheo':'carpeta');
-      const tramo=/O2$/i.test(c.id||'')?'O2':'O1';
+      const tramo=tramoDeConcepto(c.id); // clasificación real del catálogo — soporta cualquier subtramo, no solo O1/O2
+      if(!out[tramo]) out[tramo]={carpeta:0,reniv:0,bacheo:0};
+      if(!carrilesCarpeta[tramo]) carrilesCarpeta[tramo]=new Set();
       out[tramo][tipo]+=(+c.longitud||0);
       if(tipo==='carpeta' && c.carril) carrilesCarpeta[tramo].add(c.carril);
     });
   });
-  out.O1._carrilesCarpeta=carrilesCarpeta.O1.size||1;
-  out.O2._carrilesCarpeta=carrilesCarpeta.O2.size||1;
+  Object.keys(out).forEach(tr=>{ out[tr]._carrilesCarpeta=carrilesCarpeta[tr].size||1; });
   return out;
 }
 // ML del CAMIÓN individual (su propio recorrido, no un acumulado): resta cadenamiento min/max
@@ -970,7 +1060,7 @@ function _longTotalPorCadenamiento(conceptos){
 }
 function _fmtMlPorTipo(out){
   const bloques=[];
-  ['O1','O2'].forEach(tr=>{
+  Object.keys(out).forEach(tr=>{
     const o=out[tr]; if(!o) return;
     const partes=[];
     if(o.carpeta>0) partes.push('Carpeta '+o.carpeta.toFixed(2)+'m');
@@ -991,7 +1081,7 @@ function _resumenDia(rs, ed){
       if(c.kde!=null&&!isNaN(+c.kde)) kms.push(+c.kde);
       if(c.ka!=null&&!isNaN(+c.ka)) kms.push(+c.ka);
       if(c.carril){
-        const tramo=/O2$/i.test(c.id||'')?'O2':'O1';
+        const tramo=tramoDeConcepto(c.id); // clasificación real del catálogo, cualquier subtramo
         const key=tramo+'|'+c.carril;
         if(!porCarril[key]) porCarril[key]={min:null,max:null,ml:0,tramo,carril:c.carril};
         const o=porCarril[key];
@@ -1016,16 +1106,18 @@ function _resumenDia(rs, ed){
   }
   return {kdeMin, kaMax, carriles:Object.keys(porCarril), porCarril, espProm, rendTxt};
 }
-// Km promedio de avance POR TRAMO: promedia el cadenamiento mínimo y el máximo entre los carriles
-// de CADA tramo por separado, usando TODO el histórico de la obra (no solo el día). O1 y O2 son
-// carreteras distintas (MEX-200 vs MEX-80) — nunca se promedian entre sí.
+// Km promedio de avance POR SUBTRAMO: promedia el cadenamiento mínimo y el máximo entre los carriles
+// de CADA subtramo por separado, usando TODO el histórico de la obra (no solo el día). Los subtramos
+// son carreteras distintas — nunca se promedian entre sí. Soporta cualquier cantidad de subtramos,
+// según lo que tenga clasificado el catálogo (no está limitado a O1/O2).
 function _cadPromedioCarriles(){
-  const porTramo={O1:{},O2:{}};
+  const porTramo={};
   records.forEach(r=>{
     const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril,id:r.concepto}];
     cs.forEach(c=>{
       if(!c.carril) return;
-      const tramo=/O2$/i.test(c.id||'')?'O2':'O1';
+      const tramo=tramoDeConcepto(c.id);
+      if(!porTramo[tramo]) porTramo[tramo]={};
       const pc=porTramo[tramo];
       if(!pc[c.carril]) pc[c.carril]={min:null,max:null};
       const o=pc[c.carril];
@@ -1034,13 +1126,13 @@ function _cadPromedioCarriles(){
     });
   });
   const out={};
-  ['O1','O2'].forEach(tramo=>{
+  Object.keys(porTramo).forEach(tramo=>{
     const carriles=Object.keys(porTramo[tramo]);
     const mins=carriles.map(k=>porTramo[tramo][k].min).filter(v=>v!=null);
     const maxs=carriles.map(k=>porTramo[tramo][k].max).filter(v=>v!=null);
     if(mins.length&&maxs.length) out[tramo]={ ini: mins.reduce((a,b)=>a+b,0)/mins.length, fin: maxs.reduce((a,b)=>a+b,0)/maxs.length, n:carriles.length };
   });
-  return out; // {O1:{ini,fin,n}, O2:{ini,fin,n}} — cualquiera de las dos puede faltar si ese tramo no tiene cadenamiento capturado
+  return out; // {tramo: {ini,fin,n}, ...} — solo incluye los subtramos que sí tienen cadenamiento capturado
 }
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
@@ -2972,7 +3064,7 @@ function _detectarGenerador(wb){
         const cad=_cadNum(r[0]); const largo=parseFloat(r[1]); const area=parseFloat(r[3]); const vol=parseFloat(r[4]); const ubi=r[5];
         if(isNaN(cad)||isNaN(vol)||vol<=0) return;
         if(String(r[0]).toUpperCase().includes('TOTAL')||String(r[0]).includes('[dato')) return;
-        const obra = cad>=247000?2:1; // obra por cadenamiento real, no por nombre de hoja
+        const obra = subtramoPorKm(cad); // subtramo real según los rangos configurados, no un umbral fijo
         const lado=_ladoBache(ubi);
         const zona=Math.floor(cad/500)*500;
         const key=obra+'|'+zona+'|'+lado;
@@ -2993,7 +3085,7 @@ function _detectarGenerador(wb){
       const cd=parseFloat(r[3])||0, ci=parseFloat(r[4])||0, ad=parseFloat(r[5])||0, ai=parseFloat(r[6])||0;
       const volFila=parseFloat(r[9]); // volumen ya calculado en el generador
       if(isNaN(kde)||isNaN(ka)||!lng||isNaN(volFila)||volFila<=0) return;
-      const obra = kde>=247000?2:1;
+      const obra = subtramoPorKm(kde);
       const anchoD=cd+ad, anchoI=ci+ai, anchoTot=anchoD+anchoI;
       // Reparte el volumen de la fila entre der/izq proporcional al ancho de cada lado (respeta el total = columna VOLUMEN)
       if(anchoTot<=0){ bloques.push({obra,tipo:'reniv',lado:'L. DER.',kde,ka,area:+(lng*(parseFloat(r[7])||0)).toFixed(2),vol:+volFila.toFixed(3)}); return; }
@@ -3008,14 +3100,13 @@ function _confirmarGeneradorExtra(detect){
   const {tipo,bloques}=detect;
   if(!bloques.length){ toast('El generador no trajo datos válidos','warn'); return; }
   const volTot=bloques.reduce((s,b)=>s+b.vol,0);
-  const porObra={1:0,2:0}; bloques.forEach(b=>porObra[b.obra]+=b.vol);
+  const porObra={}; bloques.forEach(b=>{ porObra[b.obra]=(porObra[b.obra]||0)+b.vol; });
 
-  // catId por tipo+obra — se busca en el catálogo de la obra ACTIVA (no fijo a los ID de la 039),
-  // para que funcione igual en cualquier obra nueva que siga la convención RENIV-/BACHEO-.
-  const catIdDe=(tipo,obraNum)=>{
-    const tramo = obraNum===2 ? 'O2' : 'O1';
+  // catId por tipo+subtramo — se busca en el catálogo de la obra ACTIVA por el campo "obra" real
+  // de cada concepto (no por un sufijo fijo de ID), así funciona con cualquier cantidad de subtramos.
+  const catIdDe=(tipo,subtramoNombre)=>{
     const pref = tipo==='reniv' ? 'RENIV' : 'BACHEO';
-    const hit = catalogoActivo.find(c=>c.id && c.id.toUpperCase().startsWith(pref) && c.id.toUpperCase().endsWith('-'+tramo));
+    const hit = catalogoActivo.find(c=>c.id && c.id.toUpperCase().startsWith(pref) && c.obra===subtramoNombre);
     return hit ? hit.id : null;
   };
   const realPorId={};
@@ -3023,13 +3114,13 @@ function _confirmarGeneradorExtra(detect){
     const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{id:v.concepto,label:v.concepto,volumen:v.volumen}];
     cs.forEach(c=>{ const t=(String(c.id||'')+String(c.label||'')).toUpperCase();
       let id=null;
-      if(t.includes('RENIV')) id=catIdDe('reniv',1);
-      else if(t.includes('BACHEO')) id=catIdDe('bacheo', c.kde>=247000?2:1);
+      if(t.includes('RENIV')) id=catIdDe('reniv', tramoDeConcepto(c.id));
+      else if(t.includes('BACHEO')) id=catIdDe('bacheo', tramoDeConcepto(c.id));
       if(id) realPorId[id]=(realPorId[id]||0)+(+(c.volumen||0));
     });
   });
   const errores=[];
-  [1,2].forEach(ob=>{
+  Object.keys(porObra).forEach(ob=>{
     if(porObra[ob]<=0) return;
     const id=catIdDe(tipo,ob); if(!id) return;
     const cat=getCatItem(id); if(!cat) return;
@@ -3060,7 +3151,7 @@ function _confirmarGeneradorExtra(detect){
     <div style="font-size:12px;color:var(--muted);margin-bottom:10px">Se agrega como <b>volumen geométrico extra</b> (abunda para cobro/estimación). <b>NO cuenta como real</b> (sin toneladas de báscula), no afecta la ganancia del cliente.</div>
     <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px;font-size:13px;margin-bottom:12px">
       ${bloques.length} bloque(s) · <b>${volTot.toFixed(2)} m³</b> extra<br>
-      <span style="color:var(--muted);font-size:11px">Obra 1: ${porObra[1].toFixed(2)} m³ · Obra 2: ${porObra[2].toFixed(2)} m³</span>
+      <span style="color:var(--muted);font-size:11px">${Object.keys(porObra).map(ob=>`${ob}: ${porObra[ob].toFixed(2)} m³`).join(' · ')}</span>
     </div>
     <div style="font-size:11px;color:#a78bfa;margin-bottom:12px">Si ya importaste este mismo tipo antes, se REEMPLAZA (no se duplica).</div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
@@ -3644,7 +3735,7 @@ function renderConceptosContainer(){
       <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
         <select onchange="conceptosViaje[${i}].id=this.value;conceptosViaje[${i}].num_consec=null;renderConceptosContainer();setTimeout(()=>actualizarConsecutivo(${i}),50)" 
           style="flex:2;font-weight:700;color:var(--gold);background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px">
-          ${catalogoActivo.map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
+          ${_conceptosDelTramoActivo().map(x=>`<option value="${x.id}" ${x.id===cv.id?'selected':''}>${x.label}</option>`).join('')}
         </select>
         <span id="consec_${i}" style="display:none;padding:3px 10px;background:var(--navy);border:1px solid var(--blue);border-radius:99px;font-size:11px;font-weight:800;color:var(--blue);white-space:nowrap"></span>
         ${mostrarTon?`<div style="display:flex;align-items:center;gap:4px">
@@ -3795,7 +3886,9 @@ window.quitarConcepto=function(i){
 };
 
 function initConceptosViaje(){
-  conceptosViaje=[{id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
+  const opciones=_conceptosDelTramoActivo();
+  const def=opciones[0]||{id:'CARPETA3-O1'};
+  conceptosViaje=[{id:def.id,ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
   renderConceptosContainer();
 }
 
@@ -3971,10 +4064,10 @@ function renderList() {
           return `${o.tramo} · ${o.carril}: ${rango} (${o.ml.toFixed(2)}m)`;
         }).join(' · ')
       : (rd.kdeMin!=null&&rd.kaMax!=null ? `${fmtCad(rd.kdeMin)} → ${fmtCad(rd.kaMax)}${mlDia!=null?' ('+mlDia.toFixed(2)+'m)':''}` : '');
-    // Km promedio POR TRAMO: promedio del cadenamiento min/max entre los carriles de CADA tramo,
-    // usando TODO el histórico de la obra (no solo el día) — O1 y O2 nunca se promedian juntos.
+    // Km promedio POR SUBTRAMO: promedio del cadenamiento min/max entre los carriles de CADA
+    // subtramo, usando TODO el histórico de la obra (no solo el día) — nunca se promedian juntos.
     const cadProm = _cadPromedioCarriles();
-    const promTxt = ['O1','O2'].filter(t=>cadProm[t]).map(t=>{
+    const promTxt = Object.keys(cadProm).map(t=>{
       const cp=cadProm[t];
       return `📍 ${t} prom. (${cp.n} carril${cp.n>1?'es':''}): ${fmtCad(cp.ini)} → ${fmtCad(cp.fin)} (${((cp.fin-cp.ini)/1000).toFixed(2)} km)`;
     }).join('  |  ');
