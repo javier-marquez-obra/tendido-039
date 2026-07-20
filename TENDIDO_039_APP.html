@@ -850,32 +850,23 @@ function _fmtMlPorTipo(o){
   if(o.bacheo>0)  partes.push('Bacheo '+o.bacheo.toFixed(2)+'m');
   return partes.join(' · ')||'0 m';
 }
-// Igual que _fmtMlPorTipo, pero para el ACUM. OBRA le agrega un dato de referencia en carpeta:
-// el kilometraje PROMEDIO (ML de carpeta ÷ número de carriles trabajados). No es un acumulado
-// por carril — es un solo número aproximado para tener una idea del avance en km, nada más.
-function _fmtMlPorTipoAcum(o){
-  const partes=[];
-  if(o.carpeta>0){
-    const nCarr=o._carrilesCarpeta||1;
-    let txt='Carpeta '+o.carpeta.toFixed(2)+'m';
-    if(nCarr>1) txt+=' (≈'+(o.carpeta/nCarr/1000).toFixed(3)+'km prom./carril, solo referencia)';
-    partes.push(txt);
-  }
-  if(o.reniv>0)   partes.push('Reniv '+o.reniv.toFixed(2)+'m');
-  if(o.bacheo>0)  partes.push('Bacheo '+o.bacheo.toFixed(2)+'m');
-  return partes.join(' · ')||'0 m';
-}
 // Resumen físico del día: cadenamiento trabajado, carril(es), espesor real promedio y rendimiento
 // de emulsión (lts/m² contra la norma del tipo de riego guardado ese día).
 function _resumenDia(rs, ed){
   let areaTot=0, tonTot=0;
-  const kms=[]; const carriles=new Set();
+  const kms=[]; const porCarril={}; // {carril: {min,max,ml}}
   (rs||[]).forEach(r=>{
-    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril,area:r.area}];
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril,area:r.area,longitud:r.longitud}];
     cs.forEach(c=>{
       if(c.kde!=null&&!isNaN(+c.kde)) kms.push(+c.kde);
       if(c.ka!=null&&!isNaN(+c.ka)) kms.push(+c.ka);
-      if(c.carril) carriles.add(c.carril);
+      if(c.carril){
+        if(!porCarril[c.carril]) porCarril[c.carril]={min:null,max:null,ml:0};
+        const o=porCarril[c.carril];
+        if(c.kde!=null&&!isNaN(+c.kde)) o.min = o.min==null?+c.kde:Math.min(o.min,+c.kde);
+        if(c.ka!=null&&!isNaN(+c.ka)) o.max = o.max==null?+c.ka:Math.max(o.max,+c.ka);
+        o.ml += (+c.longitud||0);
+      }
     });
     areaTot+=(+r.area_total||+r.area||0);
     tonTot+=(+r.ton_recibidas||0);
@@ -891,7 +882,28 @@ function _resumenDia(rs, ed){
     const ok = ltm2>=norma.min && ltm2<=norma.max;
     rendTxt = ltm2.toFixed(2)+' lts/m² '+(ok?'✓':(ltm2<norma.min?'⚠️bajo':'⚠️alto'));
   }
-  return {kdeMin, kaMax, carriles:[...carriles], espProm, rendTxt};
+  return {kdeMin, kaMax, carriles:Object.keys(porCarril), porCarril, espProm, rendTxt};
+}
+// Km promedio de avance: promedia el cadenamiento mínimo y el máximo entre los carriles trabajados,
+// usando TODO el histórico de la obra (no solo el día) — da un "dónde vamos en promedio" general
+// entre los carriles (típicamente 3: izq./central/der.), sin ser un acumulado por carril.
+function _cadPromedioCarriles(){
+  const porCarril={};
+  records.forEach(r=>{
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril}];
+    cs.forEach(c=>{
+      if(!c.carril) return;
+      if(!porCarril[c.carril]) porCarril[c.carril]={min:null,max:null};
+      const o=porCarril[c.carril];
+      if(c.kde!=null&&!isNaN(+c.kde)) o.min = o.min==null?+c.kde:Math.min(o.min,+c.kde);
+      if(c.ka!=null&&!isNaN(+c.ka)) o.max = o.max==null?+c.ka:Math.max(o.max,+c.ka);
+    });
+  });
+  const carriles=Object.keys(porCarril);
+  const mins=carriles.map(k=>porCarril[k].min).filter(v=>v!=null);
+  const maxs=carriles.map(k=>porCarril[k].max).filter(v=>v!=null);
+  if(!mins.length||!maxs.length) return null;
+  return { ini: mins.reduce((a,b)=>a+b,0)/mins.length, fin: maxs.reduce((a,b)=>a+b,0)/maxs.length, n:carriles.length };
 }
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
@@ -1130,7 +1142,7 @@ function updateCounter() {
   const hb = document.getElementById('viajeHoy');
   const lb = document.getElementById('viajeFechaLbl');
   if (nb) nb.textContent = '#'+(hr.length+1);
-  if (hb) hb.textContent = hr.length+' vj · '+ton.toFixed(1)+' ton';
+  if (hb) hb.textContent = hr.length+' vj · '+ton.toFixed(2)+' ton';
   // La etiqueta muestra HOY si el día de tiro es hoy; si está fijado a otro día, la fecha
   if (lb) lb.textContent = (dia===hoyLocal()) ? 'Hoy' : dia.split('-').reverse().join('/');
 }
@@ -1141,7 +1153,7 @@ window.calcEmulsion = function() {
   const fin = parseFloat(document.getElementById('f_emul_fin').value);
   const lts = (!isNaN(ini)&&!isNaN(fin)&&ini>fin) ? ini-fin : NaN;
   const eu = document.getElementById('e_usados');
-  eu.textContent = isNaN(lts) ? '—' : lts.toFixed(0);
+  eu.textContent = isNaN(lts) ? '—' : lts.toFixed(2);
   const tipo = document.getElementById('f_emul_tipo').value;
   const al   = document.getElementById('emulAlert');
   const em2  = document.getElementById('e_m2dia');
@@ -1163,7 +1175,7 @@ window.calcEmulsion = function() {
 
   if (m2total > 0) {
     const ltm2 = lts / m2total;
-    em2.textContent = m2total.toFixed(0);
+    em2.textContent = m2total.toFixed(2);
     elt.textContent = ltm2.toFixed(2);
     al.style.padding='8px 12px'; al.style.borderRadius='8px';
     al.style.fontFamily='var(--mono)'; al.style.fontSize='12px';
@@ -1404,8 +1416,8 @@ window.guardarEmulFinal = async function() {
   const d = {
     lts_final: Math.round(fin*10)/10,
     lts_usados,
-    m2_dia: +m2dia.toFixed(1),
-    lts_m2: m2dia>0 ? +(lts_usados/m2dia).toFixed(3) : null,
+    m2_dia: +m2dia.toFixed(2),
+    lts_m2: m2dia>0 ? +(lts_usados/m2dia).toFixed(2) : null,
     capturado_por: session.nombre, ts_fin: Date.now()
   };
   try {
@@ -1437,8 +1449,8 @@ window.guardarEmulsionDia = async function() {
   // Rendimiento lts/m² calculado contra los m² tendidos del día
   const m2dia = records.filter(r=>r.fecha===fecha).reduce((s,r)=>s+(r.area||0),0);
   if (d.lts_usados!=null && m2dia>0) {
-    d.m2_dia = +m2dia.toFixed(1);
-    d.lts_m2 = +(d.lts_usados/m2dia).toFixed(3);
+    d.m2_dia = +m2dia.toFixed(2);
+    d.lts_m2 = +(d.lts_usados/m2dia).toFixed(2);
   }
   try {
     const p = setDoc(doc(db,'emulsion039',fecha), d, { merge:true });
@@ -2035,7 +2047,7 @@ function _pctAvanceGeo(){
   return { tot, TOT, extra, pct: TOT>0?(tot/TOT*100):0 };
 }
 function _avanceHeaderHtml(av){
-  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(1)}%</b> (${av.tot.toFixed(1)} / ${av.TOT} m³ del catálogo E-7)${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(1)} m³ extra</span>`:''}</div>`;
+  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(2)}%</b> (${av.tot.toFixed(2)} / ${av.TOT} m³ del catálogo E-7)${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(2)} m³ extra</span>`:''}</div>`;
 }
 function _puedeImprimirGrafico(){
   return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
@@ -2128,9 +2140,9 @@ function _renderVistaAreas(rs,elS,elC){
   // Vista AVANCE (geométrico): referencia · m² · m³ · ton
   const rowsSup=filas.map(([ref,d])=>`<tr>
     <td style="padding:4px 8px">${ref}<br><span style="font-size:9px;color:var(--muted)">${d.n} área(s)</span></td>
-    <td style="padding:4px 8px;text-align:right">${d.area.toFixed(1)}</td>
+    <td style="padding:4px 8px;text-align:right">${d.area.toFixed(2)}</td>
     <td style="padding:4px 8px;text-align:right;font-weight:700">${d.volGeo.toFixed(2)}</td>
-    <td style="padding:4px 8px;text-align:right">${d.ton.toFixed(1)}</td>
+    <td style="padding:4px 8px;text-align:right">${d.ton.toFixed(2)}</td>
   </tr>`).join('');
   elS.innerHTML=`<div style="font-size:11px;font-weight:800;color:var(--gold);margin-bottom:6px">📊 AVANCE POR ÁREAS (${OBRAS[obraActiva]?.nombre||obraActiva})</div>
     <div style="border:1px solid var(--bord);border-radius:8px;overflow:hidden">
@@ -2144,7 +2156,7 @@ function _renderVistaAreas(rs,elS,elC){
   const rowsCli=filas.map(([ref,d])=>{ const gan=d.volGeo-d.volReal; const gc=gan>=0?'#3ecf8e':'#ef4444';
     return `<tr>
       <td style="padding:4px 8px">${ref}<br><span style="font-size:9px;color:var(--muted)">${d.n} área(s)</span></td>
-      <td style="padding:4px 8px;text-align:right">${d.area.toFixed(1)}</td>
+      <td style="padding:4px 8px;text-align:right">${d.area.toFixed(2)}</td>
       <td style="padding:4px 8px;text-align:right">${d.volGeo.toFixed(2)}</td>
       <td style="padding:4px 8px;text-align:right;font-weight:700">${d.volReal.toFixed(2)}</td>
       <td style="padding:4px 8px;text-align:right;font-weight:700;color:${gc}">${gan>=0?'+':''}${gan.toFixed(2)}</td>
@@ -2559,13 +2571,13 @@ function renderTablaTiro(){
       ${sc('long')?`<td>${lng.toFixed(2)}</td>`:''}
       ${sc('ancho')?`<td>${aw.toFixed(2)}</td>`:''}
       ${sc('m2')?`<td>${area.toFixed(2)}</td>`:''}
-      ${sc('m3')?`<td style="color:var(--green);font-weight:700">${vol.toFixed(3)}</td>`:''}
+      ${sc('m3')?`<td style="color:var(--green);font-weight:700">${vol.toFixed(2)}</td>`:''}
       ${sc('ton')?`<td>${ton.toFixed(2)}</td>`:''}
       ${sc('esp')?`<td>${(er*100).toFixed(2)}</td>`:''}
       ${sc('tprod')?`<td>${primera?tpTxt:''}</td>`:''}
       ${sc('ttend')?`<td>${primera?ttTxt:''}</td>`:''}
-      ${sc('gan')?`<td class="G">${gan?('+'+gan.toFixed(3)):'—'}</td>`:''}
-      ${sc('per')?`<td class="P">${per?('−'+per.toFixed(3)):'—'}</td>`:''}
+      ${sc('gan')?`<td class="G">${gan?('+'+gan.toFixed(2)):'—'}</td>`:''}
+      ${sc('per')?`<td class="P">${per?('−'+per.toFixed(2)):'—'}</td>`:''}
       <td>${primera?`<button class="tiro-mod" onclick="modificarDesdeTiro('${v._id}')" ${editable?'':'disabled'} title="${editable?'Modificar este viaje':motivoBloqueo(v)}">${editable?'✏️ Modificar':'🔒'}</button>`:''}</td>
     </tr>`;
   }).join('');
@@ -2619,11 +2631,11 @@ function renderTablaTiro(){
     <tfoot><tr class="tiro-tot">
       <td colspan="${preSpan}" style="text-align:right">${filtroActivo?'ACUMULADO (filtrado) ▸':'ACUMULADO ▸'}</td>
       ${sc('m2')?`<td>${totM2.toFixed(2)}</td>`:''}
-      ${sc('m3')?`<td>${totM3.toFixed(3)}</td>`:''}
+      ${sc('m3')?`<td>${totM3.toFixed(2)}</td>`:''}
       ${sc('ton')?`<td>${totTon.toFixed(2)}</td>`:''}
       ${midSpan?`<td colspan="${midSpan}"></td>`:''}
-      ${sc('gan')?`<td class="G">${totGan?('+'+totGan.toFixed(3)):'—'}</td>`:''}
-      ${sc('per')?`<td class="P">${totPer?('−'+totPer.toFixed(3)):'—'}</td>`:''}
+      ${sc('gan')?`<td class="G">${totGan?('+'+totGan.toFixed(2)):'—'}</td>`:''}
+      ${sc('per')?`<td class="P">${totPer?('−'+totPer.toFixed(2)):'—'}</td>`:''}
       <td></td>
     </tr></tfoot></table>`;
 }
@@ -3032,7 +3044,7 @@ function _calcTraslapes(recs){
     for(const cur of arr){
       if(maxSeg && cur.a < maxEnd-0.5){
         const ov=Math.min(maxSeg.b,cur.b)-Math.max(maxSeg.a,cur.a);
-        if(ov>0.5) out.push(`${k}: viaje ${maxSeg.num} (${fmtCad(maxSeg.a)}–${fmtCad(maxSeg.b)}) ⟷ viaje ${cur.num} (${fmtCad(cur.a)}–${fmtCad(cur.b)}) ≈ ${ov.toFixed(1)} m`);
+        if(ov>0.5) out.push(`${k}: viaje ${maxSeg.num} (${fmtCad(maxSeg.a)}–${fmtCad(maxSeg.b)}) ⟷ viaje ${cur.num} (${fmtCad(cur.a)}–${fmtCad(cur.b)}) ≈ ${ov.toFixed(2)} m`);
       }
       if(cur.b>maxEnd){ maxEnd=cur.b; maxSeg=cur; }
     }
@@ -3499,8 +3511,8 @@ function renderConceptosContainer(){
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
         </div>
         <div style="display:flex;flex-direction:column;justify-content:flex-end">
-          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._area?cv._area.toFixed(1)+' m²':''}</div>
-          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._vol?cv._vol.toFixed(3)+' m³':''}</div>
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._area?cv._area.toFixed(2)+' m²':''}</div>
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._vol?cv._vol.toFixed(2)+' m³':''}</div>
         </div>
       </div>
       `:`
@@ -3550,8 +3562,8 @@ function renderConceptosContainer(){
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:14px;font-weight:700;color:var(--txt)">
         </div>
         <div style="display:flex;flex-direction:column;justify-content:flex-end">
-          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._area?cv._area.toFixed(1)+' m²':''}</div>
-          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._vol?cv._vol.toFixed(3)+' m³':''}</div>
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._area?cv._area.toFixed(2)+' m²':''}</div>
+          <div style="font-size:10px;color:var(--muted);text-align:center">${cv._vol?cv._vol.toFixed(2)+' m³':''}</div>
         </div>
       </div>
       `}
@@ -3756,32 +3768,34 @@ function renderList() {
   let html='';
   // Acumulado de metros lineales POR TIPO de concepto hasta cada fecha (incluida) — nunca se mezclan
   const fechasAsc=Object.keys(bd).sort((a,b)=>a.localeCompare(b));
-  const acumPorFecha={}; const acum={carpeta:0,reniv:0,bacheo:0}; const carrilSetAcum=new Set();
-  fechasAsc.forEach(f=>{
-    const t=_mlPorTipo(bd[f]);
-    acum.carpeta+=t.carpeta; acum.reniv+=t.reniv; acum.bacheo+=t.bacheo;
-    bd[f].forEach(r=>{
-      const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,carril:r.carril}];
-      cs.forEach(c=>{ if(!/^(RENIV|BACHEO)/.test(c.id||'') && c.carril) carrilSetAcum.add(c.carril); });
-    });
-    acumPorFecha[f]={...acum, _carrilesCarpeta:carrilSetAcum.size||1};
-  });
   const fechasDesc=fechasAsc.slice().reverse();
   const totalDias=fechasDesc.length;
   const fechasMostrar=fechasDesc.slice(0,_listDiasVisibles); // solo se DIBUJAN (con fotos) los días recientes
   fechasMostrar.forEach(date=>{
     const rs=bd[date], tt=rs.reduce((s,r)=>s+r.ton_recibidas,0);
+    const m2Dia=rs.reduce((s,r)=>s+(+r.area_total||+r.area||0),0);
     const mlTipo=_mlPorTipo(rs);
     const ed=emulDias[date];
     const rd=_resumenDia(rs, ed);
     const d=new Date(date+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
     const edTxt = ed ? `🛢️ ${ed.lts_inicio!=null?ed.lts_inicio+' lts inicio':''}${ed.lts_final!=null?' · '+ed.lts_final+' lts final · usó '+ed.lts_usados+' lts':' · SIN CIERRE'}` : '';
-    const cadTxt = rd.kdeMin!=null&&rd.kaMax!=null ? `📍 ${fmtCad(rd.kdeMin)} → ${fmtCad(rd.kaMax)}` : '';
-    const carrilTxt = rd.carriles.length ? '· '+rd.carriles.join('/') : '';
-    const espTxt = rd.espProm>0 ? `· Esp. prom ${rd.espProm.toFixed(2)}cm` : '';
+    const mlDia = rd.kdeMin!=null&&rd.kaMax!=null ? Math.abs(rd.kaMax-rd.kdeMin) : null;
+    // Cadenamiento POR CARRIL, cada uno con su propio ML del día (si hay 2+ carriles, salen todos por separado)
+    const cadPorCarrilTxt = rd.carriles.length
+      ? rd.carriles.map(cr=>{
+          const o=rd.porCarril[cr];
+          const rango = (o.min!=null&&o.max!=null) ? `${fmtCad(o.min)} → ${fmtCad(o.max)}` : '—';
+          return `${cr}: ${rango} (${o.ml.toFixed(2)}m)`;
+        }).join(' · ')
+      : (rd.kdeMin!=null&&rd.kaMax!=null ? `${fmtCad(rd.kdeMin)} → ${fmtCad(rd.kaMax)}${mlDia!=null?' ('+mlDia.toFixed(2)+'m)':''}` : '');
+    // Km promedio: promedio del cadenamiento min y max entre los carriles trabajados en TODA la obra
+    // (no solo el día) — un "dónde vamos en promedio" entre los carriles, no un acumulado por carril.
+    const cadProm = _cadPromedioCarriles();
+    const promTxt = cadProm ? `📍 Km promedio (${cadProm.n} carril${cadProm.n>1?'es':''}): ${fmtCad(cadProm.ini)} → ${fmtCad(cadProm.fin)} (${((cadProm.fin-cadProm.ini)/1000).toFixed(2)} km)` : '';
+    const espTxt = rd.espProm>0 ? `Esp. prom ${rd.espProm.toFixed(2)}cm` : '';
     const rendEmulTxt = rd.rendTxt ? `· 🛢️ ${rd.rendTxt}` : '';
-    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(1)} ton · ${rs.length} vj · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">ACUM. OBRA: ${_fmtMlPorTipoAcum(acumPorFecha[date])}${edTxt?' · '+edTxt:''}</span><br><span style="font-size:10px;color:var(--muted)">${cadTxt} ${carrilTxt} ${espTxt} ${rendEmulTxt}</span></div></div>`;
+    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(2)} ton · ${rs.length} vj · ${m2Dia.toFixed(1)} m² · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">${cadPorCarrilTxt}</span><br><span style="font-size:10px;color:var(--muted)">${promTxt}${edTxt?' · '+edTxt:''}</span><br><span style="font-size:10px;color:var(--muted)">${espTxt} ${rendEmulTxt}</span></div></div>`;
     rs.forEach(r=>{
       const G=r.gp==='GANANCIA', ce=puedeEditar(r);
       html+=`<div class="rc${ce?'':' no-edit'}" onclick="${ce?`openEdit('${r._id}')`:''}" >
@@ -3797,9 +3811,9 @@ function renderList() {
         </div>
         <div class="rg">
           <div class="rc2"><div class="rl">Ton</div><div class="rv">${r.ton_recibidas.toFixed(2)}</div></div>
-          <div class="rc2"><div class="rl">Área m²</div><div class="rv">${r.area.toFixed(0)}</div></div>
+          <div class="rc2"><div class="rl">Área m²</div><div class="rv">${r.area.toFixed(2)}</div></div>
           <div class="rc2"><div class="rl">Esp.r cm</div><div class="rv">${(r.esp_real*100).toFixed(2)}</div></div>
-          <div class="rc2"><div class="rl">m³ fav</div><div class="rv" style="color:${G?'var(--green)':'var(--red)'}">${r.m3_fav>=0?'+':''}${r.m3_fav.toFixed(3)}</div></div>
+          <div class="rc2"><div class="rl">m³ fav</div><div class="rv" style="color:${G?'var(--green)':'var(--red)'}">${r.m3_fav>=0?'+':''}${r.m3_fav.toFixed(2)}</div></div>
         </div>
         ${(r.temp_produccion||r.temp_tendido)?`<div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
           ${r.temp_produccion?`<span style="font-family:var(--mono);font-size:11px;background:rgba(240,180,41,.14);border:1px solid #3a2e00;color:var(--gold);padding:2px 7px;border-radius:4px">🌡️P ${r.temp_produccion}°C</span>`:''}
@@ -3811,7 +3825,7 @@ function renderList() {
           ? r.conceptos.map(cv=>{
               const cat=getCatItem(cv.id);
               const tag=cat&&cat.consecutivo&&cv.num_consec?' #'+cv.num_consec:'';
-              return (cv.label.split('·')[0]||cv.label).trim()+tag+' '+cv.ton.toFixed(1)+'t';
+              return (cv.label.split('·')[0]||cv.label).trim()+tag+' '+cv.ton.toFixed(2)+'t';
             }).join(' + ')
           : (r.concepto||'CARPETA 3CM O1')+(r.ton_concepto&&r.ton_concepto!==r.ton_recibidas?' · '+r.ton_concepto.toFixed(2)+' ton':'')
         )
@@ -3881,7 +3895,7 @@ function renderRepCamiones() {
   const lblFecha = multi?`${sel.size} días`:(()=>{ const d=new Date([...sel][0]+'T12:00:00'); return d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'}).toUpperCase(); })();
 
   let barrasHtml='';
-  Object.entries(byCam).sort((a,b)=>b[1].long-a[1].long).forEach(([placa,c])=>{ const pct=maxLong>0?Math.round(c.long/maxLong*100):0; barrasHtml+=`<div class="cam-bar-row"><div class="cam-placa">${placa}</div><div class="cam-bar-wrap"><div class="cam-bar-fill" style="width:${pct}%"></div></div><div class="cam-meta">${c.long.toFixed(0)}m · ${c.viajes}vj</div></div>`; });
+  Object.entries(byCam).sort((a,b)=>b[1].long-a[1].long).forEach(([placa,c])=>{ const pct=maxLong>0?Math.round(c.long/maxLong*100):0; barrasHtml+=`<div class="cam-bar-row"><div class="cam-placa">${placa}</div><div class="cam-bar-wrap"><div class="cam-bar-fill" style="width:${pct}%"></div></div><div class="cam-meta">${c.long.toFixed(2)}m · ${c.viajes}vj</div></div>`; });
 
   let tablaHtml=`<table class="dtbl"><thead><tr>${multi?'<th>FECHA</th>':''}<th>PLACAS</th><th>VJ</th><th>TON</th><th>ÁREA m²</th><th>METROS L</th><th>VALE/REM</th></tr></thead><tbody>`;
   recSel.forEach(r=>{ tablaHtml+=`<tr>${multi?`<td style="font-size:10px">${(r.fecha||'').split('-').reverse().join('/').slice(0,5)}</td>`:''}<td>${r.placas}</td><td style="text-align:center">${r.num_viaje_dia||'—'}</td><td>${(r.ton_recibidas||0).toFixed(2)}</td><td>${(r.area||0).toFixed(1)}</td><td>${(r.longitud||0).toFixed(0)}</td><td style="font-size:10px;color:var(--muted)">${r.vale||'—'} / ${r.remision||'—'}</td></tr>`; });
@@ -3892,8 +3906,8 @@ function renderRepCamiones() {
     <div class="rep-section">
       <h4>📊 Metros lineales por camión · ${lblFecha}</h4>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
-        <div class="cb"><div class="cl">Metros total</div><div class="cv">${totalLong.toFixed(0)}m</div></div>
-        <div class="cb"><div class="cl">Toneladas</div><div class="cv">${totalTon.toFixed(1)}</div></div>
+        <div class="cb"><div class="cl">Metros total</div><div class="cv">${totalLong.toFixed(2)}m</div></div>
+        <div class="cb"><div class="cl">Toneladas</div><div class="cv">${totalTon.toFixed(2)}</div></div>
         <div class="cb"><div class="cl">Camiones</div><div class="cv">${Object.keys(byCam).length}</div></div>
       </div>
       ${barrasHtml}
@@ -3939,7 +3953,7 @@ function renderRepVolumen() {
                       ? ed.lts_usados
                       : (emulRecV ? emulRecV.emulsion_lts : 0);
     if (emulLts) acumLts+=emulLts;
-    const ltm2=emulLts&&dArea>0?(emulLts/dArea).toFixed(3):'—';
+    const ltm2=emulLts&&dArea>0?(emulLts/dArea).toFixed(2):'—';
     const ltm2Color=!emulLts?'var(--muted)':parseFloat(ltm2)<0.8||parseFloat(ltm2)>1.2?'var(--red)':'var(--green)';
     const d=new Date(fecha+'T12:00:00');
     const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
@@ -3960,8 +3974,8 @@ function renderRepVolumen() {
       <td>${fmtCad(kmMax)}</td>
       <td>${mlReales.toFixed(2)}</td>
       <td>${anchoProm.toFixed(2)}</td>
-      <td>${dVol.toFixed(3)}</td>
-      <td class="G">${acumVol.toFixed(3)}</td>
+      <td>${dVol.toFixed(2)}</td>
+      <td class="G">${acumVol.toFixed(2)}</td>
       <td>${dTon.toFixed(2)}</td>
       <td style="color:var(--purple);font-weight:700">${emulLts||'—'}</td>
       <td style="color:${ltm2Color};font-weight:700">${ltm2}</td>
@@ -3974,15 +3988,15 @@ function renderRepVolumen() {
     <div class="kg">
       <div class="kc ac"><div class="kl">Vol acumulado m³</div><div class="kv">${totVol.toFixed(2)}</div><div class="ks">cat: 400 m³</div></div>
       <div class="kc gr"><div class="kl">m³ a favor</div><div class="kv">${totFav>=0?'+':''}${totFav.toFixed(2)}</div><div class="ks">&nbsp;</div></div>
-      <div class="kc"><div class="kl">Área total m²</div><div class="kv">${(totArea/1000).toFixed(1)}k</div><div class="ks">&nbsp;</div></div>
-      <div class="kc"><div class="kl">Metros lineales</div><div class="kv">${totMlReales.toFixed(0)}</div><div class="ks">avance real de carretera</div></div>
-      <div class="kc"><div class="kl">Metros tendidos</div><div class="kv">${totLong.toFixed(0)}</div><div class="ks">suma de todos los conceptos</div></div>
-      <div class="kc" style="border-left:3px solid var(--purple)"><div class="kl">Emulsión acumulada</div><div class="kv" style="color:var(--purple)">${acumLts>0?acumLts.toFixed(0):'—'}</div><div class="ks">lts ECR-65</div></div>
-      <div class="kc" style="border-left:3px solid var(--purple)"><div class="kl">Lts/m² promedio</div><div class="kv" style="color:var(--purple)">${acumLts>0&&totArea>0?(acumLts/totArea).toFixed(3):'—'}</div><div class="ks">norma: 0.8–1.2</div></div>
+      <div class="kc"><div class="kl">Área total m²</div><div class="kv">${(totArea/1000).toFixed(2)}k</div><div class="ks">&nbsp;</div></div>
+      <div class="kc"><div class="kl">Metros lineales</div><div class="kv">${totMlReales.toFixed(2)}</div><div class="ks">avance real de carretera</div></div>
+      <div class="kc"><div class="kl">Metros tendidos</div><div class="kv">${totLong.toFixed(2)}</div><div class="ks">suma de todos los conceptos</div></div>
+      <div class="kc" style="border-left:3px solid var(--purple)"><div class="kl">Emulsión acumulada</div><div class="kv" style="color:var(--purple)">${acumLts>0?acumLts.toFixed(2):'—'}</div><div class="ks">lts ECR-65</div></div>
+      <div class="kc" style="border-left:3px solid var(--purple)"><div class="kl">Lts/m² promedio</div><div class="kv" style="color:var(--purple)">${acumLts>0&&totArea>0?(acumLts/totArea).toFixed(2):'—'}</div><div class="ks">norma: 0.8–1.2</div></div>
     </div>
     <div class="pc"><h4>Avance vs catálogo</h4>
-      <div class="pr"><div class="pl">Vol m³</div><div class="pw"><div class="pf ${pctVol>80?'':'w'}" style="width:${pctVol.toFixed(1)}%"></div></div><div class="pp">${pctVol.toFixed(1)}%</div></div>
-      <div class="pr"><div class="pl">Área m²</div><div class="pw"><div class="pf w" style="width:${Math.min(totArea/8000*100,100).toFixed(1)}%"></div></div><div class="pp">${(totArea/8000*100).toFixed(1)}%</div></div>
+      <div class="pr"><div class="pl">Vol m³</div><div class="pw"><div class="pf ${pctVol>80?'':'w'}" style="width:${pctVol.toFixed(2)}%"></div></div><div class="pp">${pctVol.toFixed(2)}%</div></div>
+      <div class="pr"><div class="pl">Área m²</div><div class="pw"><div class="pf w" style="width:${Math.min(totArea/8000*100,100).toFixed(2)}%"></div></div><div class="pp">${(totArea/8000*100).toFixed(2)}%</div></div>
     </div>
     <div class="rep-section">
       <h4>📐 Acumulado diario · formato SICT</h4>
@@ -4001,10 +4015,10 @@ function renderRepVolumen() {
           <tr class="tot-row">
             <td>TOTAL</td><td>${records.length}</td><td>—</td><td>—</td>
             <td>${totMlReales.toFixed(2)}</td><td>—</td>
-            <td>${totVol.toFixed(3)}</td><td class="G">${totVol.toFixed(3)}</td><td>${totTon.toFixed(2)}</td>
-            <td style="color:var(--purple);font-weight:700">${acumLts>0?acumLts.toFixed(0):'—'}</td>
-            <td style="color:var(--purple)">${acumLts>0&&totArea>0?(acumLts/totArea).toFixed(3):'—'}</td>
-            <td style="color:var(--purple);font-weight:700">${acumLts>0?acumLts.toFixed(0):'—'}</td>
+            <td>${totVol.toFixed(2)}</td><td class="G">${totVol.toFixed(2)}</td><td>${totTon.toFixed(2)}</td>
+            <td style="color:var(--purple);font-weight:700">${acumLts>0?acumLts.toFixed(2):'—'}</td>
+            <td style="color:var(--purple)">${acumLts>0&&totArea>0?(acumLts/totArea).toFixed(2):'—'}</td>
+            <td style="color:var(--purple);font-weight:700">${acumLts>0?acumLts.toFixed(2):'—'}</td>
           </tr>
           </tbody>
         </table>
@@ -4272,7 +4286,7 @@ function _repGraficos(){
   const pct=metaVal>0?Math.min(totalVal/metaVal*100,100):0;
   const faltTonEq=esM3?faltVal*DEN:faltVal;
   const vjFalt=Math.ceil(faltTonEq/22);
-  const fmt=v=>esM3?v.toFixed(1):v.toFixed(0);
+  const fmt=v=>esM3?v.toFixed(2):v.toFixed(2);
   const W=700,H=200,padL=46,padB=34,padT=14,padR=12, cw=W-padL-padR, ch=H-padT-padB, n=dias.length, gap=cw/n, bw=Math.max(6,Math.min(46,gap*0.62));
   // G1 barras por día
   let bars='',xlab='';
@@ -4304,8 +4318,8 @@ function _repGraficos(){
       <div class="cb"><div class="cl">Viajes falt.</div><div class="cv">${faltVal>0?vjFalt:'✓'}</div></div>
     </div>
     <div style="background:var(--bord);border-radius:99px;height:18px;overflow:hidden;position:relative">
-      <div style="height:100%;width:${pct.toFixed(1)}%;background:linear-gradient(90deg,var(--gold),var(--green))"></div>
-      <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--txt)">${pct.toFixed(1)}% colocado</span>
+      <div style="height:100%;width:${pct.toFixed(2)}%;background:linear-gradient(90deg,var(--gold),var(--green))"></div>
+      <span style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--txt)">${pct.toFixed(2)}% colocado</span>
     </div>
     <div style="font-size:10px;color:var(--muted)">Meta = catálogo E-7 (${metaM3.toLocaleString('es-MX')} m³)${esM3?'':' × densidad '+DEN}</div>
   </div>`;
