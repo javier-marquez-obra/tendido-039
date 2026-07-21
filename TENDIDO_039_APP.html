@@ -2335,21 +2335,21 @@ function _tablaVolConcepto(o1,o2,modo){
   if(modo==='sup'){
     let tGeo=0;
     const rows=conDatos.map(f=>{ const v=acc[f.key].geo; tGeo+=v;
-      return `<tr><td style="padding:3px 8px">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700">${v.toFixed(2)} m³</td></tr>`;
+      return `<tr><td style="padding:3px 8px;color:var(--txt)">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700;color:var(--txt)">${v.toFixed(2)} m³</td></tr>`;
     }).join('');
     return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
       <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen · ${_scopeDiasLabel()}</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">${rows}
-        <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
+        <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800;color:var(--txt)">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
       </table></div>`;
   } else {
     let tGeo=0,tReal=0;
     const rows=conDatos.map(f=>{ const g=acc[f.key].geo, r=acc[f.key].real, gan=g-r; tGeo+=g; tReal+=r;
       const gc=gan>=0?'#3ecf8e':'#ef4444';
       return `<tr>
-        <td style="padding:3px 8px">${f.label}</td>
-        <td style="padding:3px 8px;text-align:right">${g.toFixed(2)}</td>
-        <td style="padding:3px 8px;text-align:right;font-weight:700">${r.toFixed(2)}</td>
+        <td style="padding:3px 8px;color:var(--txt)">${f.label}</td>
+        <td style="padding:3px 8px;text-align:right;color:var(--txt)">${g.toFixed(2)}</td>
+        <td style="padding:3px 8px;text-align:right;font-weight:700;color:var(--txt)">${r.toFixed(2)}</td>
         <td style="padding:3px 8px;text-align:right;font-weight:700;color:${gc}">${gan>=0?'+':''}${gan.toFixed(2)}</td>
       </tr>`;
     }).join('');
@@ -2359,7 +2359,7 @@ function _tablaVolConcepto(o1,o2,modo){
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <tr style="color:var(--muted);font-size:10px"><td style="padding:3px 8px">Concepto</td><td style="padding:3px 8px;text-align:right">Geométrico</td><td style="padding:3px 8px;text-align:right">Real</td><td style="padding:3px 8px;text-align:right">Ganancia</td></tr>
         ${rows}
-        <tr style="border-top:2px solid #3b82f6"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:700">${tGeo.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800">${tReal.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:${gcT}">${tGan>=0?'+':''}${tGan.toFixed(2)}</td></tr>
+        <tr style="border-top:2px solid #3b82f6"><td style="padding:5px 8px;font-weight:800;color:var(--txt)">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:700;color:var(--txt)">${tGeo.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--txt)">${tReal.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:${gcT}">${tGan>=0?'+':''}${tGan.toFixed(2)}</td></tr>
       </table>
       <div style="font-size:9.5px;color:var(--muted);padding:4px 8px">Ganancia = geométrico − real (m³). Positivo: se colocó menos material del teórico.</div>
     </div>`;
