@@ -564,7 +564,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
   <!-- VIAJES -->
   <div class="view" id="view-viajes">
+    <div id="viajesToolbar" style="display:none;margin-bottom:8px">
+      <button class="be" onclick="abrirAuditoriaFolios()" style="padding:6px 12px;font-size:12px;border-color:#a78bfa;color:#a78bfa">🔍 Auditar folios duplicados (vale/remisión)</button>
+    </div>
     <div id="listViajes"></div>
+  </div>
+
+  <div id="foliosAuditOv" class="ov" style="z-index:140">
+    <div class="sh" style="max-width:640px;max-height:86vh;overflow-y:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <h4 style="margin:0;color:#a78bfa">🔍 Folios repetidos entre camiones distintos</h4>
+        <button onclick="document.getElementById('foliosAuditOv').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Compara el № capturado contra lo que de verdad dice la foto guardada de ese viaje (vuelve a leer la boleta). Si la báscula recicla su contador de folios cada cierto tiempo, un folio repetido varias semanas después puede ser normal — esto te ayuda a distinguirlo de un error real de captura.</div>
+      <div id="foliosAuditBody"></div>
+    </div>
   </div>
 
   <!-- REPORTE CAMIONES -->
@@ -742,6 +756,8 @@ function aplicarObraActiva(){
   if(be) be.style.display = (_sess && _sess.rol==='admin' && obraActiva!=='039') ? '' : 'none';
   const bc=document.getElementById('btnConfigCatalogo');
   if(bc) bc.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
+  const vt=document.getElementById('viajesToolbar');
+  if(vt) vt.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
   _actualizarTramoCapturaUI();
   try{ if(window._appLista && typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
 }
@@ -1612,7 +1628,93 @@ function procesarTextoBoleta(texto){
   if(!pesos.length&&!folios.length) html+='<div style="color:var(--red);font-size:13px">No se detectaron números legibles. Acerca más la cámara, evita sombras, y que la boleta llene la foto.</div>';
   panel.innerHTML=html+'<div style="margin-top:8px"><button class="be" onclick="document.getElementById(\'ocrPanel\').style.display=\'none\'">✕ Cerrar</button></div>';
 }
+// ═══ AUDITORÍA DE FOLIOS: detecta vale/remisión repetidos entre camiones DISTINTOS y permite
+// verificar contra la foto real guardada de ese viaje (vuelve a leer la boleta con OCR) ═══
+function _detectarFoliosDuplicados(){
+  // Colapsa por viaje real (fecha+placas+num_viaje_dia) — un camión con 2 conceptos no cuenta 2 veces
+  const viajes={};
+  records.forEach(r=>{
+    const key=r.fecha+'|'+r.placas+'|'+r.num_viaje_dia;
+    if(!viajes[key]) viajes[key]={ _id:r._id, fecha:r.fecha, placas:r.placas, num:r.num_viaje_dia, vale:(r.vale||'').trim(), remision:(r.remision||'').trim(), fotos:r.fotos||[] };
+  });
+  const lista=Object.values(viajes);
+  const valeMap={}, remMap={};
+  lista.forEach(v=>{
+    if(v.vale) (valeMap[v.vale.toUpperCase()]=valeMap[v.vale.toUpperCase()]||[]).push(v);
+    if(v.remision) (remMap[v.remision.toUpperCase()]=remMap[v.remision.toUpperCase()]||[]).push(v);
+  });
+  const dupVale=Object.entries(valeMap).filter(([k,v])=>v.length>1);
+  const dupRem=Object.entries(remMap).filter(([k,v])=>v.length>1);
+  return {dupVale, dupRem};
+}
+window.abrirAuditoriaFolios=function(){
+  const {dupVale,dupRem}=_detectarFoliosDuplicados();
+  const body=document.getElementById('foliosAuditBody');
+  const fila=(folio,tipo,v,idx)=>{
+    const uid=tipo+'_'+folio.replace(/[^A-Z0-9]/gi,'')+'_'+idx;
+    return `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--bord)">
+      <div style="font-size:11px">${v.fecha} · ${v.placas} · viaje#${v.num} · ${tipo}: <b>${folio}</b></div>
+      <button id="btnVer_${uid}" onclick="verificarFolioConFoto('${v._id}','${tipo==='Vale'?'vale':'remision'}','${folio.replace(/'/g,"\\'")}','${uid}')" style="font-size:10px;padding:4px 8px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;color:var(--txt);cursor:pointer;white-space:nowrap">🔍 Verificar con foto</button>
+    </div><div id="res_${uid}" style="font-size:10px;padding:0 8px 6px;color:var(--muted)"></div>`;
+  };
+  let html='';
+  if(dupVale.length){
+    html+='<div style="font-weight:800;color:var(--gold);font-size:12px;margin:8px 0 4px">№ VALE repetido:</div>';
+    dupVale.forEach(([folio,vs])=>vs.forEach((v,i)=>html+=fila(folio,'Vale',v,folio+i)));
+  }
+  if(dupRem.length){
+    html+='<div style="font-weight:800;color:var(--blue);font-size:12px;margin:12px 0 4px">№ REMISIÓN repetida:</div>';
+    dupRem.forEach(([folio,vs])=>vs.forEach((v,i)=>html+=fila(folio,'Remisión',v,folio+i)));
+  }
+  if(!dupVale.length && !dupRem.length) html='<div style="text-align:center;padding:20px;color:var(--green);font-weight:700">✓ No hay folios repetidos entre camiones distintos.</div>';
+  body.innerHTML=html;
+  document.getElementById('foliosAuditOv').style.display='flex';
+};
+// Vuelve a leer con OCR la(s) foto(s) guardada(s) de ESE viaje y checa si el folio capturado
+// realmente aparece en lo que dice la boleta. No cambia nada solo — es un dato para que tú decidas.
+window.verificarFolioConFoto=async function(recId,campo,folioEsperado,uid){
+  const btn=document.getElementById('btnVer_'+uid);
+  const res=document.getElementById('res_'+uid);
+  const rec=records.find(r=>r._id===recId);
+  if(!rec || !rec.fotos || !rec.fotos.length){ res.textContent='❓ Este viaje no tiene fotos guardadas para verificar.'; return; }
+  btn.disabled=true; btn.textContent='⟳ leyendo...';
+  res.textContent='Leyendo foto(s) guardada(s)...';
+  try{
+    await cargarTesseract();
+    const worker=await Tesseract.createWorker('spa');
+    let textoTotal='';
+    for(const foto of rec.fotos.slice(0,3)){
+      const {data}=await worker.recognize(foto);
+      textoTotal+=' '+(data.text||'');
+    }
+    await worker.terminate();
+    // Misma extracción de folios candidatos que al capturar
+    const nums=[...textoTotal.matchAll(/\d{1,3}[,.]\d{3}(?:[.,]\d{1,2})?|\d{3,6}|\d{1,2}[.,]\d{2}\b/g)].map(m=>m[0].replace(/[,.]/g,''));
+    const folioLimpio=String(folioEsperado).replace(/[,.]/g,'').toUpperCase();
+    const coincide=nums.some(n=>n.toUpperCase()===folioLimpio);
+    if(coincide){
+      res.innerHTML='<span style="color:var(--green);font-weight:700">✓ Coincide — el número '+folioEsperado+' sí aparece en la foto guardada.</span>';
+    } else if(nums.length){
+      res.innerHTML='<span style="color:var(--gold);font-weight:700">⚠️ No encontré "'+folioEsperado+'" en la foto. Números que sí detecté: '+[...new Set(nums)].slice(0,8).join(', ')+'</span>';
+    } else {
+      res.innerHTML='<span style="color:var(--muted)">❓ No se detectaron números legibles en la foto — revísala a simple vista.</span>';
+    }
+  }catch(err){
+    res.innerHTML='<span style="color:var(--red)">✕ Error leyendo la foto: '+(err.message||err)+'</span>';
+  }
+  btn.disabled=false; btn.textContent='🔍 Verificar con foto';
+};
 window.usarOCR=function(campo,valor){
+  // Si el campo hermano (vale<->remisión) ya tiene ESTE MISMO folio, avisa antes de repetirlo —
+  // son documentos distintos y normalmente no deberían compartir número.
+  if(campo==='f_vale'||campo==='f_remision'){
+    const otroCampo = campo==='f_vale' ? 'f_remision' : 'f_vale';
+    const otroEl=document.getElementById(otroCampo);
+    if(otroEl && otroEl.value.trim() && otroEl.value.trim().toUpperCase()===String(valor).trim().toUpperCase()){
+      const nombreOtro = otroCampo==='f_vale' ? 'Vale' : 'Remisión';
+      if(!confirm(`⚠️ Ese folio "${valor}" ya lo pusiste en ${nombreOtro}. Vale y Remisión son documentos distintos — ¿seguro que van con el mismo número?`)) return;
+    }
+  }
   document.getElementById(campo).value=valor;
   if(campo==='f_ton'&&typeof calc==='function') calc();
   toast('✓ Dato aplicado — verifica contra la boleta');
@@ -1895,6 +1997,22 @@ window.guardar = async function() {
   sincronizarTonConcepto(ton);
   const vd=validarDistribucion(ton);
   if(!vd.ok){ if(!confirm('⚠️ '+vd.msg+'\n\n¿Guardar de todos modos?')) return; }
+  // Avisar si el № de vale o de remisión ya se usó en OTRO viaje (posible folio mal leído/repetido)
+  const _vale=document.getElementById('f_vale').value.trim();
+  const _remision=document.getElementById('f_remision').value.trim();
+  // Vale y remisión son documentos DISTINTOS (uno es del proveedor de mezcla, otro de la báscula) —
+  // si quedaron con el mismo número, casi siempre es que se picó el botón equivocado del OCR.
+  if(_vale && _remision && _vale.toUpperCase()===_remision.toUpperCase()){
+    if(!confirm(`⚠️ El № de Vale y el № de Remisión quedaron IGUALES ("${_vale}"). Son documentos distintos (vale = mezcla, remisión = báscula) — normalmente no deberían coincidir. Si usaste el lector de boleta, es común picar el botón equivocado.\n\n¿Seguro que están bien así? (Cancelar para corregir)`)) return;
+  }
+  if(_vale){
+    const dup=records.find(r=>r.vale && r.vale.trim().toUpperCase()===_vale.toUpperCase());
+    if(dup && !confirm(`⚠️ El № de vale "${_vale}" ya se usó en el viaje de ${dup.placas} (${dup.fecha}). Revisa la boleta — ¿de verdad es el mismo folio, o se leyó mal?\n\n¿Guardar de todos modos?`)) return;
+  }
+  if(_remision){
+    const dupR=records.find(r=>r.remision && r.remision.trim().toUpperCase()===_remision.toUpperCase());
+    if(dupR && !confirm(`⚠️ La № de remisión "${_remision}" ya se usó en el viaje de ${dupR.placas} (${dupR.fecha}). Revisa la boleta — ¿de verdad es la misma remisión, o se leyó mal?\n\n¿Guardar de todos modos?`)) return;
+  }
   // Leer cadenamientos y geometría de cada concepto desde el DOM
   const DEN_=2.35;
   const _gsent=(document.getElementById('f_sentido')||{}).value||'sube';
@@ -2335,21 +2453,21 @@ function _tablaVolConcepto(o1,o2,modo){
   if(modo==='sup'){
     let tGeo=0;
     const rows=conDatos.map(f=>{ const v=acc[f.key].geo; tGeo+=v;
-      return `<tr><td style="padding:3px 8px;color:var(--txt)">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700;color:var(--txt)">${v.toFixed(2)} m³</td></tr>`;
+      return `<tr><td style="padding:3px 8px">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700">${v.toFixed(2)} m³</td></tr>`;
     }).join('');
     return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
       <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen · ${_scopeDiasLabel()}</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">${rows}
-        <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800;color:var(--txt)">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
+        <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
       </table></div>`;
   } else {
     let tGeo=0,tReal=0;
     const rows=conDatos.map(f=>{ const g=acc[f.key].geo, r=acc[f.key].real, gan=g-r; tGeo+=g; tReal+=r;
       const gc=gan>=0?'#3ecf8e':'#ef4444';
       return `<tr>
-        <td style="padding:3px 8px;color:var(--txt)">${f.label}</td>
-        <td style="padding:3px 8px;text-align:right;color:var(--txt)">${g.toFixed(2)}</td>
-        <td style="padding:3px 8px;text-align:right;font-weight:700;color:var(--txt)">${r.toFixed(2)}</td>
+        <td style="padding:3px 8px">${f.label}</td>
+        <td style="padding:3px 8px;text-align:right">${g.toFixed(2)}</td>
+        <td style="padding:3px 8px;text-align:right;font-weight:700">${r.toFixed(2)}</td>
         <td style="padding:3px 8px;text-align:right;font-weight:700;color:${gc}">${gan>=0?'+':''}${gan.toFixed(2)}</td>
       </tr>`;
     }).join('');
@@ -2359,7 +2477,7 @@ function _tablaVolConcepto(o1,o2,modo){
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <tr style="color:var(--muted);font-size:10px"><td style="padding:3px 8px">Concepto</td><td style="padding:3px 8px;text-align:right">Geométrico</td><td style="padding:3px 8px;text-align:right">Real</td><td style="padding:3px 8px;text-align:right">Ganancia</td></tr>
         ${rows}
-        <tr style="border-top:2px solid #3b82f6"><td style="padding:5px 8px;font-weight:800;color:var(--txt)">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:700;color:var(--txt)">${tGeo.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--txt)">${tReal.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:${gcT}">${tGan>=0?'+':''}${tGan.toFixed(2)}</td></tr>
+        <tr style="border-top:2px solid #3b82f6"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:700">${tGeo.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800">${tReal.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:${gcT}">${tGan>=0?'+':''}${tGan.toFixed(2)}</td></tr>
       </table>
       <div style="font-size:9.5px;color:var(--muted);padding:4px 8px">Ganancia = geométrico − real (m³). Positivo: se colocó menos material del teórico.</div>
     </div>`;
@@ -3512,6 +3630,21 @@ window.saveEdit=async function() {
   const vol=concPpal.volumen||(area*(et/100));
   const er=ton&&area?(ton/(area*DEN)):0;
   const mf=ton&&area?(((et)/100)-er)*area:0;
+  // Misma validación que en captura: avisar si vale=remisión (documentos distintos) o si el folio
+  // ya se usó en OTRO viaje que no sea este mismo que se está editando.
+  const _vale=document.getElementById('e_v').value.trim();
+  const _remision=document.getElementById('e_r').value.trim();
+  if(_vale && _remision && _vale.toUpperCase()===_remision.toUpperCase()){
+    if(!confirm(`⚠️ El № de Vale y el № de Remisión quedaron IGUALES ("${_vale}"). Son documentos distintos (vale = mezcla, remisión = báscula) — normalmente no deberían coincidir.\n\n¿Seguro que están bien así? (Cancelar para corregir)`)) return;
+  }
+  if(_vale){
+    const dup=records.find(r=>r._id!==editId && r.vale && r.vale.trim().toUpperCase()===_vale.toUpperCase());
+    if(dup && !confirm(`⚠️ El № de vale "${_vale}" ya se usó en el viaje de ${dup.placas} (${dup.fecha}). Revisa la boleta.\n\n¿Guardar de todos modos?`)) return;
+  }
+  if(_remision){
+    const dupR=records.find(r=>r._id!==editId && r.remision && r.remision.trim().toUpperCase()===_remision.toUpperCase());
+    if(dupR && !confirm(`⚠️ La № de remisión "${_remision}" ya se usó en el viaje de ${dupR.placas} (${dupR.fecha}). Revisa la boleta.\n\n¿Guardar de todos modos?`)) return;
+  }
   try {
     const _pUpd = updateDoc(doc(db,COL,editId),{
       fecha:document.getElementById('e_f').value,
