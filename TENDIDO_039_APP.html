@@ -2444,42 +2444,55 @@ function _tablaVolConcepto(o1,o2,modo){
     {key:'bach_O2',  label:'Bacheo · O2',       tipo:'bacheo',obra:2},
     {key:'carp_O2',  label:'Carpeta · O2',      tipo:'carpeta',obra:2},
   ];
-  const acc={}; filas.forEach(f=>acc[f.key]={geo:0,real:0});
-  const add=(segs,obra)=>segs.forEach(s=>{ const k=s.tipo==='reniv'?'reniv':(s.tipo==='bacheo'?'bach':'carp'); const key=`${k}_O${obra}`; if(acc[key]){ acc[key].geo+=s.volGeo||0; acc[key].real+=s.volReal||0; } });
+  const acc={}; filas.forEach(f=>acc[f.key]={geo:0,real:0,minA:Infinity,maxB:-Infinity,car:{}});
+  const add=(segs,obra)=>segs.forEach(s=>{ const k=s.tipo==='reniv'?'reniv':(s.tipo==='bacheo'?'bach':'carp'); const key=`${k}_O${obra}`; const a=acc[key]; if(!a) return;
+    a.geo+=s.volGeo||0; a.real+=s.volReal||0; a.minA=Math.min(a.minA,s.a); a.maxB=Math.max(a.maxB,s.b);
+    const sd=s.side||'?'; if(!a.car[sd]) a.car[sd]={minA:s.a,maxB:s.b}; a.car[sd].minA=Math.min(a.car[sd].minA,s.a); a.car[sd].maxB=Math.max(a.car[sd].maxB,s.b);
+  });
   add(o1,1); add(o2,2);
   const conDatos=filas.filter(f=>acc[f.key].geo>0 || acc[f.key].real>0);
   if(!conDatos.length) return '';
+  // Detalle "hasta dónde va" por carril (Izq/Cent/Der)
+  const _ord={IZQ:0,CEN:1,DER:2}, _nom={IZQ:'Izq',CEN:'Cent',DER:'Der'};
+  const detCar=(car)=>Object.entries(car).filter(([,d])=>isFinite(d.maxB)).sort((x,y)=>(_ord[x[0]]??9)-(_ord[y[0]]??9)).map(([sd,d])=>`${_nom[sd]||sd} →<b>${fmtCad(Math.round(d.maxB))}</b>`).join(' · ');
+  const cad=(f)=>{ const a=acc[f.key]; return isFinite(a.maxB)?fmtCad(Math.round(a.maxB)):'—'; };
 
   if(modo==='sup'){
     let tGeo=0;
-    const rows=conDatos.map(f=>{ const v=acc[f.key].geo; tGeo+=v;
-      return `<tr><td style="padding:3px 8px">${f.label}</td><td style="padding:3px 8px;text-align:right;font-weight:700">${v.toFixed(2)} m³</td></tr>`;
+    const rows=conDatos.map(f=>{ const v=acc[f.key].geo; tGeo+=v; const det=detCar(acc[f.key].car);
+      return `<tr><td style="padding:3px 8px">${f.label}</td><td style="padding:3px 8px;text-align:center;font-weight:700;color:var(--gold)">${cad(f)}</td><td style="padding:3px 8px;text-align:right;font-weight:700">${v.toFixed(2)} m³</td></tr>`
+        + (det?`<tr><td colspan="3" style="padding:0 8px 4px;font-size:9.5px;color:var(--muted)">↳ ${det}</td></tr>`:'');
     }).join('');
     return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
-      <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen · ${_scopeDiasLabel()}</div>
-      <table style="width:100%;border-collapse:collapse;font-size:11px">${rows}
-        <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
-      </table></div>`;
+      <div style="background:rgba(240,180,41,.12);padding:6px 8px;font-size:11px;font-weight:800;color:var(--gold)">📊 Volumen y avance por concepto · ${_scopeDiasLabel()}</div>
+      <table style="width:100%;border-collapse:collapse;font-size:11px">
+        <tr style="color:var(--muted);font-size:10px"><td style="padding:3px 8px">Concepto</td><td style="padding:3px 8px;text-align:center">Hasta (cad.)</td><td style="padding:3px 8px;text-align:right">Geométrico</td></tr>
+        ${rows}
+        <tr style="border-top:2px solid var(--gold)"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td></td><td style="padding:5px 8px;text-align:right;font-weight:800;color:var(--gold)">${tGeo.toFixed(2)} m³</td></tr>
+      </table>
+      <div style="font-size:9.5px;color:var(--muted);padding:4px 8px">"Hasta" = cadenamiento más avanzado del concepto. ↳ detalle por carril.</div></div>`;
   } else {
     let tGeo=0,tReal=0;
-    const rows=conDatos.map(f=>{ const g=acc[f.key].geo, r=acc[f.key].real, gan=g-r; tGeo+=g; tReal+=r;
+    const rows=conDatos.map(f=>{ const g=acc[f.key].geo, r=acc[f.key].real, gan=g-r; tGeo+=g; tReal+=r; const det=detCar(acc[f.key].car);
       const gc=gan>=0?'#3ecf8e':'#ef4444';
       return `<tr>
         <td style="padding:3px 8px">${f.label}</td>
+        <td style="padding:3px 8px;text-align:center;font-weight:700;color:#3b82f6">${cad(f)}</td>
         <td style="padding:3px 8px;text-align:right">${g.toFixed(2)}</td>
         <td style="padding:3px 8px;text-align:right;font-weight:700">${r.toFixed(2)}</td>
         <td style="padding:3px 8px;text-align:right;font-weight:700;color:${gc}">${gan>=0?'+':''}${gan.toFixed(2)}</td>
-      </tr>`;
+      </tr>`
+      + (det?`<tr><td colspan="5" style="padding:0 8px 4px;font-size:9.5px;color:var(--muted)">↳ ${det}</td></tr>`:'');
     }).join('');
     const tGan=tGeo-tReal, gcT=tGan>=0?'#3ecf8e':'#ef4444';
     return `<div style="margin-top:10px;border:1px solid var(--bord);border-radius:8px;overflow:hidden">
-      <div style="background:rgba(59,130,246,.12);padding:6px 8px;font-size:11px;font-weight:800;color:#3b82f6">📊 Volumen y ganancia · ${_scopeDiasLabel()}</div>
+      <div style="background:rgba(59,130,246,.12);padding:6px 8px;font-size:11px;font-weight:800;color:#3b82f6">📊 Volumen, avance y ganancia por concepto · ${_scopeDiasLabel()}</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
-        <tr style="color:var(--muted);font-size:10px"><td style="padding:3px 8px">Concepto</td><td style="padding:3px 8px;text-align:right">Geométrico</td><td style="padding:3px 8px;text-align:right">Real</td><td style="padding:3px 8px;text-align:right">Ganancia</td></tr>
+        <tr style="color:var(--muted);font-size:10px"><td style="padding:3px 8px">Concepto</td><td style="padding:3px 8px;text-align:center">Hasta (cad.)</td><td style="padding:3px 8px;text-align:right">Geométrico</td><td style="padding:3px 8px;text-align:right">Real</td><td style="padding:3px 8px;text-align:right">Ganancia</td></tr>
         ${rows}
-        <tr style="border-top:2px solid #3b82f6"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td style="padding:5px 8px;text-align:right;font-weight:700">${tGeo.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800">${tReal.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:${gcT}">${tGan>=0?'+':''}${tGan.toFixed(2)}</td></tr>
+        <tr style="border-top:2px solid #3b82f6"><td style="padding:5px 8px;font-weight:800">TOTAL</td><td></td><td style="padding:5px 8px;text-align:right;font-weight:700">${tGeo.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800">${tReal.toFixed(2)}</td><td style="padding:5px 8px;text-align:right;font-weight:800;color:${gcT}">${tGan>=0?'+':''}${tGan.toFixed(2)}</td></tr>
       </table>
-      <div style="font-size:9.5px;color:var(--muted);padding:4px 8px">Ganancia = geométrico − real (m³). Positivo: se colocó menos material del teórico.</div>
+      <div style="font-size:9.5px;color:var(--muted);padding:4px 8px">"Hasta" = cadenamiento más avanzado del concepto · ↳ por carril. Ganancia = geométrico − real.</div>
     </div>`;
   }
 }
@@ -2653,7 +2666,8 @@ function _larguilloVista(segs,titulo,tramo,modo){
       rows+=`<rect x="${x1}" y="${y+trackH+2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${BACHEO_COL}"${s.extra?' stroke="#fff" stroke-width="0.7" stroke-dasharray="2 1.5"':''}><title>Bacheo${s.extra?' EXTRA (geométrico)':' · viaje '+s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)} · ${(s.volGeo||0).toFixed(2)} m³</title></rect>`;
     });
     if(ss.length){
-      const ma=Math.min(...ss.map(s=>s.a)), mb=Math.max(...ss.map(s=>s.b));
+      const base = carp.length ? carp : ss; // el cadenamiento del carril lo marca la CARPETA, no un bacheo/reniv aislado
+      const ma=Math.min(...base.map(s=>s.a)), mb=Math.max(...base.map(s=>s.b));
       const areaTot=ss.reduce((s,x)=>s+(x.area||0),0);
       rows+=`<text x="${PADL-8}" y="${cy+3}" text-anchor="end" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(ma))}</text>`;
       rows+=`<text x="${W-PADR+5}" y="${cy-6}" font-size="9.5" font-weight="800" fill="${t.color}">${fmtCad(Math.round(mb))}</text>`;
