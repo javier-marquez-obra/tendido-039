@@ -3828,7 +3828,42 @@ function calcKaConcepto(i){
       conceptosViaje[i].ml=ml;
     }
   }
+  _checkTraslapeEnVivo(i);
   calcResumenViaje();
+}
+// Alerta EN VIVO si el cadenamiento que se está tecleando se empalma con un viaje ya guardado
+// del MISMO carril y tramo (cualquier día) — para avisar antes de guardar, no hasta el reporte.
+function _checkTraslapeEnVivo(i){
+  const el=document.getElementById('traslape_warn_'+i);
+  if(!el) return;
+  const cv=conceptosViaje[i];
+  if(!cv || cv.kde==null || cv.ka==null || isNaN(cv.kde) || isNaN(cv.ka)){ el.style.display='none'; return; }
+  if(/reniv|bacheo/i.test(cv.id||'')){ el.style.display='none'; return; } // reniv/bacheo se pisan con carpeta por diseño
+  const a=Math.min(cv.kde,cv.ka), b=Math.max(cv.kde,cv.ka);
+  if(b-a<0.5){ el.style.display='none'; return; }
+  const lado=ladoDe(cv.carril);
+  if(!lado){ el.style.display='none'; return; }
+  const tramo=cv.kde>=247000?'O2':'O1';
+  let choque=null;
+  for(const r of records){
+    if(choque) break;
+    _conceptosDe(r).forEach(c=>{
+      if(choque) return;
+      if(c.kde==null||c.ka==null) return;
+      if(/reniv|bacheo/i.test(c.id||'')) return;
+      const lado2=ladoDe(c.carril||r.carril); if(lado2!==lado) return;
+      const tramo2=(c.kde>=247000?'O2':'O1'); if(tramo2!==tramo) return;
+      const a2=Math.min(c.kde,c.ka), b2=Math.max(c.kde,c.ka);
+      const ov=Math.min(b,b2)-Math.max(a,a2);
+      if(ov>0.5) choque={r,ov};
+    });
+  }
+  if(choque){
+    el.style.display='block';
+    el.innerHTML=`⚠️ Se empalma ${choque.ov.toFixed(2)} m con el viaje #${choque.r.num_viaje_dia||'?'} del ${choque.r.fecha} (${choque.r.placas||'?'}), mismo carril y tramo. Revisa el cadenamiento.`;
+  } else {
+    el.style.display='none';
+  }
 }
 
 // Calcular resumen total del camión sumando todos los conceptos
@@ -3940,7 +3975,7 @@ function renderConceptosContainer(){
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">De KM</div>
           <input type="text" id="f_kde_${i}" value="${cv.kde?fmtCad(cv.kde):''}" placeholder="46+200.00" autocomplete="off"
-            oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})" onchange="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})" onkeyup="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
+            oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i});this.dataset.autofill=''" onchange="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i});this.dataset.autofill=''" onkeyup="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
         </div>
         <div>
@@ -3958,11 +3993,12 @@ function renderConceptosContainer(){
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Carril</div>
-          <select onchange="conceptosViaje[${i}].carril=this.value;sugerirAnchoViaje(${i})"
+          <select onchange="conceptosViaje[${i}].carril=this.value;sugerirAnchoViaje(${i});if(${i}===0)prellenarKdePorConcepto(true);_checkTraslapeEnVivo(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
             ${carrilesDeConcepto(cv.id).map(c=>`<option ${(cv.carril||carrilesDeConcepto(cv.id)[0]?.label)===c.label?'selected':''}>${c.label}</option>`).join('')}
           </select>
         </div>
+        <div id="traslape_warn_${i}" style="display:none;grid-column:1/-1;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:6px;padding:6px 8px;font-size:11px;color:#dc2626;font-weight:700"></div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Ancho ini (m)</div>
           <input type="number" id="f_aw1_${i}" value="${cv.aw1||''}" placeholder="3.34" step="0.01" inputmode="decimal"
@@ -4124,27 +4160,39 @@ function actualizarHintTon(){
   if(!hint) return;
   hint.textContent=tonTotal>0?'Ton totales del camion: '+tonTotal.toFixed(2)+' - Captura las que van a este concepto':'';
 }
-function prellenarKdePorConcepto(){
+function prellenarKdePorConcepto(forzar){
   const el=document.getElementById('f_kde_0');
-  if(!el||el.value) return;
+  if(!el) return;
+  // No pisar lo que el capturista ya escribió a mano — solo refresca si el valor actual vino
+  // del auto-relleno anterior (dataset.autofill), o si el campo está vacío.
+  if(el.value && el.dataset.autofill!=='1' && !forzar) return;
   const hoy=fechaJornada();
   const concId=conceptosViaje.length>0?conceptosViaje[0].id:'CARPETA3-O1';
   const concLabel=getCatItem(concId)?.label||concId;
-  const mismoConcepto=records
+  // Si el carril aún no se sincronizó en el dato (recién cambió el concepto), usa el mismo default
+  // que se ve en el desplegable — así el filtro de abajo compara contra el carril real, no "vacío".
+  if(conceptosViaje.length>0 && !conceptosViaje[0].carril){
+    conceptosViaje[0].carril = carrilesDeConcepto(concId)[0]?.label || '';
+  }
+  const carrilSel=conceptosViaje.length>0?(conceptosViaje[0].carril||''):'';
+  // REGLA: primero se elige el carril, y el cadenamiento se precarga del ÚLTIMO viaje de ESE
+  // MISMO concepto Y CARRIL — así no se arrastra por error el avance de un carril distinto
+  // (esto es lo que causaba que L. IZQ. se prellenara con el cadenamiento de L. DER., o al revés).
+  const mismoConceptoYCarril=records
     .filter(r=>r.fecha===hoy && (
-      r.concepto===concLabel ||
-      (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(cv=>cv.id===concId))
+      (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(cv=>cv.id===concId && (!carrilSel || (cv.carril||r.carril)===carrilSel))) ||
+      (!r.conceptos && r.concepto===concLabel && (!carrilSel || r.carril===carrilSel))
     ))
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
-  if(!mismoConcepto.length) return;
-  const ult=mismoConcepto[0];
-  // Buscar el KA del concepto del mismo tipo en el último viaje
+  if(!mismoConceptoYCarril.length){ el.value=''; el.dataset.autofill='1'; conceptosViaje[0].kde=null; return; }
+  const ult=mismoConceptoYCarril[0];
+  // Buscar el KA del concepto+carril correcto en el último viaje (puede tener varios conceptos/carriles)
   let kaUlt=ult.ka;
   if(ult.conceptos&&Array.isArray(ult.conceptos)){
-    const cv=ult.conceptos.find(cv=>cv.id===concId);
+    const cv=ult.conceptos.find(cv=>cv.id===concId && (!carrilSel || (cv.carril||ult.carril)===carrilSel));
     if(cv&&cv.ka) kaUlt=cv.ka;
   }
-  if(kaUlt){ el.value=fmtCad(kaUlt); conceptosViaje[0].kde=kaUlt; }
+  if(kaUlt){ el.value=fmtCad(kaUlt); el.dataset.autofill='1'; conceptosViaje[0].kde=kaUlt; }
 }
 function prellenarKde(){
   refrescarFechaJornada();
