@@ -3885,22 +3885,25 @@ window._checkFolioEnVivo=function(cual){
   const warnVale=document.getElementById('folio_warn_vale'), warnRem=document.getElementById('folio_warn_remision');
   if(!elVale||!elRem||!warnVale||!warnRem) return;
   const vale=elVale.value.trim(), remision=elRem.value.trim();
-  // 1) Vale = Remisión en el mismo camión
-  if(vale && remision && vale.toUpperCase()===remision.toUpperCase()){
+  const iguales = !!(vale && remision && vale.toUpperCase()===remision.toUpperCase());
+  // Cada campo se revisa siempre, sin importar cuál de los dos disparó el evento — así escribir en
+  // uno no borra el aviso que ya tenía el otro (ese era el bug: se limpiaban los dos y solo se
+  // volvía a calcular el que acababas de tocar).
+  if(iguales){
     const msg='⚠️ Vale y Remisión quedaron con el mismo número ("'+vale+'"). Son documentos distintos — revisa si se leyó bien.';
     warnVale.style.display='block'; warnVale.textContent=msg;
     warnRem.style.display='block'; warnRem.textContent=msg;
   } else {
-    warnVale.style.display='none'; warnRem.style.display='none';
-    // 2) Folio repetido contra otro camión ya guardado (cualquier día)
-    if(cual==='vale' && vale){
+    if(vale){
       const dup=records.find(r=>r.vale && r.vale.trim().toUpperCase()===vale.toUpperCase());
       if(dup){ warnVale.style.display='block'; warnVale.textContent=`⚠️ El № de vale "${vale}" ya se usó en el viaje de ${dup.placas||'?'} (${dup.fecha||'?'}). Revisa la boleta.`; }
-    }
-    if(cual==='remision' && remision){
+      else { warnVale.style.display='none'; }
+    } else { warnVale.style.display='none'; }
+    if(remision){
       const dupR=records.find(r=>r.remision && r.remision.trim().toUpperCase()===remision.toUpperCase());
       if(dupR){ warnRem.style.display='block'; warnRem.textContent=`⚠️ La № de remisión "${remision}" ya se usó en el viaje de ${dupR.placas||'?'} (${dupR.fecha||'?'}). Revisa la boleta.`; }
-    }
+      else { warnRem.style.display='none'; }
+    } else { warnRem.style.display='none'; }
   }
 };
 
@@ -4015,6 +4018,7 @@ function renderConceptosContainer(){
           <input type="text" id="f_kde_${i}" value="${cv.kde?fmtCad(cv.kde):''}" placeholder="46+200.00" autocomplete="off"
             oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i});this.dataset.autofill=''" onchange="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i});this.dataset.autofill=''" onkeyup="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
+          ${i===0?`<button type="button" onclick="buscarCadenamientoCarril(0)" style="width:100%;margin-top:4px;background:var(--blue4);border:1px solid var(--blue);border-radius:5px;color:var(--blue);padding:3px 6px;font-size:10px;font-weight:700;cursor:pointer">🔍 Buscar dónde se quedó este carril</button>`:''}
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">ML avanzados</div>
@@ -4199,6 +4203,39 @@ function actualizarHintTon(){
   if(!hint) return;
   hint.textContent=tonTotal>0?'Ton totales del camion: '+tonTotal.toFixed(2)+' - Captura las que van a este concepto':'';
 }
+// Búsqueda EXPLÍCITA (con confirmación visible) de dónde se quedó un concepto+carril — para
+// verificar de forma clara que el auto-relleno silencioso sí encuentra el dato correcto.
+window.buscarCadenamientoCarril=function(i){
+  const cv=conceptosViaje[i]; if(!cv){ toast('No hay concepto capturado','err'); return; }
+  const concId=cv.id;
+  const carrilSel=cv.carril||'';
+  if(!carrilSel){ toast('Primero elige el carril de este concepto','err'); return; }
+  const concLabel=getCatItem(concId)?.label||concId;
+  const mismoConceptoYCarril=records
+    .filter(r=>(
+      (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(c=>c.id===concId && (c.carril||r.carril)===carrilSel)) ||
+      (!r.conceptos && r.concepto===concLabel && r.carril===carrilSel)
+    ))
+    .sort((a,b)=>(b.ts||0)-(a.ts||0));
+  if(!mismoConceptoYCarril.length){
+    alert(`No encontré ningún viaje anterior de "${concLabel}" en el carril "${carrilSel}". Puedes capturar el cadenamiento inicial a mano.`);
+    return;
+  }
+  const ult=mismoConceptoYCarril[0];
+  let kaUlt=ult.ka;
+  if(ult.conceptos&&Array.isArray(ult.conceptos)){
+    const c=ult.conceptos.find(c=>c.id===concId && (c.carril||ult.carril)===carrilSel);
+    if(c&&c.ka) kaUlt=c.ka;
+  }
+  if(!kaUlt){ alert('Encontré el viaje pero no tiene cadenamiento final guardado — revísalo a mano.'); return; }
+  const ok=confirm(`El carril "${carrilSel}" (${concLabel}) se quedó en ${fmtCad(kaUlt)}, del viaje #${ult.num_viaje_dia||'?'} del ${ult.fecha} (${ult.placas||'?'}).\n\n¿Confirmas iniciar este camión ahí?`);
+  if(!ok) return;
+  const el=document.getElementById('f_kde_'+i);
+  if(el){ el.value=fmtCad(kaUlt); el.dataset.autofill='1'; }
+  conceptosViaje[i].kde=kaUlt;
+  calcKaConcepto(i);
+  toast('✓ Cadenamiento inicial confirmado: '+fmtCad(kaUlt));
+};
 function prellenarKdePorConcepto(forzar){
   const el=document.getElementById('f_kde_0');
   if(!el) return;
