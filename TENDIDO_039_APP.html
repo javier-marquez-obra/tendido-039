@@ -456,8 +456,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
             <button type="button" class="be" onclick="agregarOpcion('f_tipomezcla','t039_mezcla_extra','Nuevo tipo de mezcla')" title="Agregar mezcla" style="padding:0 10px">➕</button>
           </div>
         </div>
-        <div class="field"><label>№ Vale mezcla</label><input type="text" id="f_vale" placeholder="V-001"></div>
-        <div class="field"><label>№ Remisión báscula</label><input type="text" id="f_remision" placeholder="R-0001"></div>
+        <div class="field"><label>№ Vale mezcla</label><input type="text" id="f_vale" placeholder="V-001" oninput="_checkFolioEnVivo('vale')">
+          <div id="folio_warn_vale" style="display:none;margin-top:4px;font-size:11px;font-weight:700;color:#dc2626;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:6px;padding:5px 8px"></div>
+        </div>
+        <div class="field"><label>№ Remisión báscula</label><input type="text" id="f_remision" placeholder="R-0001" oninput="_checkFolioEnVivo('remision')">
+          <div id="folio_warn_remision" style="display:none;margin-top:4px;font-size:11px;font-weight:700;color:#dc2626;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:6px;padding:5px 8px"></div>
+        </div>
         <!-- SENTIDO DEL TENDIDO -->
         <div class="field" id="sentidoWrap" style="grid-column:1/-1">
           <label style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)">SENTIDO DEL TENDIDO</label>
@@ -1724,6 +1728,8 @@ window.usarOCR=function(campo,valor){
   }
   document.getElementById(campo).value=valor;
   if(campo==='f_ton'&&typeof calc==='function') calc();
+  if(campo==='f_vale') _checkFolioEnVivo('vale');
+  if(campo==='f_remision') _checkFolioEnVivo('remision');
   toast('✓ Dato aplicado — verifica contra la boleta');
 };
 
@@ -3872,6 +3878,31 @@ function _checkTraslapeEnVivo(i){
     el.style.display='none';
   }
 }
+// Alerta EN VIVO mientras escribes el № de Vale o Remisión: avisa si ya se usó en OTRO camión,
+// o si Vale y Remisión quedaron con el mismo número (son documentos distintos).
+window._checkFolioEnVivo=function(cual){
+  const elVale=document.getElementById('f_vale'), elRem=document.getElementById('f_remision');
+  const warnVale=document.getElementById('folio_warn_vale'), warnRem=document.getElementById('folio_warn_remision');
+  if(!elVale||!elRem||!warnVale||!warnRem) return;
+  const vale=elVale.value.trim(), remision=elRem.value.trim();
+  // 1) Vale = Remisión en el mismo camión
+  if(vale && remision && vale.toUpperCase()===remision.toUpperCase()){
+    const msg='⚠️ Vale y Remisión quedaron con el mismo número ("'+vale+'"). Son documentos distintos — revisa si se leyó bien.';
+    warnVale.style.display='block'; warnVale.textContent=msg;
+    warnRem.style.display='block'; warnRem.textContent=msg;
+  } else {
+    warnVale.style.display='none'; warnRem.style.display='none';
+    // 2) Folio repetido contra otro camión ya guardado (cualquier día)
+    if(cual==='vale' && vale){
+      const dup=records.find(r=>r.vale && r.vale.trim().toUpperCase()===vale.toUpperCase());
+      if(dup){ warnVale.style.display='block'; warnVale.textContent=`⚠️ El № de vale "${vale}" ya se usó en el viaje de ${dup.placas||'?'} (${dup.fecha||'?'}). Revisa la boleta.`; }
+    }
+    if(cual==='remision' && remision){
+      const dupR=records.find(r=>r.remision && r.remision.trim().toUpperCase()===remision.toUpperCase());
+      if(dupR){ warnRem.style.display='block'; warnRem.textContent=`⚠️ La № de remisión "${remision}" ya se usó en el viaje de ${dupR.placas||'?'} (${dupR.fecha||'?'}). Revisa la boleta.`; }
+    }
+  }
+};
 
 // Calcular resumen total del camión sumando todos los conceptos
 function calcResumenViaje(){
