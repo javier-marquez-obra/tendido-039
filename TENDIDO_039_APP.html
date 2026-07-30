@@ -4166,7 +4166,6 @@ function prellenarKdePorConcepto(forzar){
   // No pisar lo que el capturista ya escribió a mano — solo refresca si el valor actual vino
   // del auto-relleno anterior (dataset.autofill), o si el campo está vacío.
   if(el.value && el.dataset.autofill!=='1' && !forzar) return;
-  const hoy=fechaJornada();
   const concId=conceptosViaje.length>0?conceptosViaje[0].id:'CARPETA3-O1';
   const concLabel=getCatItem(concId)?.label||concId;
   // Si el carril aún no se sincronizó en el dato (recién cambió el concepto), usa el mismo default
@@ -4176,10 +4175,11 @@ function prellenarKdePorConcepto(forzar){
   }
   const carrilSel=conceptosViaje.length>0?(conceptosViaje[0].carril||''):'';
   // REGLA: primero se elige el carril, y el cadenamiento se precarga del ÚLTIMO viaje de ESE
-  // MISMO concepto Y CARRIL — así no se arrastra por error el avance de un carril distinto
-  // (esto es lo que causaba que L. IZQ. se prellenara con el cadenamiento de L. DER., o al revés).
+  // MISMO concepto Y CARRIL — SIN IMPORTAR EL DÍA (puede ser de ayer, antier, la semana pasada).
+  // Lo que manda es el carril, no la fecha — si se limitara a "hoy" nunca traería nada al empezar
+  // un día nuevo, que es justo cuando más se necesita continuar desde donde se quedó ese carril.
   const mismoConceptoYCarril=records
-    .filter(r=>r.fecha===hoy && (
+    .filter(r=>(
       (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(cv=>cv.id===concId && (!carrilSel || (cv.carril||r.carril)===carrilSel))) ||
       (!r.conceptos && r.concepto===concLabel && (!carrilSel || r.carril===carrilSel))
     ))
