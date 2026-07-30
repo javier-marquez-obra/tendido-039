@@ -1203,7 +1203,7 @@ function restaurarBorrador(){
         }
       }catch(e){}
     }
-    if(hubo){ toast('📝 Se recuperó lo que tenías capturado'); if(typeof calc==='function')calc(); if(typeof calcEmulsion==='function')calcEmulsion(); }
+    if(hubo){ toast('📝 Se recuperó lo que tenías capturado'); if(typeof calc==='function')calc(); if(typeof calcEmulsion==='function')calcEmulsion(); if(typeof _checkFolioEnVivo==='function') _checkFolioEnVivo('vale'); }
   }catch(e){}
 }
 document.addEventListener('DOMContentLoaded',()=>{
@@ -2163,6 +2163,10 @@ function resetForm(kaAnterior) {
   renderConceptosContainer();
   // Solo limpiar campos globales que SÍ existen (los de cadenamiento/ML viven por concepto)
   ['f_placas','f_ton','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  // Los avisos de folio repetido (vale/remisión) no se limpian solos porque poner .value='' por código
+  // no dispara el oninput — hay que ocultarlos aquí a mano, si no se quedan pegados del viaje anterior.
+  const _fwv=document.getElementById('folio_warn_vale'); if(_fwv) _fwv.style.display='none';
+  const _fwr=document.getElementById('folio_warn_remision'); if(_fwr) _fwr.style.display='none';
   // limpiar tipo de camión y "sin placa" para el siguiente viaje
   const _sp=document.getElementById('f_sinplaca'); if(_sp) _sp.checked=false;
   const _pl=document.getElementById('f_placas'); if(_pl){ _pl.disabled=false; _pl.style.opacity='1'; }
