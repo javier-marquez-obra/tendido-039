@@ -783,13 +783,20 @@ function _actualizarTramoCapturaUI(){
     return `<button type="button" onclick="setTramoCaptura('${t.replace(/'/g,"\\'")}')" style="flex:1;padding:12px;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer;background:${activo?'var(--gold)':'var(--bg)'};color:${activo?'#000':'var(--txt)'};border:1px solid ${activo?'var(--gold)':'var(--bord)'}">${t}</button>`;
   }).join('');
 }
+// Elige el concepto "por default" de una lista: prefiere CARPETA (el trabajo principal del día a
+// día) sobre RENIV/BACHEO (correcciones puntuales) — sin importar en qué orden estén en el catálogo.
+function _conceptoDefaultDe(opciones){
+  if(!opciones||!opciones.length) return null;
+  return opciones.find(c=>/^CARPETA/i.test(c.id||'')) || opciones[0];
+}
 window.setTramoCaptura=function(t){
   tramoCaptura=t; localStorage.setItem('t039_tramo_captura',t);
   _actualizarTramoCapturaUI();
   // El primer concepto del camión pasa a ser del subtramo elegido, para no dejar uno del tramo viejo
   if(typeof conceptosViaje!=='undefined' && conceptosViaje && conceptosViaje[0]){
     const opciones=catalogoActivo.filter(c=>tramoDeConcepto(c.id)===t);
-    if(opciones.length) conceptosViaje[0].id=opciones[0].id;
+    const def=_conceptoDefaultDe(opciones);
+    if(def) conceptosViaje[0].id=def.id;
   }
   if(typeof renderConceptosContainer==='function') renderConceptosContainer();
   toast('Cargando para '+t,'ok');
@@ -4054,7 +4061,8 @@ window.agregarConcepto=function(){
     const tonEl=document.getElementById('f_concepto_ton_'+i);
     if(tonEl) cv.ton=parseFloat(tonEl.value)||cv.ton||0;
   });
-  conceptosViaje.push({id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'});
+  const defNuevo=_conceptoDefaultDe(_conceptosDelTramoActivo())||{id:'CARPETA3-O1'};
+  conceptosViaje.push({id:defNuevo.id,ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'});
   renderConceptosContainer();
 };
 window.quitarConcepto=function(i){
@@ -4070,7 +4078,7 @@ window.quitarConcepto=function(i){
 
 function initConceptosViaje(){
   const opciones=_conceptosDelTramoActivo();
-  const def=opciones[0]||{id:'CARPETA3-O1'};
+  const def=_conceptoDefaultDe(opciones)||{id:'CARPETA3-O1'};
   conceptosViaje=[{id:def.id,ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
   renderConceptosContainer();
 }
