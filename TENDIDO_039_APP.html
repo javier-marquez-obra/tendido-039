@@ -863,6 +863,8 @@ window.guardarConfigCarriles=function(){
   }).filter(c=>c.label);
   OBRAS[_carrilesObra].carriles={ O1:leer('O1'), O2:leer('O2') };
   guardarObras(OBRAS);
+  // Sincroniza a la NUBE para compartir entre dispositivos y no perderse al limpiar el celular
+  try{ setDoc(doc(db,'config039',_carrilesObra), { clave:_carrilesObra, nombre:(OBRAS[_carrilesObra].nombre||_carrilesObra), carriles:OBRAS[_carrilesObra].carriles, ts:Date.now(), by:((typeof session!=='undefined'&&session&&session.nombre)||'admin') }).then(()=>toast('Carriles guardados en la nube ✓','ok')).catch(e=>{ console.warn('carriles→nube:',e?.code||e); toast('Guardado local (sin nube: '+(e?.code||'sin señal')+')','warn'); }); }catch(e){ console.warn('carriles→nube:',e); }
   document.getElementById('carrilesModal').style.display='none';
   toast('Carriles y anchos guardados','ok');
   if(typeof renderConceptosContainer==='function') renderConceptosContainer();
@@ -1352,6 +1354,23 @@ async function cargarSesion(user) {
   if(rt){ rt.textContent = (perfil.rol||'').toUpperCase()||'—'; rt.className='role-tag '+(isEditor?'admin':'op'); }
   if (isEditor) ['tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
   try{ startListener(); }catch(e){ console.error('startListener:', e); setSyncState('err'); }
+  try{ startConfigCarriles(); }catch(e){ console.warn('startConfigCarriles:', e); }
+}
+// Lee la configuración de CARRILES desde la nube (config039) y la aplica en todos los dispositivos.
+let _cfgCarrilesOn=false;
+function startConfigCarriles(){
+  if(_cfgCarrilesOn) return; _cfgCarrilesOn=true;
+  onSnapshot(collection(db,'config039'), snap=>{
+    let cambio=false;
+    snap.forEach(d=>{ const data=d.data()||{}; if(!data.carriles) return;
+      if(!OBRAS[d.id]) OBRAS[d.id]={clave:d.id,nombre:data.nombre||d.id};
+      OBRAS[d.id].carriles=data.carriles; cambio=true;
+    });
+    if(cambio){ guardarObras(OBRAS);
+      try{ if(typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
+      try{ if(typeof renderTablaTiro==='function') renderTablaTiro(); }catch(e){}
+    }
+  }, e=>console.warn('config039 listener:', e?.code||e));
 }
 
 window.cerrarSesion = async function(){ try{ await signOut(auth); }catch(e){} location.reload(); };
