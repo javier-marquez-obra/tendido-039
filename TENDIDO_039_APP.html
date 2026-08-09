@@ -1229,9 +1229,20 @@ document.addEventListener('DOMContentLoaded',()=>{
   }
 });
 
-// Service worker: permite abrir la app sin internet
+// Service worker: permite abrir la app sin internet y actualiza solo cuando hay versión nueva
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+  const _hadCtrl = !!navigator.serviceWorker.controller;
+  let _swReload = false;
+  // Cuando un service worker NUEVO toma control (actualización real), recarga para mostrar la versión nueva.
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!_hadCtrl || _swReload) return; // no recargar en la primera instalación
+    _swReload = true; location.reload();
+  });
+  // updateViaCache:'none' → el navegador revisa el sw.js SIEMPRE fresco (no lo cachea), así detecta versiones nuevas.
+  navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
+    reg.update().catch(()=>{});
+    setInterval(() => reg.update().catch(()=>{}), 60000); // revisa actualización cada minuto
+  }).catch(()=>{});
 }
 window.addEventListener('online',  ()=>toast('📶 Señal recuperada · sincronizando viajes pendientes...'));
 window.addEventListener('offline', ()=>toast('📴 Sin señal · la app sigue funcionando, todo se guarda en el dispositivo','err'));

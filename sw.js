@@ -1,6 +1,7 @@
-// TENDIDO 039 · Service Worker · v4 · network-first CON LÍMITE DE TIEMPO en HTML,
+// TENDIDO 039 · Service Worker · v5 · network-first CON LÍMITE DE TIEMPO en HTML,
 // con respaldo en caché para no quedarse pegado cuando la señal está lenta (no caída, solo lenta).
-const CACHE = 'tendido039-v4';
+// v5: sube la versión del caché para forzar limpieza del HTML viejo en dispositivos ya instalados.
+const CACHE = 'tendido039-v5';
 const HTML_TIMEOUT_MS = 4000; // si la red no responde en 4s, usa la última copia guardada
 
 self.addEventListener('install', e => {
