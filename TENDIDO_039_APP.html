@@ -456,12 +456,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
             <button type="button" class="be" onclick="agregarOpcion('f_tipomezcla','t039_mezcla_extra','Nuevo tipo de mezcla')" title="Agregar mezcla" style="padding:0 10px">➕</button>
           </div>
         </div>
-        <div class="field"><label>№ Vale mezcla</label><input type="text" id="f_vale" placeholder="V-001" oninput="_checkFolioEnVivo('vale')">
-          <div id="folio_warn_vale" style="display:none;margin-top:4px;font-size:11px;font-weight:700;color:#dc2626;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:6px;padding:5px 8px"></div>
-        </div>
-        <div class="field"><label>№ Remisión báscula</label><input type="text" id="f_remision" placeholder="R-0001" oninput="_checkFolioEnVivo('remision')">
-          <div id="folio_warn_remision" style="display:none;margin-top:4px;font-size:11px;font-weight:700;color:#dc2626;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:6px;padding:5px 8px"></div>
-        </div>
+        <div class="field"><label>№ Vale mezcla</label><input type="text" id="f_vale" placeholder="V-001"></div>
+        <div class="field"><label>№ Remisión báscula</label><input type="text" id="f_remision" placeholder="R-0001"></div>
         <!-- SENTIDO DEL TENDIDO -->
         <div class="field" id="sentidoWrap" style="grid-column:1/-1">
           <label style="font-size:10px;font-weight:700;letter-spacing:.08em;color:var(--muted)">SENTIDO DEL TENDIDO</label>
@@ -721,9 +717,16 @@ function cargarObras(){
 function guardarObras(o){ try{ localStorage.setItem('t039_obras',JSON.stringify(o)); }catch(e){} }
 // Carriles y ancho sugerido por tramo (editable por obra). Default: O1 con central, O2 solo Der/Izq (7 m).
 const CARRILES_DEFAULT={
-  O1:[{label:'L. DER.',ancho:4.0},{label:'CENT.',ancho:4.0},{label:'L. IZQ.',ancho:4.0}],
-  O2:[{label:'L. DER.',ancho:3.5},{label:'L. IZQ.',ancho:3.5}]
+  O1:[{label:'L. DER.',ancho:4.0,lado:'DER'},{label:'CENT.',ancho:4.0,lado:'CEN'},{label:'L. IZQ.',ancho:4.0,lado:'IZQ'}],
+  O2:[{label:'L. DER.',ancho:3.5,lado:'DER'},{label:'L. IZQ.',ancho:3.5,lado:'IZQ'}]
 };
+// Lado de un carril: primero el LADO configurado en la obra (por su nombre), luego se infiere del texto.
+function ladoDeCarril(carril){
+  const o=OBRAS[obraActiva]||{}; const c=o.carriles;
+  const key=(carril||'').trim().toUpperCase();
+  if(c){ for(const t of ['O1','O2']){ const f=(c[t]||[]).find(x=>(x.label||'').trim().toUpperCase()===key); if(f&&f.lado) return f.lado; } }
+  return ladoDe(carril);
+}
 function carrilesDeObra(clave,tramo){ const o=OBRAS[clave]||{}; const c=o.carriles&&o.carriles[tramo]; return (c&&c.length)?c:(CARRILES_DEFAULT[tramo]||CARRILES_DEFAULT.O1); }
 function tramoDeConcepto(id){ const cat=getCatItem(id); return (cat&&cat.obra)||'O1'; }
 function carrilesDeConcepto(id){ return carrilesDeObra(obraActiva, tramoDeConcepto(id)); }
@@ -787,20 +790,13 @@ function _actualizarTramoCapturaUI(){
     return `<button type="button" onclick="setTramoCaptura('${t.replace(/'/g,"\\'")}')" style="flex:1;padding:12px;border-radius:8px;font-weight:800;font-size:14px;cursor:pointer;background:${activo?'var(--gold)':'var(--bg)'};color:${activo?'#000':'var(--txt)'};border:1px solid ${activo?'var(--gold)':'var(--bord)'}">${t}</button>`;
   }).join('');
 }
-// Elige el concepto "por default" de una lista: prefiere CARPETA (el trabajo principal del día a
-// día) sobre RENIV/BACHEO (correcciones puntuales) — sin importar en qué orden estén en el catálogo.
-function _conceptoDefaultDe(opciones){
-  if(!opciones||!opciones.length) return null;
-  return opciones.find(c=>/^CARPETA/i.test(c.id||'')) || opciones[0];
-}
 window.setTramoCaptura=function(t){
   tramoCaptura=t; localStorage.setItem('t039_tramo_captura',t);
   _actualizarTramoCapturaUI();
   // El primer concepto del camión pasa a ser del subtramo elegido, para no dejar uno del tramo viejo
   if(typeof conceptosViaje!=='undefined' && conceptosViaje && conceptosViaje[0]){
     const opciones=catalogoActivo.filter(c=>tramoDeConcepto(c.id)===t);
-    const def=_conceptoDefaultDe(opciones);
-    if(def) conceptosViaje[0].id=def.id;
+    if(opciones.length) conceptosViaje[0].id=opciones[0].id;
   }
   if(typeof renderConceptosContainer==='function') renderConceptosContainer();
   toast('Cargando para '+t,'ok');
@@ -825,8 +821,8 @@ let _carrilesEdit=null, _carrilesObra=null;
 window.abrirConfigCarriles=function(){
   _carrilesObra=obraActiva;
   const base=(OBRAS[obraActiva]&&OBRAS[obraActiva].carriles)||CARRILES_DEFAULT;
-  _carrilesEdit={ O1:(base.O1||CARRILES_DEFAULT.O1).map(c=>({label:c.label,ancho:c.ancho})),
-                  O2:(base.O2||CARRILES_DEFAULT.O2).map(c=>({label:c.label,ancho:c.ancho})) };
+  _carrilesEdit={ O1:(base.O1||CARRILES_DEFAULT.O1).map(c=>({label:c.label,ancho:c.ancho,lado:c.lado||ladoDe(c.label)||'DER'})),
+                  O2:(base.O2||CARRILES_DEFAULT.O2).map(c=>({label:c.label,ancho:c.ancho,lado:c.lado||ladoDe(c.label)||'DER'})) };
   const lbl=document.getElementById('carrilesObraLbl');
   if(lbl) lbl.textContent='Obra: '+((OBRAS[obraActiva]&&OBRAS[obraActiva].nombre)||obraActiva)+' · define los carriles de cada tramo y su ancho sugerido (editable en cada viaje).';
   _renderConfigCarriles();
@@ -837,7 +833,12 @@ function _renderConfigCarriles(){
     const cs=_carrilesEdit[tramo]||[];
     const rows=cs.map((c,idx)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
       <input value="${(c.label||'').replace(/"/g,'&quot;')}" oninput="_carrilesEdit['${tramo}'][${idx}].label=this.value" placeholder="Nombre carril (ej. L. DER.)" style="flex:2;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
-      <input type="number" step="0.01" inputmode="decimal" value="${c.ancho!=null?c.ancho:''}" oninput="_carrilesEdit['${tramo}'][${idx}].ancho=parseFloat(this.value)||0" placeholder="ancho m" style="width:88px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+      <select onchange="_carrilesEdit['${tramo}'][${idx}].lado=this.value" title="Lado en el larguillo" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+        <option value="IZQ" ${c.lado==='IZQ'?'selected':''}>Izq</option>
+        <option value="CEN" ${c.lado==='CEN'?'selected':''}>Central</option>
+        <option value="DER" ${(c.lado==='DER'||!c.lado)?'selected':''}>Der</option>
+      </select>
+      <input type="number" step="0.01" inputmode="decimal" value="${c.ancho!=null?c.ancho:''}" oninput="_carrilesEdit['${tramo}'][${idx}].ancho=parseFloat(this.value)||0" placeholder="ancho m" style="width:74px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
       <button onclick="_carrilQuitar('${tramo}',${idx})" title="Quitar carril" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
     </div>`).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin carriles · agrega al menos uno.</div>';
     return `<div style="margin-bottom:14px"><div style="font-weight:800;color:var(--gold);font-size:13px;margin-bottom:6px">${titulo}</div>${rows}
@@ -845,12 +846,12 @@ function _renderConfigCarriles(){
   };
   document.getElementById('carrilesBody').innerHTML=bloque('O1','🛣️ Obra 1 · MEX-200')+bloque('O2','🛣️ Obra 2 · MEX-80');
 }
-window._carrilAgregar=function(t){ _carrilesEdit[t].push({label:'L. DER.',ancho:3.5}); _renderConfigCarriles(); };
+window._carrilAgregar=function(t){ _carrilesEdit[t].push({label:'Nuevo carril',ancho:3.5,lado:'DER'}); _renderConfigCarriles(); };
 window._carrilQuitar=function(t,i){ _carrilesEdit[t].splice(i,1); _renderConfigCarriles(); };
 window.cerrarConfigCarriles=function(){ document.getElementById('carrilesModal').style.display='none'; };
 window.guardarConfigCarriles=function(){
   if(!OBRAS[_carrilesObra]) OBRAS[_carrilesObra]={clave:_carrilesObra,nombre:_carrilesObra};
-  const limpia=t=>(_carrilesEdit[t]||[]).filter(c=>(c.label||'').trim()).map(c=>({label:c.label.trim(),ancho:+(c.ancho||0)}));
+  const limpia=t=>(_carrilesEdit[t]||[]).filter(c=>(c.label||'').trim()).map(c=>({label:c.label.trim(),ancho:+(c.ancho||0),lado:c.lado||ladoDe(c.label)||'DER'}));
   OBRAS[_carrilesObra].carriles={ O1:limpia('O1'), O2:limpia('O2') };
   guardarObras(OBRAS);
   document.getElementById('carrilesModal').style.display='none';
@@ -1203,7 +1204,7 @@ function restaurarBorrador(){
         }
       }catch(e){}
     }
-    if(hubo){ toast('📝 Se recuperó lo que tenías capturado'); if(typeof calc==='function')calc(); if(typeof calcEmulsion==='function')calcEmulsion(); if(typeof _checkFolioEnVivo==='function') _checkFolioEnVivo('vale'); }
+    if(hubo){ toast('📝 Se recuperó lo que tenías capturado'); if(typeof calc==='function')calc(); if(typeof calcEmulsion==='function')calcEmulsion(); }
   }catch(e){}
 }
 document.addEventListener('DOMContentLoaded',()=>{
@@ -1728,8 +1729,6 @@ window.usarOCR=function(campo,valor){
   }
   document.getElementById(campo).value=valor;
   if(campo==='f_ton'&&typeof calc==='function') calc();
-  if(campo==='f_vale') _checkFolioEnVivo('vale');
-  if(campo==='f_remision') _checkFolioEnVivo('remision');
   toast('✓ Dato aplicado — verifica contra la boleta');
 };
 
@@ -2114,17 +2113,17 @@ window.guardar = async function() {
     if (navigator.onLine) {
       try {
         await _conLimiteEspera(p);
-        resetForm(rec.ka, concPpal.id, concPpal.carril); toast('✓ Viaje #'+rec.num_viaje_dia+' guardado');
+        resetForm(rec.ka); toast('✓ Viaje #'+rec.num_viaje_dia+' guardado');
       } catch(errRed) {
         if (errRed.message==='TIMEOUT_RED') {
           p.catch(()=>{}); // sigue subiendo solo en cuanto la señal mejore (persistencia offline)
-          resetForm(rec.ka, concPpal.id, concPpal.carril);
+          resetForm(rec.ka);
           toast('📶 Señal lenta — Viaje #'+rec.num_viaje_dia+' guardado, subiendo en segundo plano');
         } else { throw errRed; }
       }
     } else {
       p.catch(()=>{});
-      resetForm(rec.ka, concPpal.id, concPpal.carril); toast('📴 Viaje #'+rec.num_viaje_dia+' guardado EN EL DISPOSITIVO · se subirá al recuperar señal');
+      resetForm(rec.ka); toast('📴 Viaje #'+rec.num_viaje_dia+' guardado EN EL DISPOSITIVO · se subirá al recuperar señal');
     }
     okGuardado=true;
   } catch(e) { toast('Error: '+e.message,'err'); setSyncState('err'); }
@@ -2156,21 +2155,13 @@ function avisarUltimoCamion(fecha){
   }
 }
 
-function resetForm(kaAnterior, idAnterior, carrilAnterior) {
-  // Tendido continuo: el final del viaje anterior es el inicio del siguiente concepto — y sigue
-  // en el MISMO concepto y carril que se acaba de guardar (antes se reiniciaba siempre a Carpeta 3cm
-  // en L. DER., por eso se perdía el hilo al trabajar en otro carril varios camiones seguidos).
+function resetForm(kaAnterior) {
+  // Tendido continuo: el final del viaje anterior es el inicio del siguiente concepto
   const kdeIni = (kaAnterior!==undefined && !isNaN(kaAnterior)) ? kaAnterior : null;
-  const idNuevo = idAnterior || (_conceptoDefaultDe(_conceptosDelTramoActivo())||{}).id || 'CARPETA3-O1';
-  const carrilNuevo = carrilAnterior || 'L. DER.';
-  conceptosViaje=[{id:idNuevo,ton:0,kde:kdeIni,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:carrilNuevo}];
+  conceptosViaje=[{id:'CARPETA3-O1',ton:0,kde:kdeIni,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
   renderConceptosContainer();
   // Solo limpiar campos globales que SÍ existen (los de cadenamiento/ML viven por concepto)
   ['f_placas','f_ton','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
-  // Los avisos de folio repetido (vale/remisión) no se limpian solos porque poner .value='' por código
-  // no dispara el oninput — hay que ocultarlos aquí a mano, si no se quedan pegados del viaje anterior.
-  const _fwv=document.getElementById('folio_warn_vale'); if(_fwv) _fwv.style.display='none';
-  const _fwr=document.getElementById('folio_warn_remision'); if(_fwr) _fwr.style.display='none';
   // limpiar tipo de camión y "sin placa" para el siguiente viaje
   const _sp=document.getElementById('f_sinplaca'); if(_sp) _sp.checked=false;
   const _pl=document.getElementById('f_placas'); if(_pl){ _pl.disabled=false; _pl.style.opacity='1'; }
@@ -2583,7 +2574,7 @@ function renderGraficoTiro(rs, esVistaTotal){
       if(c.kde!=null&&c.ka!=null){
         const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka);
         if(b>a){
-          const side=ladoDe(c.carril);
+          const side=ladoDeCarril(c.carril);
           if(!side){ sinCarril.push(`vj#${v.num_viaje_dia} (${(v.fecha||'').split('-').reverse().join('/').slice(0,5)}) carril "${c.carril||v.carril||'—'}"`); return; }
           const t=(String(c.id||'')+String(c.label||'')).toUpperCase();
           const tipo = t.includes('RENIV')?'reniv' : (t.includes('BACHEO')?'bacheo':'carpeta');
@@ -2659,7 +2650,9 @@ function _larguilloVista(segs,titulo,tramo,modo){
   const ord={IZQ:0,CEN:1,DER:2};
   const nombreLado={IZQ:'Lat. izquierda',CEN:'Central',DER:'Lat. derecha'};
   const carr=carrilesDeObra(obraActiva,tramo);
-  let tracks=carr.map(c=>{const s=ladoDe(c.label);return {side:s,label:c.label||nombreLado[s],color:LADO_COL[s]||'#60a5fa'};})
+  const _ladoC=c=>c.lado||ladoDe(c.label)||'DER';
+  const lados=[...new Set(carr.map(_ladoC))];
+  let tracks=lados.map(s=>{ const cs=carr.filter(c=>_ladoC(c)===s); const label=cs.length===1?(cs[0].label||nombreLado[s]):(nombreLado[s]||s); return {side:s,label,color:LADO_COL[s]||'#60a5fa'};})
                  .sort((a,b)=>(ord[a.side]??9)-(ord[b.side]??9));
   if(!tracks.length) tracks=[{side:'DER',label:'Lat. derecha',color:LADO_COL.DER}];
   const H=PADT+tracks.length*(trackH+gapT)+24;
@@ -3849,71 +3842,8 @@ function calcKaConcepto(i){
       conceptosViaje[i].ml=ml;
     }
   }
-  _checkTraslapeEnVivo(i);
   calcResumenViaje();
 }
-// Alerta EN VIVO si el cadenamiento que se está tecleando se empalma con un viaje ya guardado
-// del MISMO carril y tramo (cualquier día) — para avisar antes de guardar, no hasta el reporte.
-function _checkTraslapeEnVivo(i){
-  const el=document.getElementById('traslape_warn_'+i);
-  if(!el) return;
-  const cv=conceptosViaje[i];
-  if(!cv || cv.kde==null || cv.ka==null || isNaN(cv.kde) || isNaN(cv.ka)){ el.style.display='none'; return; }
-  if(/reniv|bacheo/i.test(cv.id||'')){ el.style.display='none'; return; } // reniv/bacheo se pisan con carpeta por diseño
-  const a=Math.min(cv.kde,cv.ka), b=Math.max(cv.kde,cv.ka);
-  if(b-a<0.5){ el.style.display='none'; return; }
-  const lado=ladoDe(cv.carril);
-  if(!lado){ el.style.display='none'; return; }
-  const tramo=cv.kde>=247000?'O2':'O1';
-  let choque=null;
-  for(const r of records){
-    if(choque) break;
-    _conceptosDe(r).forEach(c=>{
-      if(choque) return;
-      if(c.kde==null||c.ka==null) return;
-      if(/reniv|bacheo/i.test(c.id||'')) return;
-      const lado2=ladoDe(c.carril||r.carril); if(lado2!==lado) return;
-      const tramo2=(c.kde>=247000?'O2':'O1'); if(tramo2!==tramo) return;
-      const a2=Math.min(c.kde,c.ka), b2=Math.max(c.kde,c.ka);
-      const ov=Math.min(b,b2)-Math.max(a,a2);
-      if(ov>0.5) choque={r,ov};
-    });
-  }
-  if(choque){
-    el.style.display='block';
-    el.innerHTML=`⚠️ Se empalma ${choque.ov.toFixed(2)} m con el viaje #${choque.r.num_viaje_dia||'?'} del ${choque.r.fecha} (${choque.r.placas||'?'}), mismo carril y tramo. Revisa el cadenamiento.`;
-  } else {
-    el.style.display='none';
-  }
-}
-// Alerta EN VIVO mientras escribes el № de Vale o Remisión: avisa si ya se usó en OTRO camión,
-// o si Vale y Remisión quedaron con el mismo número (son documentos distintos).
-window._checkFolioEnVivo=function(cual){
-  const elVale=document.getElementById('f_vale'), elRem=document.getElementById('f_remision');
-  const warnVale=document.getElementById('folio_warn_vale'), warnRem=document.getElementById('folio_warn_remision');
-  if(!elVale||!elRem||!warnVale||!warnRem) return;
-  const vale=elVale.value.trim(), remision=elRem.value.trim();
-  const iguales = !!(vale && remision && vale.toUpperCase()===remision.toUpperCase());
-  // Cada campo se revisa siempre, sin importar cuál de los dos disparó el evento — así escribir en
-  // uno no borra el aviso que ya tenía el otro (ese era el bug: se limpiaban los dos y solo se
-  // volvía a calcular el que acababas de tocar).
-  if(iguales){
-    const msg='⚠️ Vale y Remisión quedaron con el mismo número ("'+vale+'"). Son documentos distintos — revisa si se leyó bien.';
-    warnVale.style.display='block'; warnVale.textContent=msg;
-    warnRem.style.display='block'; warnRem.textContent=msg;
-  } else {
-    if(vale){
-      const dup=records.find(r=>r.vale && r.vale.trim().toUpperCase()===vale.toUpperCase());
-      if(dup){ warnVale.style.display='block'; warnVale.textContent=`⚠️ El № de vale "${vale}" ya se usó en el viaje de ${dup.placas||'?'} (${dup.fecha||'?'}). Revisa la boleta.`; }
-      else { warnVale.style.display='none'; }
-    } else { warnVale.style.display='none'; }
-    if(remision){
-      const dupR=records.find(r=>r.remision && r.remision.trim().toUpperCase()===remision.toUpperCase());
-      if(dupR){ warnRem.style.display='block'; warnRem.textContent=`⚠️ La № de remisión "${remision}" ya se usó en el viaje de ${dupR.placas||'?'} (${dupR.fecha||'?'}). Revisa la boleta.`; }
-      else { warnRem.style.display='none'; }
-    } else { warnRem.style.display='none'; }
-  }
-};
 
 // Calcular resumen total del camión sumando todos los conceptos
 function calcResumenViaje(){
@@ -4024,9 +3954,8 @@ function renderConceptosContainer(){
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">De KM</div>
           <input type="text" id="f_kde_${i}" value="${cv.kde?fmtCad(cv.kde):''}" placeholder="46+200.00" autocomplete="off"
-            oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i});this.dataset.autofill=''" onchange="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i});this.dataset.autofill=''" onkeyup="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
+            oninput="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})" onchange="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})" onkeyup="conceptosViaje[${i}].kde=parseCad(this.value);calcKaConcepto(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
-          ${i===0?`<button type="button" onclick="buscarCadenamientoCarril(0)" style="width:100%;margin-top:4px;background:var(--blue4);border:1px solid var(--blue);border-radius:5px;color:var(--blue);padding:3px 6px;font-size:10px;font-weight:700;cursor:pointer">🔍 Buscar dónde se quedó este carril</button>`:''}
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">ML avanzados</div>
@@ -4043,12 +3972,11 @@ function renderConceptosContainer(){
         </div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Carril</div>
-          <select onchange="conceptosViaje[${i}].carril=this.value;sugerirAnchoViaje(${i});if(${i}===0)prellenarKdePorConcepto(true);_checkTraslapeEnVivo(${i})"
+          <select onchange="conceptosViaje[${i}].carril=this.value;sugerirAnchoViaje(${i})"
             style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;font-weight:700;color:var(--txt)">
             ${carrilesDeConcepto(cv.id).map(c=>`<option ${(cv.carril||carrilesDeConcepto(cv.id)[0]?.label)===c.label?'selected':''}>${c.label}</option>`).join('')}
           </select>
         </div>
-        <div id="traslape_warn_${i}" style="display:none;grid-column:1/-1;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:6px;padding:6px 8px;font-size:11px;color:#dc2626;font-weight:700"></div>
         <div>
           <div style="font-size:10px;color:var(--muted);margin-bottom:3px">Ancho ini (m)</div>
           <input type="number" id="f_aw1_${i}" value="${cv.aw1||''}" placeholder="3.34" step="0.01" inputmode="decimal"
@@ -4104,8 +4032,7 @@ window.agregarConcepto=function(){
     const tonEl=document.getElementById('f_concepto_ton_'+i);
     if(tonEl) cv.ton=parseFloat(tonEl.value)||cv.ton||0;
   });
-  const defNuevo=_conceptoDefaultDe(_conceptosDelTramoActivo())||{id:'CARPETA3-O1'};
-  conceptosViaje.push({id:defNuevo.id,ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'});
+  conceptosViaje.push({id:'CARPETA3-O1',ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'});
   renderConceptosContainer();
 };
 window.quitarConcepto=function(i){
@@ -4121,7 +4048,7 @@ window.quitarConcepto=function(i){
 
 function initConceptosViaje(){
   const opciones=_conceptosDelTramoActivo();
-  const def=_conceptoDefaultDe(opciones)||{id:'CARPETA3-O1'};
+  const def=opciones[0]||{id:'CARPETA3-O1'};
   conceptosViaje=[{id:def.id,ton:0,kde:null,ka:null,ml:0,aw1:0,aw2:0,et:3,carril:'L. DER.'}];
   renderConceptosContainer();
 }
@@ -4211,72 +4138,27 @@ function actualizarHintTon(){
   if(!hint) return;
   hint.textContent=tonTotal>0?'Ton totales del camion: '+tonTotal.toFixed(2)+' - Captura las que van a este concepto':'';
 }
-// Búsqueda EXPLÍCITA (con confirmación visible) de dónde se quedó un concepto+carril — para
-// verificar de forma clara que el auto-relleno silencioso sí encuentra el dato correcto.
-window.buscarCadenamientoCarril=function(i){
-  const cv=conceptosViaje[i]; if(!cv){ toast('No hay concepto capturado','err'); return; }
-  const concId=cv.id;
-  const carrilSel=cv.carril||'';
-  if(!carrilSel){ toast('Primero elige el carril de este concepto','err'); return; }
-  const concLabel=getCatItem(concId)?.label||concId;
-  const mismoConceptoYCarril=records
-    .filter(r=>(
-      (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(c=>c.id===concId && (c.carril||r.carril)===carrilSel)) ||
-      (!r.conceptos && r.concepto===concLabel && r.carril===carrilSel)
-    ))
-    .sort((a,b)=>(b.ts||0)-(a.ts||0));
-  if(!mismoConceptoYCarril.length){
-    alert(`No encontré ningún viaje anterior de "${concLabel}" en el carril "${carrilSel}". Puedes capturar el cadenamiento inicial a mano.`);
-    return;
-  }
-  const ult=mismoConceptoYCarril[0];
-  let kaUlt=ult.ka;
-  if(ult.conceptos&&Array.isArray(ult.conceptos)){
-    const c=ult.conceptos.find(c=>c.id===concId && (c.carril||ult.carril)===carrilSel);
-    if(c&&c.ka) kaUlt=c.ka;
-  }
-  if(!kaUlt){ alert('Encontré el viaje pero no tiene cadenamiento final guardado — revísalo a mano.'); return; }
-  const ok=confirm(`El carril "${carrilSel}" (${concLabel}) se quedó en ${fmtCad(kaUlt)}, del viaje #${ult.num_viaje_dia||'?'} del ${ult.fecha} (${ult.placas||'?'}).\n\n¿Confirmas iniciar este camión ahí?`);
-  if(!ok) return;
-  const el=document.getElementById('f_kde_'+i);
-  if(el){ el.value=fmtCad(kaUlt); el.dataset.autofill='1'; }
-  conceptosViaje[i].kde=kaUlt;
-  calcKaConcepto(i);
-  toast('✓ Cadenamiento inicial confirmado: '+fmtCad(kaUlt));
-};
-function prellenarKdePorConcepto(forzar){
+function prellenarKdePorConcepto(){
   const el=document.getElementById('f_kde_0');
-  if(!el) return;
-  // No pisar lo que el capturista ya escribió a mano — solo refresca si el valor actual vino
-  // del auto-relleno anterior (dataset.autofill), o si el campo está vacío.
-  if(el.value && el.dataset.autofill!=='1' && !forzar) return;
+  if(!el||el.value) return;
+  const hoy=fechaJornada();
   const concId=conceptosViaje.length>0?conceptosViaje[0].id:'CARPETA3-O1';
   const concLabel=getCatItem(concId)?.label||concId;
-  // Si el carril aún no se sincronizó en el dato (recién cambió el concepto), usa el mismo default
-  // que se ve en el desplegable — así el filtro de abajo compara contra el carril real, no "vacío".
-  if(conceptosViaje.length>0 && !conceptosViaje[0].carril){
-    conceptosViaje[0].carril = carrilesDeConcepto(concId)[0]?.label || '';
-  }
-  const carrilSel=conceptosViaje.length>0?(conceptosViaje[0].carril||''):'';
-  // REGLA: primero se elige el carril, y el cadenamiento se precarga del ÚLTIMO viaje de ESE
-  // MISMO concepto Y CARRIL — SIN IMPORTAR EL DÍA (puede ser de ayer, antier, la semana pasada).
-  // Lo que manda es el carril, no la fecha — si se limitara a "hoy" nunca traería nada al empezar
-  // un día nuevo, que es justo cuando más se necesita continuar desde donde se quedó ese carril.
-  const mismoConceptoYCarril=records
-    .filter(r=>(
-      (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(cv=>cv.id===concId && (!carrilSel || (cv.carril||r.carril)===carrilSel))) ||
-      (!r.conceptos && r.concepto===concLabel && (!carrilSel || r.carril===carrilSel))
+  const mismoConcepto=records
+    .filter(r=>r.fecha===hoy && (
+      r.concepto===concLabel ||
+      (r.conceptos&&Array.isArray(r.conceptos)&&r.conceptos.some(cv=>cv.id===concId))
     ))
     .sort((a,b)=>(b.ts||0)-(a.ts||0));
-  if(!mismoConceptoYCarril.length){ el.value=''; el.dataset.autofill='1'; conceptosViaje[0].kde=null; return; }
-  const ult=mismoConceptoYCarril[0];
-  // Buscar el KA del concepto+carril correcto en el último viaje (puede tener varios conceptos/carriles)
+  if(!mismoConcepto.length) return;
+  const ult=mismoConcepto[0];
+  // Buscar el KA del concepto del mismo tipo en el último viaje
   let kaUlt=ult.ka;
   if(ult.conceptos&&Array.isArray(ult.conceptos)){
-    const cv=ult.conceptos.find(cv=>cv.id===concId && (!carrilSel || (cv.carril||ult.carril)===carrilSel));
+    const cv=ult.conceptos.find(cv=>cv.id===concId);
     if(cv&&cv.ka) kaUlt=cv.ka;
   }
-  if(kaUlt){ el.value=fmtCad(kaUlt); el.dataset.autofill='1'; conceptosViaje[0].kde=kaUlt; }
+  if(kaUlt){ el.value=fmtCad(kaUlt); conceptosViaje[0].kde=kaUlt; }
 }
 function prellenarKde(){
   refrescarFechaJornada();
