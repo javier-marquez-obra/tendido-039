@@ -1317,18 +1317,23 @@ window.olvideContrasena = async function() {
 
 // Lee el perfil/rol desde usuarios/{uid} y arma la sesión
 async function cargarSesion(user) {
-  let perfil = { nombre:user.email, rol:'capturista', obras:[], activo:true };
-  let snap=null;
+  const _rolKey='t039_rol_'+user.uid;
+  let rolCache=null; try{ rolCache=JSON.parse(localStorage.getItem(_rolKey)||'null'); }catch(e){}
+  // Arranca con el ÚLTIMO ROL CONOCIDO (si lo hay) para no degradar al admin por una lectura fallida
+  let perfil = { nombre:(rolCache&&rolCache.nombre)||user.email, rol:(rolCache&&rolCache.rol)||'capturista', obras:(rolCache&&rolCache.obras)||[], activo:true };
+  let snap=null, leido=false;
   try {
     snap = await _conLimiteEspera(getDocFromServer(doc(db,'usuarios',user.uid)), 10000); // siempre fresco, evita caché viejo
   } catch(e1) {
     console.warn('Rol: falló lectura de servidor, intento caché:', e1?.code||e1?.message||e1);
-    try { snap = await _conLimiteEspera(getDoc(doc(db,'usuarios',user.uid)), 10000); } catch(e2){ console.warn('Rol: también falló caché (señal mala) — entra como capturista por ahora:', e2?.code||e2?.message||e2); }
+    try { snap = await _conLimiteEspera(getDoc(doc(db,'usuarios',user.uid)), 10000); } catch(e2){ console.warn('Rol: también falló caché (señal mala) — uso último rol conocido:', e2?.code||e2?.message||e2); }
   }
-  if (snap && snap.exists()) perfil = { ...perfil, ...snap.data() };
-  else console.warn('Rol: no se encontró documento usuarios/'+user.uid+' → queda como capturista');
+  if (snap && snap.exists()) { perfil = { ...perfil, ...snap.data() }; leido=true; }
+  else console.warn('Rol: sin documento fresco → uso último rol conocido ('+perfil.rol+')');
   if (perfil.activo === false) { toast('Usuario inactivo','err'); await signOut(auth); return; }
   session = { uid:user.uid, nombre:perfil.nombre, rol:perfil.rol, obras:perfil.obras||[] };
+  // Guarda el último rol BUENO solo cuando se leyó fresco del servidor
+  if(leido){ try{ localStorage.setItem(_rolKey, JSON.stringify({rol:perfil.rol,nombre:perfil.nombre,obras:perfil.obras||[]})); }catch(e){} }
   const isAdmin = perfil.rol==='admin';
   const isEditor = perfil.rol==='admin'||perfil.rol==='residente';
   const hi=document.getElementById('hInfo'); if(hi) hi.textContent = session.nombre+' · N-27';
