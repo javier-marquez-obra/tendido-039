@@ -367,7 +367,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <input type="text" id="eq_nombre" placeholder="ej. Motoconformadora CAT 140" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
       </div>
       <div class="field" style="margin-bottom:8px"><label>№ económico / serie (opcional)</label>
-        <input type="text" id="eq_numero" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+        <input type="text" id="eq_numero" onblur="_eqBuscarPorNumero()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+        <div id="eqNumeroAviso" style="display:none;margin-top:5px;font-size:11px;font-weight:700;color:var(--gold);background:rgba(234,179,8,.12);border:1px solid var(--gold);border-radius:6px;padding:6px 8px"></div>
       </div>
       <div style="display:flex;gap:8px;margin-bottom:8px">
         <div class="field" style="flex:1"><label id="eq_lbl_fecha_llega">Día que llega a obra</label>
@@ -3900,7 +3901,26 @@ window.abrirNuevoEquipo=function(){
   document.getElementById('eq_hor_llega').value='';
   document.getElementById('eq_fecha_inicio').value=fechaJornada();
   document.getElementById('eq_costo_renta').value='';
+  document.getElementById('eqNumeroAviso').style.display='none';
   document.getElementById('equipoModal').style.display='flex';
+};
+// Al escribir el № económico de un equipo NUEVO, busca si esa MISMA máquina ya existe registrada
+// en otra obra (activa o cerrada) — si la encuentra, autorellena el horómetro de llegada con su
+// último dato conocido, y avisa que sería mejor usar "Cerrar/trasladar" desde esa obra para no
+// perder su historial (en vez de duplicarla como si fuera una máquina distinta).
+window._eqBuscarPorNumero=function(){
+  if(_eqEditandoId) return; // esto solo aplica al dar de alta, no al editar uno ya existente
+  const numEl=document.getElementById('eq_numero'); const aviso=document.getElementById('eqNumeroAviso');
+  const num=(numEl.value||'').trim();
+  if(!num){ aviso.style.display='none'; return; }
+  const match=_equipos.find(e=>(e.numero||'').trim().toUpperCase()===num.toUpperCase());
+  if(!match){ aviso.style.display='none'; return; }
+  const horUlt=_maqUltimoHorometro(match._id);
+  const horEl=document.getElementById('eq_hor_llega');
+  if(horEl && !horEl.value) horEl.value=horUlt;
+  const obraNom=OBRAS[match.obra]?.nombre||match.obra||'—';
+  aviso.style.display='block';
+  aviso.innerHTML=`⚠️ Ya existe un equipo con el № "${num}" en la obra <b>${obraNom}</b> (horómetro conocido: ${horUlt}). Si es la MISMA máquina, mejor ve a esa obra y usa "🚚 Cerrar / trasladar" para no perder su historial — se autorellenó el horómetro por si aun así continúas.`;
 };
 // Abre el mismo modal pero en modo edición: muestra próximo servicio, historial de obras,
 // servicios ya registrados, y permite anotar uno nuevo — para el equipo elegido en el selector.
@@ -4404,17 +4424,21 @@ const _RC_PREGUNTAS=[
   {id:'aspersores', label:'¿Aspersores/espreas en buen estado?'},
 ];
 let _rcFotos=[];
-function _rcRenderPreguntas(respuestas){
+function _rcRenderPreguntas(respuestas, detalles){
   const cont=document.getElementById('rc_preguntas'); if(!cont) return;
   cont.innerHTML=_RC_PREGUNTAS.map(p=>{
     const val=(respuestas&&respuestas[p.id])||'';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--bord)">
-      <span style="font-size:12px;color:var(--txt)">${p.label}</span>
-      <select id="rc_${p.id}" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--txt)">
-        <option value="si" ${val==='si'?'selected':''}>Sí</option>
-        <option value="no" ${val==='no'?'selected':''}>No</option>
-        <option value="na" ${val==='na'||!val?'selected':''}>N/A</option>
-      </select>
+    const det=(detalles&&detalles[p.id])||'';
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--bord)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--txt)">${p.label}</span>
+        <select id="rc_${p.id}" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--txt)">
+          <option value="si" ${val==='si'?'selected':''}>Sí</option>
+          <option value="no" ${val==='no'?'selected':''}>No</option>
+          <option value="na" ${val==='na'||!val?'selected':''}>N/A</option>
+        </select>
+      </div>
+      <input type="text" id="rc_det_${p.id}" value="${det.replace(/"/g,'&quot;')}" placeholder="Detalle de este punto en ESTA máquina (opcional)" style="width:100%;margin-top:4px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--txt)">
     </div>`;
   }).join('');
 }
@@ -4427,7 +4451,7 @@ window.abrirRecepcionEquipo=function(){
   document.getElementById('rc_fecha').value=rec.fecha||fechaJornada();
   document.getElementById('rc_ultimo_servicio').value=rec.ultimoServicio||'';
   document.getElementById('rc_notas').value=rec.notas||'';
-  _rcRenderPreguntas(rec.respuestas||{});
+  _rcRenderPreguntas(rec.respuestas||{}, rec.detalles||{});
   _rcFotos=(rec.fotos||[]).map(f=>({b64:f}));
   _rcRenderFotos();
   document.getElementById('recepcionEquipoModal').style.display='flex';
@@ -4444,10 +4468,14 @@ window._rcAgregarFoto=function(e){
 window.guardarRecepcionEquipo=async function(){
   const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
   if(!equipoId){ toast('No hay equipo seleccionado','err'); return; }
-  const respuestas={}; _RC_PREGUNTAS.forEach(p=>{ const el=document.getElementById('rc_'+p.id); respuestas[p.id]=el?el.value:'na'; });
+  const respuestas={}, detalles={};
+  _RC_PREGUNTAS.forEach(p=>{
+    const el=document.getElementById('rc_'+p.id); respuestas[p.id]=el?el.value:'na';
+    const detEl=document.getElementById('rc_det_'+p.id); detalles[p.id]=detEl?detEl.value.trim():'';
+  });
   const recepcion={
     fecha:document.getElementById('rc_fecha').value||fechaJornada(),
-    respuestas,
+    respuestas, detalles,
     ultimoServicio:(document.getElementById('rc_ultimo_servicio').value||'').trim(),
     notas:(document.getElementById('rc_notas').value||'').trim(),
     fotos:_rcFotos.map(f=>f.b64),
@@ -4469,7 +4497,12 @@ function _maqCheckAvisoDano(){
   const malos=_RC_PREGUNTAS.filter(p=>eq.recepcion.respuestas[p.id]==='no');
   if(malos.length){
     banner.style.display='block';
-    banner.innerHTML=`⚠️ Este equipo llegó con daños reportados el ${eq.recepcion.fecha||'—'}: ${malos.map(p=>p.label.replace('¿','').replace('?','')).join(', ')}.`;
+    const det=eq.recepcion.detalles||{};
+    banner.innerHTML=`⚠️ Este equipo llegó con daños reportados el ${eq.recepcion.fecha||'—'}: `
+      +malos.map(p=>{
+        const d=(det[p.id]||'').trim();
+        return p.label.replace('¿','').replace('?','')+(d?` (${d})`:'');
+      }).join(', ')+'.';
   } else banner.style.display='none';
 }
 
