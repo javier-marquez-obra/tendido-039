@@ -1744,6 +1744,10 @@ async function cargarSesion(user) {
   if (isEditor) ['tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
   try{ startListener(); }catch(e){ console.error('startListener:', e); setSyncState('err'); }
   try{ startConfigCarriles(); }catch(e){ console.warn('startConfigCarriles:', e); }
+  // Los botones de admin (Catálogo, Normalizar, Maquinaria) dependen del rol de "session", que
+  // recién se acaba de confirmar arriba — hay que refrescarlos aquí, si no se quedan escondidos
+  // toda la sesión salvo que el usuario cambie de obra (lo cual dispara aplicarObraActiva de nuevo).
+  try{ if(typeof aplicarObraActiva==='function') aplicarObraActiva(); }catch(e){}
 }
 // Lee la configuración de CARRILES desde la nube (config039) y la aplica en todos los dispositivos.
 let _cfgCarrilesOn=false;
