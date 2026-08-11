@@ -834,6 +834,33 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
           <button class="voice-btn" id="voiceBtnMaqObs" onclick="toggleVoice('maq_observaciones','voiceBtnMaqObs')"><span class="vi">🎙️</span> DICTAR</button>
         </div>
 
+        <div id="maqEvalOperadorBlock" style="display:none;border:1px solid var(--gold);border-radius:10px;padding:10px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:800;color:var(--gold);margin-bottom:2px">👤 Evaluación del operador</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Solo la llena el residente o el superintendente — no la ve ni la captura el operador.</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <div class="field" style="flex:1"><label>Forma de operar la maquinaria</label>
+              <select id="maq_eval_manejo" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+                <option value="">— sin evaluar —</option>
+                <option value="bueno">Bueno</option>
+                <option value="regular">Regular</option>
+                <option value="malo">Malo</option>
+              </select>
+            </div>
+            <div class="field" style="flex:1"><label>Forma de realizar su trabajo</label>
+              <select id="maq_eval_desempeno" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+                <option value="">— sin evaluar —</option>
+                <option value="bueno">Bueno</option>
+                <option value="regular">Regular</option>
+                <option value="malo">Malo</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Comentario (opcional)</label>
+            <textarea id="maq_eval_comentario" rows="2" placeholder="ej. maneja con cuidado pero le cuesta seguir instrucciones..." style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt);resize:vertical"></textarea>
+            <button class="voice-btn" id="voiceBtnMaqEval" onclick="toggleVoice('maq_eval_comentario','voiceBtnMaqEval')"><span class="vi">🎙️</span> DICTAR</button>
+          </div>
+        </div>
+
         <button onclick="guardarBitacoraMaquinaria()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:11px;font-size:14px;font-weight:800;cursor:pointer">💾 Guardar registro del día</button>
       </div>
     </div>
@@ -1127,6 +1154,10 @@ function aplicarObraActiva(){
     btnMaqToggle.style.color = maqOn ? 'var(--green)' : 'var(--muted)';
     btnMaqToggle.style.borderColor = maqOn ? 'var(--green)' : 'var(--bord)';
   }
+  // Evaluación del operador: solo la ve/llena residente o superintendente (admin) — el resto de
+  // la bitácora (horas, diésel, incidencias) puede seguir siendo capturada por cualquier editor.
+  const evalBlock=document.getElementById('maqEvalOperadorBlock');
+  if(evalBlock) evalBlock.style.display = (_sess && (_sess.rol==='admin'||_sess.rol==='residente')) ? '' : 'none';
   _actualizarTramoCapturaUI();
   try{ if(window._appLista && typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
 }
@@ -4085,6 +4116,7 @@ window._maqCargarOAutorellenar=function(){
   document.getElementById('maq_hor_fin').value='';
   document.getElementById('maq_hora_ini').value=''; document.getElementById('maq_hora_fin').value='';
   document.getElementById('maq_observaciones').value='';
+  _maqLimpiarCamposEvaluacion();
   document.getElementById('maqHorasCalc').textContent='—'; document.getElementById('maqRendimiento').textContent='';
   _maqIncidencias=[]; _maqDiesel=[]; _maqConceptos=[]; _maqRenderIncidencias(); _maqRenderDiesel(); _maqRenderConceptos();
   const anterior=_bitacoras.filter(b=>b.equipoId===equipoId && b.fecha<fecha && b.horometroFin!=null).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
@@ -4214,6 +4246,18 @@ function _maqRenderDiesel(){
 window._maqAgregarDiesel=function(){ _maqDiesel.push({hora:'',litros:0}); _maqRenderDiesel(); };
 window._maqQuitarDiesel=function(i){ _maqDiesel.splice(i,1); _maqRenderDiesel(); };
 
+// Solo lee/guarda la evaluación si el bloque está visible (o sea, si quien está guardando es
+// residente/admin) — así un capturista sin ese permiso nunca puede borrar por accidente una
+// evaluación que ya había puesto el residente, aunque él sí pueda guardar el resto del día.
+function _maqLeerEvaluacionOperador(){
+  const block=document.getElementById('maqEvalOperadorBlock');
+  if(!block || block.style.display==='none') return undefined;
+  const manejo=(document.getElementById('maq_eval_manejo')||{}).value||'';
+  const desempeno=(document.getElementById('maq_eval_desempeno')||{}).value||'';
+  const comentario=((document.getElementById('maq_eval_comentario')||{}).value||'').trim();
+  if(!manejo && !desempeno && !comentario) return null;
+  return { manejo, desempeno, comentario };
+}
 window.guardarBitacoraMaquinaria=async function(){
   const equipoId=document.getElementById('maq_equipo').value;
   if(!equipoId){ toast('Selecciona un equipo (o agrega uno primero)','err'); return; }
@@ -4250,6 +4294,10 @@ window.guardarBitacoraMaquinaria=async function(){
     ts:Date.now(),
     by:(typeof session!=='undefined'&&session&&session.nombre)||'admin'
   };
+  // Firestore no acepta campos con valor undefined — solo se agrega si aplica (residente/admin
+  // guardando) y solo se sobreescribe si trae algo, para no borrar una evaluación ya puesta.
+  const evalOp=_maqLeerEvaluacionOperador();
+  if(evalOp!==undefined && evalOp!==null) data.evaluacionOperador=evalOp;
   try{
     if(_maqEditandoId){ await updateDoc(doc(db,'bitacoraMaq039',_maqEditandoId), data); toast('✓ Registro actualizado','ok'); }
     else { await addDoc(collection(db,'bitacoraMaq039'), data); toast('✓ Registro guardado','ok'); }
@@ -4263,8 +4311,13 @@ function _maqLimpiarForm(){
   document.getElementById('maq_hor_ini').value=''; document.getElementById('maq_hor_fin').value='';
   document.getElementById('maq_hora_ini').value=''; document.getElementById('maq_hora_fin').value='';
   document.getElementById('maq_observaciones').value='';
+  _maqLimpiarCamposEvaluacion();
   document.getElementById('maqHorasCalc').textContent='—'; document.getElementById('maqRendimiento').textContent='';
   _maqIncidencias=[]; _maqDiesel=[]; _maqConceptos=[]; _maqRenderIncidencias(); _maqRenderDiesel(); _maqRenderConceptos();
+}
+function _maqLimpiarCamposEvaluacion(){
+  const m=document.getElementById('maq_eval_manejo'), d=document.getElementById('maq_eval_desempeno'), c=document.getElementById('maq_eval_comentario');
+  if(m) m.value=''; if(d) d.value=''; if(c) c.value='';
 }
 window.switchMaqSub=function(cual){
   document.getElementById('maqSubBitacora').style.display = cual==='bitacora' ? '' : 'none';
@@ -4280,7 +4333,13 @@ function renderMaqHistorial(){
   const body=document.getElementById('maqHistorialBody'); if(!body) return;
   const lista=_bitacoras.filter(b=>(b.obra||'039')===obraActiva);
   if(!lista.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin registros de maquinaria todavía.</div>'; return; }
-  body.innerHTML = lista.map(b=>`
+  const puedeVerEval = typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente');
+  body.innerHTML = lista.map(b=>{
+    const ev=b.evaluacionOperador;
+    const evTxt = (puedeVerEval && ev && (ev.manejo||ev.desempeno||ev.comentario))
+      ? `<div style="font-size:11px;margin-top:4px;background:rgba(240,180,41,.1);border-radius:6px;padding:4px 6px">👤 Manejo: <b>${ev.manejo?ev.manejo[0].toUpperCase()+ev.manejo.slice(1):'—'}</b> · Desempeño: <b>${ev.desempeno?ev.desempeno[0].toUpperCase()+ev.desempeno.slice(1):'—'}</b>${ev.comentario?' · '+ev.comentario:''}</div>`
+      : '';
+    return `
     <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-weight:800;color:var(--gold);font-size:13px">${b.equipoNombre||'—'} · ${b.fecha||'—'}</div>
@@ -4293,7 +4352,9 @@ function renderMaqHistorial(){
       ${(b.conceptos&&b.conceptos.length)?`<div style="font-size:11px;color:var(--txt);margin-top:4px">🏗️ ${b.conceptos.map(c=>c.label+' ('+c.volumen+' m³'+(c.fuenteManual?' · ajustado a mano':' · automático')+')').join(' · ')}</div>`:''}
       ${(b.incidencias&&b.incidencias.length)?`<div style="font-size:11px;margin-top:4px">${b.incidencias.map(i=>`<span style="color:${i.resuelto?'#22c55e':'#dc2626'}">${i.resuelto?'✓':'⚠️'} ${(i.hora?i.hora+' — ':'')+i.descripcion}</span>`).join(' · ')}</div>`:''}
       ${b.observaciones?`<div style="font-size:11px;color:var(--muted);margin-top:4px">📝 ${b.observaciones}</div>`:''}
-    </div>`).join('');
+      ${evTxt}
+    </div>`;
+  }).join('');
 }
 window._maqEditarBitacora=function(id){
   const b=_bitacoras.find(x=>x._id===id); if(!b) return;
@@ -4310,6 +4371,9 @@ window._maqEditarBitacora=function(id){
   document.getElementById('maq_hora_ini').value=b.horaInicio||'';
   document.getElementById('maq_hora_fin').value=b.horaFin||'';
   document.getElementById('maq_observaciones').value=b.observaciones||'';
+  const ev=b.evaluacionOperador||{};
+  const elM=document.getElementById('maq_eval_manejo'), elD=document.getElementById('maq_eval_desempeno'), elC=document.getElementById('maq_eval_comentario');
+  if(elM) elM.value=ev.manejo||''; if(elD) elD.value=ev.desempeno||''; if(elC) elC.value=ev.comentario||'';
   _maqConceptos=(b.conceptos||[]).map(c=>({id:c.id, manual:!!c.fuenteManual, volumenManual:c.fuenteManual?c.volumen:0}));
   _maqIncidencias=(b.incidencias||[]).map(i=>({...i}));
   _maqDiesel=(b.diesel||[]).map(d=>({...d}));
