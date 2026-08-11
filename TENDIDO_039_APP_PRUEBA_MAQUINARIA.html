@@ -1140,6 +1140,11 @@ window.cambiarObra=function(v){
   if(typeof _rebuildExtras==='function') _rebuildExtras();
   if(typeof renderAll==='function') renderAll();
   if(typeof renderObraSelect==='function') renderObraSelect();
+  // Refrescar Maquinaria: el selector de equipos y el historial están filtrados por obra activa,
+  // si no se refrescan aquí se quedan mostrando (o vacíos) los datos de la obra anterior hasta
+  // que se sale y se vuelve a entrar al tab — igual que pasaba antes con extras/records.
+  if(typeof renderMaqEquipoSelect==='function') renderMaqEquipoSelect();
+  if(typeof renderMaqHistorial==='function') renderMaqHistorial();
   toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
 };
 // ── Editor de carriles y ancho por tramo (por obra) ──
