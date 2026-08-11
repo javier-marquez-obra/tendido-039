@@ -5582,7 +5582,7 @@ function prellenarKde(){
   if(deHoy.length){ el.value=fmtCad(deHoy[0].ka); }
 }
 function renderAll() {
-  document.getElementById('cntBadge').textContent=records.length;
+  document.getElementById('cntBadge').textContent=records.length+' viaje'+(records.length===1?'':'s');
   updateCounter();
   actualizarPlacasList();
   actualizarStatusEmul();
