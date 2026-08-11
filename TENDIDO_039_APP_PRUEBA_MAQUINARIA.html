@@ -734,7 +734,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
         <div style="display:flex;gap:8px;margin-bottom:10px">
           <div class="field" style="flex:1"><label>Fecha</label>
-            <input type="date" id="maq_fecha" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+            <input type="date" id="maq_fecha" onchange="_maqRenderConceptos();_maqCalcHoras()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
           </div>
           <div class="field" style="flex:1"><label>Operador</label>
             <input type="text" id="maq_operador" placeholder="Nombre" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
@@ -4035,7 +4035,8 @@ window._maqCalcHoras=function(){
   const out=document.getElementById('maqHorasCalc');
   if(out) out.textContent = horas!=null ? horas.toFixed(2)+' hrs' : '—';
   const rendDiv=document.getElementById('maqRendimiento');
-  const vol=(_maqConceptos||[]).reduce((s,c)=>s+(parseFloat(c.volumen)||0),0);
+  const fechaAct=(document.getElementById('maq_fecha')||{}).value||fechaJornada();
+  const vol=(_maqConceptos||[]).reduce((s,c)=>s+(c.manual ? (parseFloat(c.volumenManual)||0) : _volumenRealDiaConcepto(fechaAct,c.id)),0);
   if(rendDiv){
     if(horas>0 && vol>0) rendDiv.textContent=`Volumen total: ${vol.toFixed(2)} m³ · Rendimiento: ${(vol/horas).toFixed(2)} m³/hora`;
     else rendDiv.textContent='';
@@ -4043,22 +4044,48 @@ window._maqCalcHoras=function(){
   return horas;
 };
 
+// Volumen REAL (ton/densidad, igual que en los reportes de tendido) capturado ese día para un
+// concepto específico — se toma DIRECTO de los viajes ya guardados, nadie lo teclea a mano.
+// Es el mismo criterio "ton/DEN_TIRO" que usa toda la app para volumen real.
+function _volumenRealDiaConcepto(fecha, conceptoId){
+  if(!fecha||!conceptoId) return 0;
+  let tonTotal=0;
+  (recordsAll||[]).forEach(r=>{
+    if((r.obra||'039')!==obraActiva) return;
+    if(r.fecha!==fecha) return;
+    _conceptosDe(r).forEach(c=>{ if(c.id===conceptoId) tonTotal+=(parseFloat(c.ton)||0); });
+  });
+  return tonTotal/DEN_TIRO;
+}
 function _maqRenderConceptos(){
   const body=document.getElementById('maqConceptosBody'); if(!body) return;
-  const opciones=(catalogoActivo||[]).map(c=>`<option value="${c.id}">${c.label}</option>`).join('');
-  body.innerHTML = _maqConceptos.length ? _maqConceptos.map((c,i)=>`
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-      <select onchange="_maqConceptos[${i}].id=this.value" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
-        ${(catalogoActivo||[]).map(ct=>`<option value="${ct.id}" ${ct.id===c.id?'selected':''}>${ct.label}</option>`).join('')}
-      </select>
-      <input type="number" step="0.01" inputmode="decimal" placeholder="m³" value="${c.volumen!=null?c.volumen:''}" oninput="_maqConceptos[${i}].volumen=parseFloat(this.value)||0;_maqCalcHoras()" style="width:90px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
-      <button type="button" onclick="_maqQuitarConcepto(${i})" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
-    </div>`).join('') : 'Ninguno capturado.';
+  const fecha=document.getElementById('maq_fecha').value||fechaJornada();
+  body.innerHTML = _maqConceptos.length ? _maqConceptos.map((c,i)=>{
+    const auto=_volumenRealDiaConcepto(fecha, c.id);
+    return `<div style="border:1px solid var(--bord);border-radius:6px;padding:6px;margin-bottom:6px">
+      <div style="display:flex;gap:6px;align-items:center">
+        <select onchange="_maqConceptos[${i}].id=this.value;_maqRenderConceptos();_maqCalcHoras()" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+          ${(catalogoActivo||[]).map(ct=>`<option value="${ct.id}" ${ct.id===c.id?'selected':''}>${ct.label}</option>`).join('')}
+        </select>
+        <button type="button" onclick="_maqQuitarConcepto(${i})" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
+      </div>
+      ${!c.manual ? `
+      <div style="font-size:11px;color:var(--green);margin-top:4px">📡 ${auto.toFixed(2)} m³ registrados ese día en viajes de este concepto (automático)</div>
+      <button type="button" onclick="_maqConceptos[${i}].manual=true;_maqConceptos[${i}].volumenManual=${auto};_maqRenderConceptos();_maqCalcHoras()" style="margin-top:4px;background:none;border:none;color:var(--muted);font-size:10px;text-decoration:underline;cursor:pointer">✏️ ajustar manualmente (excepción)</button>
+      ` : `
+      <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+        <input type="number" step="0.01" inputmode="decimal" value="${c.volumenManual!=null?c.volumenManual:''}" oninput="_maqConceptos[${i}].volumenManual=parseFloat(this.value)||0;_maqCalcHoras()" style="width:100px;background:var(--bg);border:1px solid var(--gold);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)"> m³ (manual)
+      </div>
+      <button type="button" onclick="_maqConceptos[${i}].manual=false;_maqRenderConceptos();_maqCalcHoras()" style="margin-top:4px;background:none;border:none;color:var(--blue);font-size:10px;text-decoration:underline;cursor:pointer">🔒 volver a automático (${auto.toFixed(2)} m³)</button>
+      `}
+    </div>`;
+  }).join('') : 'Ninguno capturado.';
 }
 window._maqAgregarConcepto=function(){
   const def=(catalogoActivo&&catalogoActivo[0])?catalogoActivo[0].id:'';
-  _maqConceptos.push({id:def,volumen:0});
+  _maqConceptos.push({id:def,manual:false,volumenManual:0});
   _maqRenderConceptos();
+  _maqCalcHoras();
 };
 window._maqQuitarConcepto=function(i){ _maqConceptos.splice(i,1); _maqRenderConceptos(); _maqCalcHoras(); };
 
@@ -4099,7 +4126,11 @@ window.guardarBitacoraMaquinaria=async function(){
   const fecha=document.getElementById('maq_fecha').value || fechaJornada();
   const horas=_maqCalcHoras();
   const modo=(document.querySelector('input[name="maq_modo_horas"]:checked')||{}).value||'horometro';
-  const conceptosGuardar=(_maqConceptos||[]).filter(c=>c.id).map(c=>({id:c.id, label:(getCatItem(c.id)||{}).label||c.id, volumen:parseFloat(c.volumen)||0}));
+  const conceptosGuardar=(_maqConceptos||[]).filter(c=>c.id).map(c=>{
+    const auto=_volumenRealDiaConcepto(fecha, c.id);
+    const vol=c.manual ? (parseFloat(c.volumenManual)||0) : auto;
+    return { id:c.id, label:(getCatItem(c.id)||{}).label||c.id, volumen:vol, volumenAutomatico:auto, fuenteManual:!!c.manual };
+  });
   const vol=conceptosGuardar.reduce((s,c)=>s+c.volumen,0);
   const litrosTotal=_maqDiesel.reduce((s,d)=>s+(parseFloat(d.litros)||0),0);
   const data={
@@ -4161,7 +4192,7 @@ function renderMaqHistorial(){
         Operador: ${b.operador||'—'} · Horas: ${b.horasTrabajadas!=null?b.horasTrabajadas+' hrs':'—'} ${b.rendimiento?' · Rendimiento: '+b.rendimiento+' m³/hr':''}
         ${b.litrosDieselTotal?' · Diésel: '+b.litrosDieselTotal+' L':''}
       </div>
-      ${(b.conceptos&&b.conceptos.length)?`<div style="font-size:11px;color:var(--txt);margin-top:4px">🏗️ ${b.conceptos.map(c=>c.label+' ('+c.volumen+' m³)').join(' · ')}</div>`:''}
+      ${(b.conceptos&&b.conceptos.length)?`<div style="font-size:11px;color:var(--txt);margin-top:4px">🏗️ ${b.conceptos.map(c=>c.label+' ('+c.volumen+' m³'+(c.fuenteManual?' · ajustado a mano':' · automático')+')').join(' · ')}</div>`:''}
       ${(b.incidencias&&b.incidencias.length)?`<div style="font-size:11px;margin-top:4px">${b.incidencias.map(i=>`<span style="color:${i.resuelto?'#22c55e':'#dc2626'}">${i.resuelto?'✓':'⚠️'} ${(i.hora?i.hora+' — ':'')+i.descripcion}</span>`).join(' · ')}</div>`:''}
       ${b.observaciones?`<div style="font-size:11px;color:var(--muted);margin-top:4px">📝 ${b.observaciones}</div>`:''}
     </div>`).join('');
@@ -4181,7 +4212,7 @@ window._maqEditarBitacora=function(id){
   document.getElementById('maq_hora_ini').value=b.horaInicio||'';
   document.getElementById('maq_hora_fin').value=b.horaFin||'';
   document.getElementById('maq_observaciones').value=b.observaciones||'';
-  _maqConceptos=(b.conceptos||[]).map(c=>({...c}));
+  _maqConceptos=(b.conceptos||[]).map(c=>({id:c.id, manual:!!c.fuenteManual, volumenManual:c.fuenteManual?c.volumen:0}));
   _maqIncidencias=(b.incidencias||[]).map(i=>({...i}));
   _maqDiesel=(b.diesel||[]).map(d=>({...d}));
   _maqRenderConceptos(); _maqRenderIncidencias(); _maqRenderDiesel(); _maqCalcHoras();
