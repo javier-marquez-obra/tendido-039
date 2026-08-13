@@ -5786,14 +5786,20 @@ function renderList() {
         }).join(' · ')
       : (rd.kdeMin!=null&&rd.kaMax!=null ? `${fmtCad(rd.kdeMin)} → ${fmtCad(rd.kaMax)}${mlDia!=null?' ('+mlDia.toFixed(2)+'m)':''}` : '');
     // Progreso POR CARRIL (individual, no promediado): ML trabajados y faltantes para llegar a
-    // la meta del tramo — usando TODO el histórico de la obra (no solo el día), igual que antes.
+    // la meta del tramo — el ACUMULADO usa todo el histórico de la obra, pero SOLO se muestran
+    // los carriles que se trabajaron ESTE día (si hoy solo tocaste 1 carril, no se listan los otros).
     const carrProg = _carrilesProgreso();
+    const carrilesHoy=new Set();
+    rs.forEach(r=>{
+      const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{carril:r.carril,id:r.concepto}];
+      cs.forEach(c=>{ if(c.carril) carrilesHoy.add(tramoDeConcepto(c.id)+'::'+c.carril); });
+    });
     const promTxt = Object.keys(carrProg).map(t=>{
-      return Object.keys(carrProg[t]).map(carril=>{
+      return Object.keys(carrProg[t]).filter(carril=>carrilesHoy.has(t+'::'+carril)).map(carril=>{
         const p=carrProg[t][carril];
         return `🛣️ ${t}·${carril}: ${_fmtMlOKm(p.ml)} trabajados · faltan ${_fmtMlOKm(p.faltante)} para meta (${_fmtMlOKm(p.meta)})`;
       }).join('  |  ');
-    }).join('  |  ');
+    }).filter(Boolean).join('  |  ');
     // Horas trabajadas del día: un solo dato, suma de los minutos de descarga de TODOS los
     // camiones de esa jornada (el detalle por camión ya está en el reporte "Tiempos por camión").
     const minDia=rs.reduce((s,r)=>s+(r.duracion_descarga_min!=null&&r.duracion_descarga_min!==''?+r.duracion_descarga_min:0),0);
