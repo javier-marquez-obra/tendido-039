@@ -295,6 +295,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <button class="be" id="btnEliminarObra" onclick="eliminarObra()" title="Eliminar la obra activa (solo admin)" style="padding:5px 10px;font-size:12px;white-space:nowrap;border-color:#ef4444;color:#ef4444;display:none">🗑 Eliminar obra</button>
     <button class="be" onclick="abrirConfigCarriles()" title="Definir carriles y ancho sugerido por tramo" style="padding:5px 10px;font-size:12px;white-space:nowrap">🛣️ Carriles</button>
     <button class="be" id="btnConfigCatalogo" onclick="abrirConfigCatalogo()" title="Definir conceptos, cantidades y precios de la obra activa" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">📋 Catálogo</button>
+    <button class="be" id="btnNormConceptos" onclick="document.getElementById('normConceptosModal').style.display='flex';diagnosticarConceptos()" title="Corregir viajes viejos cuyo concepto no coincide con el catálogo actual" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">🔧 Normalizar</button>
+    <button class="be" id="btnToggleMaquinaria" onclick="toggleMaquinariaObra()" title="Prende/apaga el módulo de Maquinaria SOLO en esta obra (en pruebas)" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">🚜 Maquinaria</button>
     <select id="themeSel" onchange="setTheme(this.value)" title="Cambiar tema de color" style="background:var(--bg);border:1px solid var(--bord);color:var(--txt);border-radius:8px;padding:5px 8px;font-size:12px;font-weight:700;white-space:nowrap">
       <option value="dark">🌙 Oscuro</option>
       <option value="light">☀️ Claro</option>
@@ -343,9 +345,155 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     </div>
   </div>
 
+  <div id="normConceptosModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:640px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px">🔧 Normalizar conceptos viejos</div>
+        <button onclick="document.getElementById('normConceptosModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Busca viajes cuyo concepto NO coincide con ningún ID del catálogo actual (por eso pueden no contar bien en reportes/volumen). Muestra cada valor distinto encontrado, cuántos viajes lo tienen, y a qué ID canónico lo va a corregir. Revisa y confirma antes de aplicar.</div>
+      <button onclick="diagnosticarConceptos()" style="width:100%;margin-bottom:10px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:8px;font-size:12px;font-weight:700;cursor:pointer">🔍 Buscar conceptos sin normalizar</button>
+      <div id="normConceptosBody"></div>
+    </div>
+  </div>
+
+  <div id="equipoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px" id="equipoModalTitulo">🚜 Nuevo equipo</div>
+        <button onclick="document.getElementById('equipoModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>Nombre / tipo</label>
+        <input type="text" id="eq_nombre" placeholder="ej. Motoconformadora CAT 140" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>№ económico / serie (opcional)</label>
+        <input type="text" id="eq_numero" onblur="_eqBuscarPorNumero()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+        <div id="eqNumeroAviso" style="display:none;margin-top:5px;font-size:11px;font-weight:700;color:var(--gold);background:rgba(234,179,8,.12);border:1px solid var(--gold);border-radius:6px;padding:6px 8px"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div class="field" style="flex:1"><label id="eq_lbl_fecha_llega">Día que llega a obra</label>
+          <input type="date" id="eq_fecha_llega" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+        </div>
+        <div class="field" style="flex:1"><label id="eq_lbl_hor_llega">Horómetro con el que llega</label>
+          <input type="number" step="0.1" inputmode="decimal" id="eq_hor_llega" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>Día que empieza a trabajar</label>
+        <input type="date" id="eq_fecha_inicio" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+      <div class="field" style="margin-bottom:14px"><label>Costo de renta diario ($)</label>
+        <input type="number" step="0.01" inputmode="decimal" id="eq_costo_renta" placeholder="0.00" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+
+      <div id="eqServicioBlock" style="display:none">
+        <div style="border-top:1px solid var(--bord);margin:4px 0 12px"></div>
+        <div style="font-weight:800;color:var(--txt);font-size:13px;margin-bottom:8px">🔧 Próximo servicio (para el aviso)</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <div class="field" style="flex:1"><label>Próximo cambio de aceite (horómetro)</label>
+            <input type="number" step="0.1" inputmode="decimal" id="eq_prox_aceite" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+          <div class="field" style="flex:1"><label>Próximo cambio de filtros (horómetro)</label>
+            <input type="number" step="0.1" inputmode="decimal" id="eq_prox_filtros" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+        </div>
+        <div style="font-weight:800;color:var(--txt);font-size:13px;margin:12px 0 8px">📋 Historial de obras</div>
+        <div id="eqHistorialObrasBody" style="font-size:11px;color:var(--muted);margin-bottom:10px"></div>
+        <div style="font-weight:800;color:var(--txt);font-size:13px;margin-bottom:8px">✅ Registrar servicio realizado</div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <select id="eq_serv_tipo" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+            <option value="aceite">Cambio de aceite</option>
+            <option value="filtros">Cambio de filtros</option>
+            <option value="otro">Otro</option>
+          </select>
+          <input type="date" id="eq_serv_fecha" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+        </div>
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="number" step="0.1" inputmode="decimal" id="eq_serv_horometro" placeholder="Horómetro del servicio" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+          <input type="text" id="eq_serv_notas" placeholder="Notas (opcional)" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+        </div>
+        <button type="button" onclick="registrarServicioEquipo()" style="width:100%;margin-bottom:12px;background:var(--blue4);border:1px solid var(--blue);border-radius:8px;color:var(--blue);padding:8px;font-size:12px;font-weight:700;cursor:pointer">+ Registrar servicio</button>
+        <div id="eqServiciosBody" style="font-size:11px;color:var(--muted);margin-bottom:12px"></div>
+      </div>
+
+      <button onclick="guardarNuevoEquipo()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer" id="btnGuardarEquipo">Guardar equipo</button>
+    </div>
+  </div>
+
+  <div id="cierreEquipoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:#dc2626;font-size:15px">🚚 Cerrar / trasladar equipo</div>
+        <button onclick="document.getElementById('cierreEquipoModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="cierreEquipoNombre"></div>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <div class="field" style="flex:1"><label>Fecha de salida</label>
+          <input type="date" id="ce_fecha" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+        </div>
+        <div class="field" style="flex:1"><label>Hora de salida</label>
+          <input type="time" id="ce_hora" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>Destino</label>
+        <select id="ce_destino_tipo" onchange="_ceToggleDestino()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          <option value="obra">Otra obra</option>
+          <option value="taller">Taller</option>
+          <option value="otro">Otro</option>
+        </select>
+      </div>
+      <div class="field" id="ce_destino_obra_wrap" style="margin-bottom:8px"><label>Obra destino</label>
+        <select id="ce_destino_obra" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)"></select>
+      </div>
+      <div class="field" id="ce_destino_otro_wrap" style="display:none;margin-bottom:8px"><label>Especifica</label>
+        <input type="text" id="ce_destino_otro" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+      <div class="field" style="margin-bottom:8px"><label>Motivo (opcional)</label>
+        <input type="text" id="ce_motivo" placeholder="ej. terminó su participación, reemplazo por otro equipo..." style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">📸 Evidencia fotográfica (opcional — cama baja con la máquina)</label>
+        <div class="btn-foto" style="margin-bottom:6px"><span>📸</span> TOMAR FOTO<input type="file" accept="image/*" capture="environment" onchange="_ceAgregarFoto(event)"></div>
+        <div id="ceFotoPreview"></div>
+      </div>
+      <button onclick="confirmarCierreEquipo()" style="width:100%;background:#dc2626;border:none;border-radius:8px;color:#fff;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Confirmar cierre — dejar de aparecer en captura diaria</button>
+    </div>
+  </div>
+
+  <div id="recepcionEquipoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:520px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px">📋 Recepción / condición al llegar</div>
+        <button onclick="document.getElementById('recepcionEquipoModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div id="recepcionEquipoNombre" style="font-size:11px;color:var(--muted);margin-bottom:12px"></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Llénalo al recibir el equipo en la obra (nuevo o trasladado de otra) — así queda constancia de en qué condiciones llegó, por si viene dañado de antes.</div>
+
+      <div class="field" style="margin-bottom:10px"><label>Fecha de recepción</label>
+        <input type="date" id="rc_fecha" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+
+      <div id="rc_preguntas"></div>
+
+      <div class="field" style="margin:10px 0"><label>Último servicio conocido (si viene de otra obra y no está en este sistema)</label>
+        <input type="text" id="rc_ultimo_servicio" placeholder="ej. cambio de aceite hace 2 semanas, según el operador" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+      <div class="field" style="margin-bottom:10px"><label>Notas adicionales</label>
+        <textarea id="rc_notas" rows="2" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt);resize:vertical"></textarea>
+      </div>
+
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;color:var(--muted);display:block;margin-bottom:4px">📸 Evidencia fotográfica (llantas, birlos, sistema de riego, aspersores, etc.)</label>
+        <div class="btn-foto" style="margin-bottom:6px"><span>📸</span> TOMAR FOTO<input type="file" accept="image/*" capture="environment" onchange="_rcAgregarFoto(event)"></div>
+        <div id="rcFotosPreview" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+      </div>
+      <button onclick="guardarRecepcionEquipo()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Guardar recepción</button>
+    </div>
+  </div>
+
   <div class="tabs" id="tabBar">
     <div class="tab active" onclick="switchTab('captura',this)">📋 CAPTURA</div>
     <div class="tab" onclick="switchTab('viajes',this)">📄 VIAJES</div>
+    <div class="tab" onclick="switchTab('maquinaria',this)" id="tabMaquinaria" style="display:none">🚜 MAQUINARIA</div>
     <div class="tab locked" id="tab-reporte" onclick="switchTab('reporte',this)">📊 REPORTE</div>
   </div>
 
@@ -590,6 +738,142 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div id="repCamionesContent"></div>
   </div>
 
+  <!-- MAQUINARIA -->
+  <div class="view" id="view-maquinaria">
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+      <button class="be" onclick="abrirNuevoEquipo()" style="padding:6px 12px;font-size:12px">➕ Nuevo equipo</button>
+      <button class="be" onclick="switchMaqSub('bitacora')" id="btnMaqSubBitacora" style="padding:6px 12px;font-size:12px">📝 Registrar día</button>
+      <button class="be" onclick="switchMaqSub('historial')" id="btnMaqSubHistorial" style="padding:6px 12px;font-size:12px">📚 Historial</button>
+      <button class="be" onclick="switchMaqSub('cerrados')" id="btnMaqSubCerrados" style="padding:6px 12px;font-size:12px">🚚 Equipos cerrados</button>
+      <button class="be" onclick="exportarBitacoraExcel()" style="padding:6px 12px;font-size:12px;border-color:#22c55e;color:#22c55e">📊 Excel</button>
+      <button class="be" onclick="reportePendientesEquipos()" style="padding:6px 12px;font-size:12px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes</button>
+      <button class="be" onclick="reporteEstadisticaFallas()" style="padding:6px 12px;font-size:12px;border-color:#3b82f6;color:#3b82f6">📈 Estadística de fallas</button>
+    </div>
+
+    <div id="maqSubBitacora">
+      <div style="background:var(--surf);border:1px solid var(--bord);border-radius:12px;padding:14px;margin-bottom:14px">
+        <div style="font-weight:800;color:var(--gold);font-size:14px;margin-bottom:10px">📝 Registro del día</div>
+
+        <div class="field" style="margin-bottom:10px"><label>Equipo</label>
+          <select id="maq_equipo" onchange="renderMaqEquipoInfo();_maqAutorellenarOperador();_maqCargarOAutorellenar()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)"></select>
+        </div>
+        <div id="maqEquipoInfo" style="font-size:11px;color:var(--muted);margin:-4px 0 6px"></div>
+        <div id="maqAvisoServicio" style="display:none;margin-bottom:8px;background:rgba(234,179,8,.12);border:1px solid var(--gold);border-radius:8px;padding:8px 10px;font-size:11px;font-weight:700;color:var(--gold)"></div>
+        <div id="maqAvisoDano" style="display:none;margin-bottom:8px;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:700;color:#dc2626"></div>
+        <div id="maqHistorialProblemas" style="margin-bottom:10px"></div>
+        <div style="display:flex;gap:6px;margin-bottom:10px">
+          <button type="button" onclick="abrirEditarEquipo()" style="flex:1;background:none;border:1px solid var(--bord);border-radius:8px;color:var(--blue);padding:7px;font-size:11px;font-weight:700;cursor:pointer">🔧 Editar / registrar servicio</button>
+          <button type="button" onclick="abrirRecepcionEquipo()" style="flex:1;background:none;border:1px solid var(--bord);border-radius:8px;color:var(--gold);padding:7px;font-size:11px;font-weight:700;cursor:pointer">📋 Recepción / condición</button>
+          <button type="button" onclick="abrirCierreEquipo()" style="flex:1;background:rgba(220,38,38,.1);border:1px solid #dc2626;border-radius:8px;color:#dc2626;padding:7px;font-size:11px;font-weight:700;cursor:pointer">🚚 Cerrar / trasladar</button>
+        </div>
+        <button type="button" onclick="reportePdfEquipo()" style="width:100%;margin-bottom:10px;background:none;border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:7px;font-size:11px;font-weight:700;cursor:pointer">🖨️ Reporte PDF de este equipo (horas, servicios, historial)</button>
+
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <div class="field" style="flex:1"><label>Fecha</label>
+            <input type="date" id="maq_fecha" onchange="_maqRenderConceptos();_maqCalcHoras();_maqCargarOAutorellenar()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+          <div class="field" style="flex:1"><label>Operador</label>
+            <input type="text" id="maq_operador" placeholder="Nombre" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:14px;align-items:center;margin-bottom:8px">
+          <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="radio" name="maq_modo_horas" value="horometro" checked onchange="_maqToggleModoHoras()"> Con horómetro
+          </label>
+          <label style="font-size:11px;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer">
+            <input type="radio" name="maq_modo_horas" value="reloj" onchange="_maqToggleModoHoras()"> Sin horómetro (hora inicio/fin)
+          </label>
+        </div>
+
+        <div id="maqModoHorometro" style="display:flex;gap:8px;margin-bottom:6px">
+          <div class="field" style="flex:1"><label>Horómetro inicial</label>
+            <input type="number" step="0.1" inputmode="decimal" id="maq_hor_ini" oninput="_maqCalcHoras()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+          <div class="field" style="flex:1"><label>Horómetro final</label>
+            <input type="number" step="0.1" inputmode="decimal" id="maq_hor_fin" oninput="_maqCalcHoras()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+        </div>
+        <div id="maqModoReloj" style="display:none;gap:8px;margin-bottom:6px">
+          <div class="field" style="flex:1"><label>Hora inicio</label>
+            <input type="time" id="maq_hora_ini" oninput="_maqCalcHoras()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+          <div class="field" style="flex:1"><label>Hora fin</label>
+            <input type="time" id="maq_hora_fin" oninput="_maqCalcHoras()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:700;color:var(--gold);margin-bottom:10px">Horas trabajadas: <span id="maqHorasCalc">—</span></div>
+
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:800;color:var(--txt)">🏗️ Conceptos en los que participó (opcional, pueden ser varios)</div>
+            <button type="button" onclick="_maqAgregarConcepto()" style="background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar</button>
+          </div>
+          <div id="maqConceptosBody" style="font-size:11px;color:var(--muted)">Ninguno capturado.</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px" id="maqRendimiento"></div>
+
+        <div style="margin-bottom:10px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:800;color:var(--txt)">⚠️ Incidencias / fallas del día</div>
+            <button type="button" onclick="_maqAgregarIncidencia()" style="background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar</button>
+          </div>
+          <div id="maqIncidenciasBody" style="font-size:11px;color:var(--muted)">Ninguna capturada.</div>
+        </div>
+
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <div style="font-size:12px;font-weight:800;color:var(--txt)">⛽ Diésel cargado a esta máquina</div>
+            <button type="button" onclick="_maqAgregarDiesel()" style="background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:4px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Agregar carga</button>
+          </div>
+          <div id="maqDieselBody" style="font-size:11px;color:var(--muted)">Ninguna capturada.</div>
+        </div>
+
+        <div class="field" style="margin-bottom:14px"><label>📝 Observaciones del día (opcional — luces, llantas, cualquier detalle)</label>
+          <textarea id="maq_observaciones" rows="2" placeholder="ej. faltan luces traseras, hay que llenar aire a las llantas..." style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt);resize:vertical"></textarea>
+          <button class="voice-btn" id="voiceBtnMaqObs" onclick="toggleVoice('maq_observaciones','voiceBtnMaqObs')"><span class="vi">🎙️</span> DICTAR</button>
+        </div>
+
+        <div id="maqEvalOperadorBlock" style="display:none;border:1px solid var(--gold);border-radius:10px;padding:10px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:800;color:var(--gold);margin-bottom:2px">👤 Evaluación del operador</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:8px">Solo la llena el residente o el superintendente — no la ve ni la captura el operador.</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px">
+            <div class="field" style="flex:1"><label>Forma de operar la maquinaria</label>
+              <select id="maq_eval_manejo" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+                <option value="">— sin evaluar —</option>
+                <option value="bueno">Bueno</option>
+                <option value="regular">Regular</option>
+                <option value="malo">Malo</option>
+              </select>
+            </div>
+            <div class="field" style="flex:1"><label>Forma de realizar su trabajo</label>
+              <select id="maq_eval_desempeno" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt)">
+                <option value="">— sin evaluar —</option>
+                <option value="bueno">Bueno</option>
+                <option value="regular">Regular</option>
+                <option value="malo">Malo</option>
+              </select>
+            </div>
+          </div>
+          <div class="field"><label>Comentario (opcional)</label>
+            <textarea id="maq_eval_comentario" rows="2" placeholder="ej. maneja con cuidado pero le cuesta seguir instrucciones..." style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:12px;color:var(--txt);resize:vertical"></textarea>
+            <button class="voice-btn" id="voiceBtnMaqEval" onclick="toggleVoice('maq_eval_comentario','voiceBtnMaqEval')"><span class="vi">🎙️</span> DICTAR</button>
+          </div>
+        </div>
+
+        <button onclick="guardarBitacoraMaquinaria()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:11px;font-size:14px;font-weight:800;cursor:pointer">💾 Guardar registro del día</button>
+      </div>
+    </div>
+
+    <div id="maqSubHistorial" style="display:none">
+      <div id="maqHistorialBody"></div>
+    </div>
+
+    <div id="maqSubCerrados" style="display:none">
+      <div id="maqCerradosBody"></div>
+    </div>
+  </div>
+
   <!-- REPORTE VOLUMEN ACUMULADO -->
   <div class="view" id="view-rep-volumen">
     <div id="repVolumenContent"></div>
@@ -710,6 +994,87 @@ function _canonKeyC(id,label,kde){
 function conceptoCanon(id,label,kde){ const k=_canonKeyC(id,label,kde); return k?_CANON_LBL[k]:(label||id||'—'); }
 function importe(id, m3){ const ci=getCatItem(id); return ci ? ci.pu*m3 : 0; }
 
+// ═══ NORMALIZAR CONCEPTOS VIEJOS ═══
+// Reutiliza el mapa _CANON_ID (definido más abajo, junto a _procesarCadExcel) → ID real del catálogo.
+// Recorre TODOS los viajes de la obra activa y detecta conceptos (top-level o dentro de conceptos[])
+// cuyo id NO coincide con ningún id del catálogo actual — agrupa por valor crudo distinto encontrado.
+window.diagnosticarConceptos=function(){
+  const body=document.getElementById('normConceptosBody');
+  if(!body) return;
+  body.innerHTML='<div style="font-size:11px;color:var(--muted)">Buscando…</div>';
+  const grupos={}; // rawKey -> {idRaw,labelRaw,count,recordIds:Set,sugerido}
+  (recordsAll||[]).forEach(r=>{
+    if((r.obra||'039')!==obraActiva) return;
+    const items = (r.conceptos&&r.conceptos.length) ? r.conceptos.map((cv,ix)=>({idRaw:cv.id,labelRaw:cv.label,kde:cv.kde,path:'conceptos.'+ix})) : [{idRaw:r.id||r.concepto,labelRaw:r.concepto,kde:r.kde,path:'top'}];
+    items.forEach(it=>{
+      if(getCatItem(it.idRaw)) return; // ya coincide con un id válido del catálogo, no hay nada que corregir
+      const k=_canonKeyC(it.idRaw,it.labelRaw,it.kde);
+      const sugerido = k ? _CANON_ID[k] : null;
+      const rawKey=String(it.idRaw||'')+'|||'+String(it.labelRaw||'');
+      if(!grupos[rawKey]) grupos[rawKey]={idRaw:it.idRaw,labelRaw:it.labelRaw,sugerido,count:0,ids:new Set()};
+      grupos[rawKey].count++; grupos[rawKey].ids.add(r._id);
+    });
+  });
+  const arr=Object.values(grupos);
+  if(!arr.length){ body.innerHTML='<div style="font-size:12px;color:var(--green);font-weight:700">✓ No encontré conceptos fuera del catálogo en esta obra.</div>'; return; }
+  window._normGrupos=arr;
+  const opciones=catalogoActivo.map(c=>`<option value="${c.id}">${c.id} — ${c.label}</option>`).join('');
+  body.innerHTML = arr.map((g,i)=>`
+    <div style="background:var(--surf);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-bottom:8px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px">Valor guardado actualmente:</div>
+      <div style="font-size:12px;font-weight:700;color:var(--txt);margin-bottom:6px">id: "${g.idRaw||'(vacío)'}" · label: "${g.labelRaw||'(vacío)'}" · <span style="color:var(--gold)">${g.count} viaje(s)</span></div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:3px">Corregir a:</div>
+      <select id="normSel_${i}" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+        <option value="">— no corregir este grupo —</option>
+        ${opciones}
+      </select>
+    </div>`).join('') + `
+    <button onclick="aplicarNormalizacionConceptos()" style="width:100%;margin-top:6px;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Aplicar correcciones seleccionadas</button>`;
+  // Preseleccionar el id sugerido por el heurístico donde exista
+  arr.forEach((g,i)=>{ const sel=document.getElementById('normSel_'+i); if(sel && g.sugerido) sel.value=g.sugerido; });
+};
+window.aplicarNormalizacionConceptos=async function(){
+  const arr=window._normGrupos||[];
+  const tareas=[];
+  arr.forEach((g,i)=>{
+    const sel=document.getElementById('normSel_'+i);
+    const nuevoId=sel?sel.value:'';
+    if(!nuevoId) return;
+    const cat=getCatItem(nuevoId); if(!cat) return;
+    tareas.push({g,nuevoId,nuevoLabel:cat.label});
+  });
+  if(!tareas.length){ toast('No seleccionaste ninguna corrección','warn'); return; }
+  const totalViajes=tareas.reduce((s,t)=>s+t.g.ids.size,0);
+  const ok=confirm(`Vas a corregir ${tareas.length} grupo(s) de concepto en ${totalViajes} viaje(s) en total. Esto actualiza los registros en la nube — ¿confirmas?`);
+  if(!ok) return;
+  let okCount=0, errCount=0;
+  for(const t of tareas){
+    for(const rid of t.g.ids){
+      const r=(recordsAll||[]).find(x=>x._id===rid);
+      if(!r) continue;
+      try{
+        const patch={};
+        if(r.conceptos && r.conceptos.length){
+          let cambio=false;
+          const nuevos=r.conceptos.map(cv=>{
+            const raw=String(cv.id||'')+'|||'+String(cv.label||'');
+            const rawG=String(t.g.idRaw||'')+'|||'+String(t.g.labelRaw||'');
+            if(raw===rawG){ cambio=true; return {...cv, id:t.nuevoId, label:t.nuevoLabel}; }
+            return cv;
+          });
+          if(cambio) patch.conceptos=nuevos;
+        } else {
+          // registro viejo sin conceptos[]: agrega/corrige el id top-level y el label
+          patch.id=t.nuevoId; patch.concepto=t.nuevoLabel;
+        }
+        if(Object.keys(patch).length){ await updateDoc(doc(db,COL,rid), patch); okCount++; }
+      }catch(e){ errCount++; console.warn('normalizar concepto:',rid,e); }
+    }
+  }
+  toast(`✓ ${okCount} viaje(s) corregido(s)`+(errCount?` · ${errCount} con error`:''), errCount?'warn':'ok');
+  diagnosticarConceptos(); // vuelve a escanear para confirmar que ya no aparecen
+};
+
 // ═══ MULTI-OBRA (Etapa 1: selector + se guarda la obra en cada viaje; NO filtra todavía) ═══
 const OBRA_DEFAULT={ clave:'039', nombre:'TENDIDO 039 · N-27', conceptos:CATALOGO_E7 };
 function cargarObras(){
@@ -773,8 +1138,29 @@ function aplicarObraActiva(){
   if(be) be.style.display = (_sess && _sess.rol==='admin' && obraActiva!=='039') ? '' : 'none';
   const bc=document.getElementById('btnConfigCatalogo');
   if(bc) bc.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
+  const bn=document.getElementById('btnNormConceptos');
+  if(bn) bn.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
   const vt=document.getElementById('viajesToolbar');
   if(vt) vt.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
+  // Maquinaria: YA es la versión oficial (ya no "en pruebas"), pero por ahora SOLO el admin
+  // (superintendente) puede verla y capturar en ella — mientras se valida qué está funcionando
+  // bien y se capacita al residente/checador para usarla. Cuando esté listo abrir a más gente,
+  // basta con quitar la condición "_sess.rol==='admin'" de la línea de tabMaq de aquí abajo.
+  const tabMaq=document.getElementById('tabMaquinaria');
+  const maqOn = !!(OBRAS[obraActiva] && OBRAS[obraActiva].maquinariaActiva);
+  if(tabMaq) tabMaq.style.display = (maqOn && _sess && _sess.rol==='admin') ? '' : 'none';
+  const btnMaqToggle=document.getElementById('btnToggleMaquinaria');
+  if(btnMaqToggle){
+    btnMaqToggle.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
+    btnMaqToggle.textContent = maqOn ? '🚜 Maquinaria: ACTIVADA (clic para ocultar)' : '🚜 Maquinaria: oculta (clic para activar en esta obra)';
+    btnMaqToggle.style.color = maqOn ? 'var(--green)' : 'var(--muted)';
+    btnMaqToggle.style.borderColor = maqOn ? 'var(--green)' : 'var(--bord)';
+  }
+  // Evaluación del operador: solo la ve/llena residente o superintendente (admin). Con Maquinaria
+  // restringida a admin por ahora, esto de momento solo aplica a admin, pero se deja listo para
+  // cuando se abra también a residente.
+  const evalBlock=document.getElementById('maqEvalOperadorBlock');
+  if(evalBlock) evalBlock.style.display = (_sess && (_sess.rol==='admin'||_sess.rol==='residente')) ? '' : 'none';
   _actualizarTramoCapturaUI();
   try{ if(window._appLista && typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
 }
@@ -825,6 +1211,11 @@ window.cambiarObra=function(v){
   if(typeof _rebuildExtras==='function') _rebuildExtras();
   if(typeof renderAll==='function') renderAll();
   if(typeof renderObraSelect==='function') renderObraSelect();
+  // Refrescar Maquinaria: el selector de equipos y el historial están filtrados por obra activa,
+  // si no se refrescan aquí se quedan mostrando (o vacíos) los datos de la obra anterior hasta
+  // que se sale y se vuelve a entrar al tab — igual que pasaba antes con extras/records.
+  if(typeof renderMaqEquipoSelect==='function') renderMaqEquipoSelect();
+  if(typeof renderMaqHistorial==='function') renderMaqHistorial();
   toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
 };
 // ── Editor de carriles y ancho por tramo (por obra) ──
@@ -832,8 +1223,8 @@ let _carrilesEdit=null, _carrilesObra=null;
 window.abrirConfigCarriles=function(){
   _carrilesObra=obraActiva;
   const base=(OBRAS[obraActiva]&&OBRAS[obraActiva].carriles)||CARRILES_DEFAULT;
-  _carrilesEdit={ O1:(base.O1||CARRILES_DEFAULT.O1).map(c=>({label:c.label,ancho:c.ancho,lado:c.lado||ladoDe(c.label)||'DER'})),
-                  O2:(base.O2||CARRILES_DEFAULT.O2).map(c=>({label:c.label,ancho:c.ancho,lado:c.lado||ladoDe(c.label)||'DER'})) };
+  _carrilesEdit={ O1:(base.O1||CARRILES_DEFAULT.O1).map(c=>({label:c.label,ancho:c.ancho,lado:c.lado||ladoDe(c.label)||'DER',original:c.label})),
+                  O2:(base.O2||CARRILES_DEFAULT.O2).map(c=>({label:c.label,ancho:c.ancho,lado:c.lado||ladoDe(c.label)||'DER',original:c.label})) };
   const lbl=document.getElementById('carrilesObraLbl');
   if(lbl) lbl.textContent='Obra: '+((OBRAS[obraActiva]&&OBRAS[obraActiva].nombre)||obraActiva)+' · define los carriles de cada tramo y su ancho sugerido (editable en cada viaje).';
   _renderConfigCarriles();
@@ -842,8 +1233,11 @@ window.abrirConfigCarriles=function(){
 function _renderConfigCarriles(){
   const bloque=(tramo,titulo)=>{
     const cs=_carrilesEdit[tramo]||[];
-    const rows=cs.map((c,idx)=>`<div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
-      <input id="cc_lbl_${tramo}_${idx}" value="${(c.label||'').replace(/"/g,'&quot;')}" oninput="_carrilesEdit['${tramo}'][${idx}].label=this.value" placeholder="Nombre carril (ej. L. DER.)" style="flex:2;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+    const rows=cs.map((c,idx)=>{
+      const renombrado = c.original && c.label && c.original.trim().toUpperCase()!==c.label.trim().toUpperCase();
+      return `<div style="margin-bottom:6px">
+      <div style="display:flex;gap:6px;align-items:center">
+      <input id="cc_lbl_${tramo}_${idx}" value="${(c.label||'').replace(/"/g,'&quot;')}" oninput="_carrilesEdit['${tramo}'][${idx}].label=this.value" onblur="_renderConfigCarriles()" placeholder="Nombre carril (ej. L. DER.)" style="flex:2;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
       <select id="cc_lado_${tramo}_${idx}" onchange="_carrilesEdit['${tramo}'][${idx}].lado=this.value" title="Lado en el larguillo" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
         <option value="IZQ" ${c.lado==='IZQ'?'selected':''}>Izq</option>
         <option value="CEN" ${c.lado==='CEN'?'selected':''}>Central</option>
@@ -851,13 +1245,16 @@ function _renderConfigCarriles(){
       </select>
       <input id="cc_anc_${tramo}_${idx}" type="number" step="0.01" inputmode="decimal" value="${c.ancho!=null?c.ancho:''}" oninput="_carrilesEdit['${tramo}'][${idx}].ancho=parseFloat(this.value)||0" placeholder="ancho m" style="width:74px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
       <button onclick="_carrilQuitar('${tramo}',${idx})" title="Quitar carril" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
-    </div>`).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin carriles · agrega al menos uno.</div>';
+      </div>
+      ${renombrado?`<button type="button" onclick="reasignarCarrilViajes('${tramo}',${idx})" style="margin-top:4px;width:100%;background:var(--gold2,rgba(234,179,8,.12));border:1px solid var(--gold);border-radius:6px;color:var(--gold);padding:4px 8px;font-size:11px;font-weight:700;cursor:pointer">🔁 Renombrado de "${c.original}" a "${c.label}" — reasignar viajes existentes</button>`:''}
+      </div>`;
+    }).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin carriles · agrega al menos uno.</div>';
     return `<div style="margin-bottom:14px"><div style="font-weight:800;color:var(--gold);font-size:13px;margin-bottom:6px">${titulo}</div>${rows}
       <button onclick="_carrilAgregar('${tramo}')" style="background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Carril</button></div>`;
   };
   document.getElementById('carrilesBody').innerHTML=bloque('O1','🛣️ Obra 1 · MEX-200')+bloque('O2','🛣️ Obra 2 · MEX-80');
 }
-window._carrilAgregar=function(t){ _carrilesEdit[t].push({label:'Nuevo carril',ancho:3.5,lado:'DER'}); _renderConfigCarriles(); };
+window._carrilAgregar=function(t){ _carrilesEdit[t].push({label:'Nuevo carril',ancho:3.5,lado:'DER',original:'Nuevo carril'}); _renderConfigCarriles(); };
 window._carrilQuitar=function(t,i){ _carrilesEdit[t].splice(i,1); _renderConfigCarriles(); };
 window.cerrarConfigCarriles=function(){ document.getElementById('carrilesModal').style.display='none'; };
 window.guardarConfigCarriles=function(){
@@ -880,6 +1277,48 @@ window.guardarConfigCarriles=function(){
   toast('Carriles y anchos guardados','ok');
   if(typeof renderConceptosContainer==='function') renderConceptosContainer();
   try{ if(typeof renderTablaTiro==='function') renderTablaTiro(); }catch(e){}
+};
+// Reasigna todos los viajes guardados que tengan el nombre VIEJO de un carril al nombre NUEVO,
+// tras renombrarlo en el editor — para que no se separen en reportes/larguillo como carriles distintos.
+window.reasignarCarrilViajes=async function(tramo, idx){
+  const cEd=_carrilesEdit[tramo] && _carrilesEdit[tramo][idx];
+  if(!cEd){ toast('Carril no encontrado','err'); return; }
+  const elLbl=document.getElementById('cc_lbl_'+tramo+'_'+idx);
+  const nuevoNombre=((elLbl?elLbl.value:cEd.label)||'').trim();
+  const nombreViejo=(cEd.original||'').trim();
+  if(!nuevoNombre || !nombreViejo || nuevoNombre.toUpperCase()===nombreViejo.toUpperCase()){ toast('No hay cambio de nombre que reasignar','warn'); return; }
+  const obra=_carrilesObra;
+  const candidatos=(recordsAll||[]).filter(r=>{
+    if((r.obra||'039')!==obra) return false;
+    const enTop=(r.carril||'').trim().toUpperCase()===nombreViejo.toUpperCase();
+    const enConceptos=Array.isArray(r.conceptos) && r.conceptos.some(cv=>(cv.carril||'').trim().toUpperCase()===nombreViejo.toUpperCase());
+    return enTop || enConceptos;
+  });
+  if(!candidatos.length){
+    alert(`No encontré viajes guardados con el carril "${nombreViejo}". Se actualiza solo el nombre en la configuración.`);
+    cEd.original=nuevoNombre; _renderConfigCarriles(); return;
+  }
+  const ok=confirm(`Se encontraron ${candidatos.length} viaje(s) guardados con el carril "${nombreViejo}".\n\n¿Reasignarlos todos al nuevo nombre "${nuevoNombre}"? Esto actualiza los registros en la nube, no se puede deshacer con un botón.`);
+  if(!ok) return;
+  let okCount=0, errCount=0;
+  for(const r of candidatos){
+    try{
+      const patch={};
+      if((r.carril||'').trim().toUpperCase()===nombreViejo.toUpperCase()) patch.carril=nuevoNombre;
+      if(Array.isArray(r.conceptos)){
+        let cambio=false;
+        const nuevosConceptos=r.conceptos.map(cv=>{
+          if((cv.carril||'').trim().toUpperCase()===nombreViejo.toUpperCase()){ cambio=true; return {...cv, carril:nuevoNombre}; }
+          return cv;
+        });
+        if(cambio) patch.conceptos=nuevosConceptos;
+      }
+      if(Object.keys(patch).length){ await updateDoc(doc(db,COL,r._id), patch); okCount++; }
+    }catch(e){ errCount++; console.warn('reasignar carril:',r._id,e); }
+  }
+  cEd.original=nuevoNombre;
+  _renderConfigCarriles();
+  toast(`✓ Reasignados ${okCount} viaje(s) al carril "${nuevoNombre}"`+(errCount?` · ${errCount} con error`:''), errCount?'warn':'ok');
 };
 
 // ── Editor de CATÁLOGO (conceptos, cantidades, precios) por obra ──
@@ -1025,6 +1464,16 @@ window.nuevaObra=function(){
 };
 function tipoObra(){ return (OBRAS[obraActiva]&&OBRAS[obraActiva].tipo)||'carretera'; }
 function esParticular(){ return tipoObra()==='particular'; }
+// Prende/apaga el módulo de Maquinaria SOLO para la obra activa, guardado localmente en este
+// dispositivo — así se puede probar en una obra sin que aparezca en las demás ni le estorbe
+// a nadie más mientras sigue en pruebas.
+window.toggleMaquinariaObra=function(){
+  if(!OBRAS[obraActiva]) return;
+  OBRAS[obraActiva].maquinariaActiva = !OBRAS[obraActiva].maquinariaActiva;
+  guardarObras(OBRAS);
+  aplicarObraActiva();
+  toast(OBRAS[obraActiva].maquinariaActiva ? '✓ Maquinaria activada en esta obra' : 'Maquinaria ocultada en esta obra', 'ok');
+};
 // Eliminar la obra activa (solo admin). Borra la obra y TODOS sus viajes en Firebase.
 window.eliminarObra=async function(){
   if(!(typeof session!=='undefined' && session && session.rol==='admin')){ toast('Solo el administrador puede eliminar obras','err'); return; }
@@ -1184,6 +1633,41 @@ function _cadPromedioCarriles(){
     if(mins.length&&maxs.length) out[tramo]={ ini: mins.reduce((a,b)=>a+b,0)/mins.length, fin: maxs.reduce((a,b)=>a+b,0)/maxs.length, n:carriles.length };
   });
   return out; // {tramo: {ini,fin,n}, ...} — solo incluye los subtramos que sí tienen cadenamiento capturado
+}
+// ML trabajados y ML faltantes PARA LLEGAR A LA META, por cada carril individual (no promediado
+// entre carriles como _cadPromedioCarriles) — la meta de cada carril es el largo total del tramo
+// donde vive (RANGO_TRAMO), ya que cada carril debe recorrer esa misma longitud completa.
+// Formato de distancia: en METROS si es menor a 1000, en KILÓMETROS con 2 decimales si es 1000+.
+function _fmtMlOKm(m){
+  const v=+m||0;
+  return v>=1000 ? (v/1000).toFixed(2)+' km' : v.toFixed(2)+' m';
+}
+function _carrilesProgreso(){
+  const porTramo={};
+  records.forEach(r=>{
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril,id:r.concepto}];
+    cs.forEach(c=>{
+      if(!c.carril) return;
+      const tramo=tramoDeConcepto(c.id);
+      if(!porTramo[tramo]) porTramo[tramo]={};
+      const pc=porTramo[tramo];
+      if(!pc[c.carril]) pc[c.carril]={min:null,max:null};
+      const o=pc[c.carril];
+      if(c.kde!=null&&!isNaN(+c.kde)) o.min = o.min==null?+c.kde:Math.min(o.min,+c.kde);
+      if(c.ka!=null&&!isNaN(+c.ka)) o.max = o.max==null?+c.ka:Math.max(o.max,+c.ka);
+    });
+  });
+  const out={};
+  Object.keys(porTramo).forEach(tramo=>{
+    const metaTramo=(RANGO_TRAMO[tramo]?(RANGO_TRAMO[tramo].max-RANGO_TRAMO[tramo].min):0);
+    out[tramo]={};
+    Object.keys(porTramo[tramo]).forEach(carril=>{
+      const o=porTramo[tramo][carril];
+      const ml = (o.min!=null&&o.max!=null) ? Math.abs(o.max-o.min) : 0;
+      out[tramo][carril] = { ml, faltante: Math.max(0, metaTramo-ml), meta: metaTramo };
+    });
+  });
+  return out; // {tramo:{carril:{ml,faltante,meta}}}
 }
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
@@ -1366,6 +1850,10 @@ async function cargarSesion(user) {
   if (isEditor) ['tab-reporte'].forEach(id=>{ const el=document.getElementById(id); if(el) el.classList.remove('locked'); });
   try{ startListener(); }catch(e){ console.error('startListener:', e); setSyncState('err'); }
   try{ startConfigCarriles(); }catch(e){ console.warn('startConfigCarriles:', e); }
+  // Los botones de admin (Catálogo, Normalizar, Maquinaria) dependen del rol de "session", que
+  // recién se acaba de confirmar arriba — hay que refrescarlos aquí, si no se quedan escondidos
+  // toda la sesión salvo que el usuario cambie de obra (lo cual dispara aplicarObraActiva de nuevo).
+  try{ if(typeof aplicarObraActiva==='function') aplicarObraActiva(); }catch(e){}
 }
 // Lee la configuración de CARRILES desde la nube (config039) y la aplica en todos los dispositivos.
 let _cfgCarrilesOn=false;
@@ -1391,6 +1879,8 @@ function startListener() {
   setSyncState('loading');
   startEmulListener();
   startExtrasListener();
+  startEquiposListener();
+  startBitacoraListener();
   try {
     const q = query(collection(db, COL), orderBy('ts','desc'));
     onSnapshot(q, snap => {
@@ -2490,7 +2980,8 @@ function _pctAvanceGeo(){
   return { tot, TOT, extra, pct: TOT>0?(tot/TOT*100):0 };
 }
 function _avanceHeaderHtml(av){
-  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(2)}%</b> (${av.tot.toFixed(2)} / ${av.TOT} m³ del catálogo${obraActiva==='039'?' E-7':''})${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(2)} m³ extra</span>`:''}</div>`;
+  const faltante=Math.max(0, av.TOT - av.tot);
+  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(2)}%</b> (${av.tot.toFixed(2)} / ${av.TOT} m³ del catálogo${obraActiva==='039'?' E-7':''}) · <b style="color:#f87171">Faltan ${faltante.toFixed(2)} m³ por ejecutar</b>${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(2)} m³ extra</span>`:''}</div>`;
 }
 function _puedeImprimirGrafico(){
   return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
@@ -3160,15 +3651,16 @@ window.exportarTablaExcel=function(){
     const area=c.area!=null?+(+c.area).toFixed(2):+(ml*aw).toFixed(2);
     const vol=c.volumen!=null?+(+c.volumen).toFixed(3):+(area*esp/100).toFixed(3);
     const er=area>0?+(ton/(area*DEN_TIRO)*100).toFixed(2):0;
+    const volReal=ton>0?+(ton/DEN_TIRO).toFixed(3):0;
     filas.push({ID:v._id,IDX:ci,Fecha:v.fecha,Viaje:v.num_viaje_dia||'',Placas:v.placas||'',
       Material:v.material||'',Concepto:c.label||c.id||'',Carril:c.carril||v.carril||'',Sentido:sent,
       'De KM':c.kde!=null?+(+c.kde).toFixed(2):'', ML:ml, 'A KM':c.ka!=null?+(+c.ka).toFixed(2):'',
-      Ancho:aw, 'm²':area, 'Espesor (cm)':esp, 'm³':vol, Ton:ton, 'Esp.real(cm)':er,
+      Ancho:aw, 'm²':area, 'Espesor (cm)':esp, 'm³':vol, Ton:ton, 'Esp.real(cm)':er, 'm³ Real (Ton/Dens)':volReal,
       'T.Prod':v.temp_produccion!=null&&v.temp_produccion!==''?+v.temp_produccion:'',
       'T.Tend':v.temp_tendido!=null&&v.temp_tendido!==''?+v.temp_tendido:''});
   }));
   if(!filas.length){ toast('No hay tiros en los días seleccionados','err'); return; }
-  const header=['ID','IDX','Fecha','Viaje','Placas','Material','Concepto','Carril','Sentido','De KM','ML','A KM','Ancho','m²','Espesor (cm)','m³','Ton','Esp.real(cm)','T.Prod','T.Tend'];
+  const header=['ID','IDX','Fecha','Viaje','Placas','Material','Concepto','Carril','Sentido','De KM','ML','A KM','Ancho','m²','Espesor (cm)','m³','Ton','Esp.real(cm)','m³ Real (Ton/Dens)','T.Prod','T.Tend'];
   const ws=XLSX.utils.json_to_sheet(filas,{header});
   filas.forEach((f,i)=>{
     const R=i+2;
@@ -3181,15 +3673,18 @@ window.exportarTablaExcel=function(){
     ws['P'+R]={t:'n', f:`N${R}*O${R}/100`, v:f['m³']||0};
     // R Esp.real(cm) = Ton(Q) / (m²(N) × densidad) × 100
     ws['R'+R]={t:'n', f:`IF(N${R}>0,Q${R}/(N${R}*${DEN_TIRO})*100,0)`, v:f['Esp.real(cm)']||0};
+    // S m³ Real = Ton(Q) / densidad — volumen REALMENTE ejecutado, no el geométrico/teórico de P
+    ws['S'+R]={t:'n', f:`Q${R}/${DEN_TIRO}`, v:f['m³ Real (Ton/Dens)']||0};
   });
-  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:9},{wch:18},{wch:9},{wch:7},{wch:11},{wch:8},{wch:11},{wch:7},{wch:9},{wch:11},{wch:8},{wch:8},{wch:11},{wch:7},{wch:7}];
-  // Fila de TOTALES con fórmulas SUMA (m², m³, Ton)
+  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:9},{wch:18},{wch:9},{wch:7},{wch:11},{wch:8},{wch:11},{wch:7},{wch:9},{wch:11},{wch:8},{wch:8},{wch:11},{wch:11},{wch:7},{wch:7}];
+  // Fila de TOTALES con fórmulas SUMA (m², m³, Ton, m³ Real)
   const tot=filas.length+2;
   ws['M'+tot]={t:'s',v:'TOTALES ▸'};
   ws['N'+tot]={t:'n', f:`SUM(N2:N${filas.length+1})`};
   ws['P'+tot]={t:'n', f:`SUM(P2:P${filas.length+1})`};
   ws['Q'+tot]={t:'n', f:`SUM(Q2:Q${filas.length+1})`};
-  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length+1,c:19}});
+  ws['S'+tot]={t:'n', f:`SUM(S2:S${filas.length+1})`};
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length+1,c:20}});
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tabla de tiro');
   XLSX.writeFile(wb,`TENDIDO_039_TABLA_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Tabla exportada · puedes editar Concepto (Renivelación/Bacheo/Carpeta 3cm/Carpeta 5cm), Ton, Carril, De KM, ML, Sentido, Ancho y Espesor','ok');
@@ -3442,6 +3937,883 @@ function _rebuildExtras(){
   const ov=document.getElementById('tiroOv');
   if(typeof renderTablaTiro==='function' && ov && ov.style.display!=='none') renderTablaTiro();
 }
+
+// ═══════════════════════════ MAQUINARIA ═══════════════════════════
+// Dos colecciones nuevas, independientes del tendido: 'equipos039' (catálogo de máquinas) y
+// 'bitacoraMaq039' (un registro por máquina por día). Capturar aquí es SIEMPRE opcional — si un
+// día no se anota nada, no rompe nada del resto de la app (igual que el resto de los módulos).
+let _equipos=[], _bitacoras=[], _equiposListenerStarted=false, _bitacoraListenerStarted=false;
+let _maqIncidencias=[], _maqDiesel=[], _maqConceptos=[], _maqEditandoId=null, _ceFoto=null;
+
+function startEquiposListener(){
+  if(_equiposListenerStarted) return; _equiposListenerStarted=true;
+  try{ onSnapshot(collection(db,'equipos039'), snap=>{
+    _equipos = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+    renderMaqEquipoSelect();
+    if(document.getElementById('view-maquinaria') && document.getElementById('view-maquinaria').classList.contains('active')) renderMaqHistorial();
+  }); }catch(e){ console.warn('equipos listener', e); }
+}
+function startBitacoraListener(){
+  if(_bitacoraListenerStarted) return; _bitacoraListenerStarted=true;
+  try{ onSnapshot(query(collection(db,'bitacoraMaq039'), orderBy('fecha','desc')), snap=>{
+    _bitacoras = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+    if(document.getElementById('view-maquinaria') && document.getElementById('view-maquinaria').classList.contains('active')) renderMaqHistorial();
+  }); }catch(e){ console.warn('bitacora listener', e); }
+}
+
+let _eqEditandoId=null;
+window.abrirNuevoEquipo=function(){
+  _eqEditandoId=null;
+  document.getElementById('equipoModalTitulo').textContent='🚜 Nuevo equipo';
+  document.getElementById('btnGuardarEquipo').textContent='Guardar equipo';
+  document.getElementById('eqServicioBlock').style.display='none';
+  document.getElementById('eq_lbl_fecha_llega').textContent='Día que llega a obra';
+  document.getElementById('eq_lbl_hor_llega').textContent='Horómetro con el que llega';
+  document.getElementById('eq_nombre').value='';
+  document.getElementById('eq_numero').value='';
+  document.getElementById('eq_fecha_llega').value=fechaJornada();
+  document.getElementById('eq_hor_llega').value='';
+  document.getElementById('eq_fecha_inicio').value=fechaJornada();
+  document.getElementById('eq_costo_renta').value='';
+  document.getElementById('eqNumeroAviso').style.display='none';
+  document.getElementById('equipoModal').style.display='flex';
+};
+// Al escribir el № económico de un equipo NUEVO, busca si esa MISMA máquina ya existe registrada
+// en otra obra (activa o cerrada) — si la encuentra, autorellena el horómetro de llegada con su
+// último dato conocido, y avisa que sería mejor usar "Cerrar/trasladar" desde esa obra para no
+// perder su historial (en vez de duplicarla como si fuera una máquina distinta).
+window._eqBuscarPorNumero=function(){
+  if(_eqEditandoId) return; // esto solo aplica al dar de alta, no al editar uno ya existente
+  const numEl=document.getElementById('eq_numero'); const aviso=document.getElementById('eqNumeroAviso');
+  const num=(numEl.value||'').trim();
+  if(!num){ aviso.style.display='none'; return; }
+  const match=_equipos.find(e=>(e.numero||'').trim().toUpperCase()===num.toUpperCase());
+  if(!match){ aviso.style.display='none'; return; }
+  const horUlt=_maqUltimoHorometro(match._id);
+  const horEl=document.getElementById('eq_hor_llega');
+  if(horEl && !horEl.value) horEl.value=horUlt;
+  const obraNom=OBRAS[match.obra]?.nombre||match.obra||'—';
+  aviso.style.display='block';
+  aviso.innerHTML=`⚠️ Ya existe un equipo con el № "${num}" en la obra <b>${obraNom}</b> (horómetro conocido: ${horUlt}). Si es la MISMA máquina, mejor ve a esa obra y usa "🚚 Cerrar / trasladar" para no perder su historial — se autorellenó el horómetro por si aun así continúas.`;
+};
+// Abre el mismo modal pero en modo edición: muestra próximo servicio, historial de obras,
+// servicios ya registrados, y permite anotar uno nuevo — para el equipo elegido en el selector.
+window.abrirEditarEquipo=function(){
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  if(!equipoId){ toast('Selecciona un equipo primero','err'); return; }
+  const eq=_equipos.find(e=>e._id===equipoId); if(!eq) return;
+  _eqEditandoId=equipoId;
+  document.getElementById('equipoModalTitulo').textContent='🔧 Editar equipo — '+eq.nombre;
+  document.getElementById('btnGuardarEquipo').textContent='Guardar cambios';
+  document.getElementById('eqServicioBlock').style.display='';
+  document.getElementById('eq_lbl_fecha_llega').textContent='Día que llegó a esta obra (estancia actual)';
+  document.getElementById('eq_lbl_hor_llega').textContent='Horómetro con el que llegó';
+  document.getElementById('eq_nombre').value=eq.nombre||'';
+  document.getElementById('eq_numero').value=eq.numero||'';
+  document.getElementById('eq_fecha_llega').value=eq.fechaLlegada||'';
+  document.getElementById('eq_hor_llega').value=eq.horometroLlegada!=null?eq.horometroLlegada:'';
+  document.getElementById('eq_fecha_inicio').value=eq.fechaInicioTrabajo||'';
+  document.getElementById('eq_costo_renta').value=eq.costoRentaDiario!=null?eq.costoRentaDiario:'';
+  document.getElementById('eq_prox_aceite').value=eq.proximoAceiteHorometro!=null?eq.proximoAceiteHorometro:'';
+  document.getElementById('eq_prox_filtros').value=eq.proximoFiltrosHorometro!=null?eq.proximoFiltrosHorometro:'';
+  document.getElementById('eq_serv_fecha').value=fechaJornada();
+  document.getElementById('eq_serv_horometro').value='';
+  document.getElementById('eq_serv_notas').value='';
+  const hist=eq.historialObras||[];
+  document.getElementById('eqHistorialObrasBody').innerHTML = hist.length
+    ? hist.map(h=>`<div>• ${h.obra||'—'}: ${h.fechaEntra||'?'} → ${h.fechaSale||'(en curso)'} ${h.destino?'· salió a '+h.destino:''}</div>`).join('')
+      + `<div>• ${eq.obra||obraActiva}: ${eq.fechaLlegada||'?'} → (actual)</div>`
+    : `<div>Sin traslados registrados · lleva desde ${eq.fechaLlegada||'?'} en ${OBRAS[eq.obra]?.nombre||eq.obra||obraActiva}</div>`;
+  const servs=eq.servicios||[];
+  document.getElementById('eqServiciosBody').innerHTML = servs.length
+    ? servs.slice().reverse().map(s=>`<div>• ${s.fecha||'?'} — ${({aceite:'Cambio de aceite',filtros:'Cambio de filtros',otro:'Otro'})[s.tipo]||s.tipo} @ horómetro ${s.horometro!=null?s.horometro:'—'} ${s.notas?'· '+s.notas:''}</div>`).join('')
+    : 'Sin servicios registrados.';
+  document.getElementById('equipoModal').style.display='flex';
+};
+window.registrarServicioEquipo=async function(){
+  if(!_eqEditandoId){ toast('Guarda el equipo antes de registrar un servicio','err'); return; }
+  const eq=_equipos.find(e=>e._id===_eqEditandoId); if(!eq) return;
+  const servicio={
+    tipo:document.getElementById('eq_serv_tipo').value,
+    fecha:document.getElementById('eq_serv_fecha').value||fechaJornada(),
+    horometro:parseFloat(document.getElementById('eq_serv_horometro').value)||null,
+    notas:(document.getElementById('eq_serv_notas').value||'').trim(),
+    ts:Date.now()
+  };
+  const servicios=[...(eq.servicios||[]), servicio];
+  try{
+    await updateDoc(doc(db,'equipos039',_eqEditandoId), { servicios });
+    toast('✓ Servicio registrado','ok');
+    document.getElementById('eq_serv_horometro').value=''; document.getElementById('eq_serv_notas').value='';
+  }catch(e){ console.warn('registrarServicioEquipo:',e); toast('Error al registrar el servicio','err'); }
+};
+window.guardarNuevoEquipo=async function(){
+  const nombre=(document.getElementById('eq_nombre').value||'').trim();
+  if(!nombre){ toast('Falta el nombre del equipo','err'); return; }
+  if(_eqEditandoId){
+    const patch={
+      nombre,
+      numero:(document.getElementById('eq_numero').value||'').trim(),
+      fechaLlegada:document.getElementById('eq_fecha_llega').value||'',
+      horometroLlegada:parseFloat(document.getElementById('eq_hor_llega').value)||0,
+      fechaInicioTrabajo:document.getElementById('eq_fecha_inicio').value||'',
+      costoRentaDiario:parseFloat(document.getElementById('eq_costo_renta').value)||0,
+      proximoAceiteHorometro:parseFloat(document.getElementById('eq_prox_aceite').value)||null,
+      proximoFiltrosHorometro:parseFloat(document.getElementById('eq_prox_filtros').value)||null,
+    };
+    try{ await updateDoc(doc(db,'equipos039',_eqEditandoId), patch); toast('✓ Equipo actualizado','ok'); document.getElementById('equipoModal').style.display='none'; renderMaqEquipoInfo(); }
+    catch(e){ console.warn('guardarNuevoEquipo(edit):',e); toast('Error al actualizar el equipo','err'); }
+    return;
+  }
+  const data={
+    nombre,
+    numero:(document.getElementById('eq_numero').value||'').trim(),
+    obra:obraActiva,
+    fechaLlegada:document.getElementById('eq_fecha_llega').value||'',
+    horometroLlegada:parseFloat(document.getElementById('eq_hor_llega').value)||0,
+    fechaInicioTrabajo:document.getElementById('eq_fecha_inicio').value||'',
+    costoRentaDiario:parseFloat(document.getElementById('eq_costo_renta').value)||0,
+    proximoAceiteHorometro:null, proximoFiltrosHorometro:null,
+    servicios:[], historialObras:[],
+    activo:true,
+    ts:Date.now(),
+    by:(typeof session!=='undefined'&&session&&session.nombre)||'admin'
+  };
+  try{ await addDoc(collection(db,'equipos039'), data); toast('✓ Equipo guardado','ok'); document.getElementById('equipoModal').style.display='none'; }
+  catch(e){ console.warn('guardarNuevoEquipo:',e); toast('Error al guardar el equipo','err'); }
+};
+// Último horómetro conocido de un equipo: el de su bitácora con la FECHA más reciente (no el orden
+// de captura/ts, porque si alguien registra un día atrasado, el ts no refleja la fecha real del dato).
+function _maqUltimoHorometro(equipoId){
+  const eq=_equipos.find(e=>e._id===equipoId);
+  const bits=_bitacoras.filter(b=>b.equipoId===equipoId && b.horometroFin!=null).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.ts||0)-(a.ts||0));
+  if(bits.length) return bits[0].horometroFin;
+  return eq ? (eq.horometroLlegada||0) : 0;
+}
+// Se llama cada vez que se abre el apartado de Maquinaria y cada vez que se elige un equipo —
+// avisa si el horómetro actual ya alcanzó (o está por alcanzar) el próximo servicio programado.
+window._maqCheckAvisoServicio=function(){
+  const banner=document.getElementById('maqAvisoServicio'); if(!banner) return;
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  const eq=_equipos.find(e=>e._id===equipoId);
+  if(!eq){ banner.style.display='none'; return; }
+  const horActual=_maqUltimoHorometro(equipoId);
+  const avisos=[];
+  const MARGEN=50; // avisa cuando falten 50 hrs o menos, o ya se haya pasado
+  if(eq.proximoAceiteHorometro!=null && horActual>=eq.proximoAceiteHorometro-MARGEN){
+    avisos.push(horActual>=eq.proximoAceiteHorometro ? `🛢️ Cambio de ACEITE vencido (programado a ${eq.proximoAceiteHorometro}, va en ${horActual})` : `🛢️ Cambio de aceite próximo — faltan ${(eq.proximoAceiteHorometro-horActual).toFixed(0)} hrs`);
+  }
+  if(eq.proximoFiltrosHorometro!=null && horActual>=eq.proximoFiltrosHorometro-MARGEN){
+    avisos.push(horActual>=eq.proximoFiltrosHorometro ? `🧰 Cambio de FILTROS vencido (programado a ${eq.proximoFiltrosHorometro}, va en ${horActual})` : `🧰 Cambio de filtros próximo — faltan ${(eq.proximoFiltrosHorometro-horActual).toFixed(0)} hrs`);
+  }
+  if(avisos.length){ banner.style.display='block'; banner.innerHTML=avisos.join('<br>'); }
+  else banner.style.display='none';
+};
+
+function renderMaqEquipoSelect(){
+  const sel=document.getElementById('maq_equipo'); if(!sel) return;
+  const actual=sel.value;
+  const eqsObra=_equipos.filter(e=>(e.obra||'039')===obraActiva && e.activo!==false);
+  sel.innerHTML = eqsObra.length
+    ? eqsObra.map(e=>`<option value="${e._id}">${e.nombre}${e.numero?' · '+e.numero:''}</option>`).join('')
+    : '<option value="">— agrega un equipo primero —</option>';
+  if(actual && eqsObra.some(e=>e._id===actual)) sel.value=actual;
+  renderMaqEquipoInfo();
+}
+window.renderMaqEquipoInfo=function(){
+  const sel=document.getElementById('maq_equipo'); const info=document.getElementById('maqEquipoInfo');
+  if(!sel||!info) return;
+  const eq=_equipos.find(e=>e._id===sel.value);
+  info.textContent = eq ? `Llegó: ${eq.fechaLlegada||'—'} · Horómetro llegada: ${eq.horometroLlegada||0} · Renta diaria: $${(eq.costoRentaDiario||0).toLocaleString('es-MX')}` : '';
+  _maqCheckAvisoServicio();
+  if(typeof _maqRenderHistorialProblemas==='function') _maqRenderHistorialProblemas();
+};
+// Al elegir un equipo, si el operador está vacío lo rellena con el del ÚLTIMO registro de ESE
+// equipo (normalmente es el mismo operador varios días seguidos) — así no se vuelve a teclear.
+window._maqAutorellenarOperador=function(){
+  const sel=document.getElementById('maq_equipo'), opEl=document.getElementById('maq_operador');
+  if(!sel||!opEl||opEl.value) return;
+  const equipoId=sel.value; if(!equipoId) return;
+  const previos=_bitacoras.filter(b=>b.equipoId===equipoId).sort((a,b)=>(b.ts||0)-(a.ts||0));
+  if(previos.length && previos[0].operador) opEl.value=previos[0].operador;
+};
+// Punto central que corre cada vez que cambia el equipo o la fecha del formulario:
+// - Si YA existe un registro de ESE equipo en ESA fecha exacta, lo carga en modo edición (para que
+//   el pase de lista de la mañana y las capturas del resto del día caigan en el MISMO registro, en
+//   vez de crear uno duplicado por cada vez que alguien vuelve a abrir la app ese día).
+// - Si NO existe todavía, es un día nuevo: rellena el horómetro inicial con el FINAL del día
+//   anterior de ese equipo (o el de llegada si nunca se ha capturado) — así nadie tiene que buscarlo
+//   ni preguntar. Sigue siendo editable por si hubo un movimiento extra (préstamo, traslado interno).
+window._maqCargarOAutorellenar=function(){
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  const fecha=document.getElementById('maq_fecha').value;
+  if(!equipoId||!fecha) return;
+  const existente=_bitacoras.find(b=>b.equipoId===equipoId && b.fecha===fecha);
+  if(existente){
+    _maqEditarBitacora(existente._id);
+    toast('📋 Ya había un registro de este equipo hoy — lo abrí para seguir editándolo','ok');
+    return;
+  }
+  // Día nuevo para este equipo: limpia el formulario (menos equipo/fecha/operador) y autorellena horómetro.
+  _maqEditandoId=null;
+  document.getElementById('maq_hor_fin').value='';
+  document.getElementById('maq_hora_ini').value=''; document.getElementById('maq_hora_fin').value='';
+  document.getElementById('maq_observaciones').value='';
+  _maqLimpiarCamposEvaluacion();
+  document.getElementById('maqHorasCalc').textContent='—'; document.getElementById('maqRendimiento').textContent='';
+  _maqIncidencias=[]; _maqDiesel=[]; _maqConceptos=[]; _maqRenderIncidencias(); _maqRenderDiesel(); _maqRenderConceptos();
+  const anterior=_bitacoras.filter(b=>b.equipoId===equipoId && b.fecha<fecha && b.horometroFin!=null).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const eq=_equipos.find(e=>e._id===equipoId);
+  const horIni = anterior.length ? anterior[0].horometroFin : (eq?eq.horometroLlegada:null);
+  document.getElementById('maq_hor_ini').value = horIni!=null ? horIni : '';
+  _maqCalcHoras();
+  _maqRenderHistorialProblemas();
+};
+
+window._maqToggleModoHoras=function(){
+  const modo=(document.querySelector('input[name="maq_modo_horas"]:checked')||{}).value||'horometro';
+  document.getElementById('maqModoHorometro').style.display = modo==='horometro' ? 'flex':'none';
+  document.getElementById('maqModoReloj').style.display = modo==='reloj' ? 'flex':'none';
+  _maqCalcHoras();
+};
+// Calcula horas trabajadas por horómetro (fin-inicio) O por reloj (hora fin - hora inicio, cruce de
+// medianoche incluido), lo que esté activo. Además, si hay volumen (suma de todos los conceptos
+// capturados), calcula el rendimiento general del equipo ese día.
+window._maqCalcHoras=function(){
+  const modo=(document.querySelector('input[name="maq_modo_horas"]:checked')||{}).value||'horometro';
+  let horas=null;
+  if(modo==='horometro'){
+    const ini=parseFloat(document.getElementById('maq_hor_ini').value);
+    const fin=parseFloat(document.getElementById('maq_hor_fin').value);
+    if(!isNaN(ini)&&!isNaN(fin)&&fin>=ini) horas=fin-ini;
+  } else {
+    const hi=document.getElementById('maq_hora_ini').value, hf=document.getElementById('maq_hora_fin').value;
+    if(hi&&hf){
+      const [h1,m1]=hi.split(':').map(Number), [h2,m2]=hf.split(':').map(Number);
+      let mins=(h2*60+m2)-(h1*60+m1);
+      if(mins<0) mins+=24*60; // cruzó medianoche
+      horas=mins/60;
+    }
+  }
+  const out=document.getElementById('maqHorasCalc');
+  if(out) out.textContent = horas!=null ? horas.toFixed(2)+' hrs' : '—';
+  const rendDiv=document.getElementById('maqRendimiento');
+  const fechaAct=(document.getElementById('maq_fecha')||{}).value||fechaJornada();
+  const vol=(_maqConceptos||[]).reduce((s,c)=>s+(c.manual ? (parseFloat(c.volumenManual)||0) : _volumenRealDiaConcepto(fechaAct,c.id)),0);
+  if(rendDiv){
+    if(horas>0 && vol>0) rendDiv.textContent=`Volumen total: ${vol.toFixed(2)} m³ · Rendimiento: ${(vol/horas).toFixed(2)} m³/hora`;
+    else rendDiv.textContent='';
+  }
+  return horas;
+};
+
+// Volumen REAL (ton/densidad, igual que en los reportes de tendido) capturado ese día para un
+// concepto específico — se toma DIRECTO de los viajes ya guardados, nadie lo teclea a mano.
+// Es el mismo criterio "ton/DEN_TIRO" que usa toda la app para volumen real.
+function _volumenRealDiaConcepto(fecha, conceptoId){
+  if(!fecha||!conceptoId) return 0;
+  let tonTotal=0;
+  (recordsAll||[]).forEach(r=>{
+    if((r.obra||'039')!==obraActiva) return;
+    if(r.fecha!==fecha) return;
+    _conceptosDe(r).forEach(c=>{ if(c.id===conceptoId) tonTotal+=(parseFloat(c.ton)||0); });
+  });
+  return tonTotal/DEN_TIRO;
+}
+function _maqRenderConceptos(){
+  const body=document.getElementById('maqConceptosBody'); if(!body) return;
+  const fecha=document.getElementById('maq_fecha').value||fechaJornada();
+  body.innerHTML = _maqConceptos.length ? _maqConceptos.map((c,i)=>{
+    const auto=_volumenRealDiaConcepto(fecha, c.id);
+    return `<div style="border:1px solid var(--bord);border-radius:6px;padding:6px;margin-bottom:6px">
+      <div style="display:flex;gap:6px;align-items:center">
+        <select onchange="_maqConceptos[${i}].id=this.value;_maqRenderConceptos();_maqCalcHoras()" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+          ${(catalogoActivo||[]).map(ct=>`<option value="${ct.id}" ${ct.id===c.id?'selected':''}>${ct.label}</option>`).join('')}
+        </select>
+        <button type="button" onclick="_maqQuitarConcepto(${i})" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
+      </div>
+      ${!c.manual ? `
+      <div style="font-size:11px;color:var(--green);margin-top:4px">📡 ${auto.toFixed(2)} m³ registrados ese día en viajes de este concepto (automático)</div>
+      <button type="button" onclick="_maqConceptos[${i}].manual=true;_maqConceptos[${i}].volumenManual=${auto};_maqRenderConceptos();_maqCalcHoras()" style="margin-top:4px;background:none;border:none;color:var(--muted);font-size:10px;text-decoration:underline;cursor:pointer">✏️ ajustar manualmente (excepción)</button>
+      ` : `
+      <div style="display:flex;gap:6px;align-items:center;margin-top:4px">
+        <input type="number" step="0.01" inputmode="decimal" value="${c.volumenManual!=null?c.volumenManual:''}" oninput="_maqConceptos[${i}].volumenManual=parseFloat(this.value)||0;_maqCalcHoras()" style="width:100px;background:var(--bg);border:1px solid var(--gold);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)"> m³ (manual)
+      </div>
+      <button type="button" onclick="_maqConceptos[${i}].manual=false;_maqRenderConceptos();_maqCalcHoras()" style="margin-top:4px;background:none;border:none;color:var(--blue);font-size:10px;text-decoration:underline;cursor:pointer">🔒 volver a automático (${auto.toFixed(2)} m³)</button>
+      `}
+    </div>`;
+  }).join('') : 'Ninguno capturado.';
+}
+window._maqAgregarConcepto=function(){
+  const def=(catalogoActivo&&catalogoActivo[0])?catalogoActivo[0].id:'';
+  _maqConceptos.push({id:def,manual:false,volumenManual:0});
+  _maqRenderConceptos();
+  _maqCalcHoras();
+};
+window._maqQuitarConcepto=function(i){ _maqConceptos.splice(i,1); _maqRenderConceptos(); _maqCalcHoras(); };
+
+const _MAQ_CATEGORIAS=['Llantas','Motor','Hidráulico','Eléctrico','Frenos','Transmisión','Combustible/inyección','Estructura/carrocería','Otro'];
+function _maqRenderIncidencias(){
+  const body=document.getElementById('maqIncidenciasBody'); if(!body) return;
+  body.innerHTML = _maqIncidencias.length ? _maqIncidencias.map((it,i)=>`
+    <div style="border:1px solid var(--bord);border-radius:6px;padding:6px;margin-bottom:6px">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+        <input type="time" value="${it.hora||''}" onchange="_maqIncidencias[${i}].hora=this.value" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+        <select onchange="_maqIncidencias[${i}].categoria=this.value" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">
+          ${_MAQ_CATEGORIAS.map(c=>`<option ${it.categoria===c?'selected':''}>${c}</option>`).join('')}
+        </select>
+        <button type="button" onclick="_maqQuitarIncidencia(${i})" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <input type="text" id="maq_inc_desc_${i}" placeholder="¿Qué pasó?" value="${(it.descripcion||'').replace(/"/g,'&quot;')}" oninput="_maqIncidencias[${i}].descripcion=this.value" style="flex:1;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+        <button type="button" id="maq_inc_voice_${i}" onclick="toggleVoice('maq_inc_desc_${i}','maq_inc_voice_${i}')" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px 8px;font-size:14px;cursor:pointer" title="Dictar">🎙️</button>
+      </div>
+      <label style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);cursor:pointer;margin-top:4px">
+        <input type="checkbox" ${it.resuelto?'checked':''} onchange="_maqIncidencias[${i}].resuelto=this.checked;_maqRenderIncidencias()"> Ya se resolvió
+      </label>
+      ${it.resuelto?`<input type="text" placeholder="¿Cómo se resolvió?" value="${(it.solucion||'').replace(/"/g,'&quot;')}" oninput="_maqIncidencias[${i}].solucion=this.value" style="width:100%;margin-top:4px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:11px;color:var(--txt)">`:''}
+    </div>`).join('') : 'Ninguna capturada.';
+}
+window._maqAgregarIncidencia=function(){ _maqIncidencias.push({hora:'',descripcion:'',categoria:'Otro'}); _maqRenderIncidencias(); };
+window._maqQuitarIncidencia=function(i){ _maqIncidencias.splice(i,1); _maqRenderIncidencias(); };
+
+function _maqRenderDiesel(){
+  const body=document.getElementById('maqDieselBody'); if(!body) return;
+  body.innerHTML = _maqDiesel.length ? _maqDiesel.map((it,i)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input type="time" value="${it.hora||''}" onchange="_maqDiesel[${i}].hora=this.value" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+      <input type="number" step="0.1" inputmode="decimal" placeholder="Litros" value="${it.litros!=null?it.litros:''}" oninput="_maqDiesel[${i}].litros=parseFloat(this.value)||0" style="width:100px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)">
+      <button type="button" onclick="_maqQuitarDiesel(${i})" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
+    </div>`).join('') : 'Ninguna capturada.';
+}
+window._maqAgregarDiesel=function(){ _maqDiesel.push({hora:'',litros:0}); _maqRenderDiesel(); };
+window._maqQuitarDiesel=function(i){ _maqDiesel.splice(i,1); _maqRenderDiesel(); };
+
+// Solo lee/guarda la evaluación si el bloque está visible (o sea, si quien está guardando es
+// residente/admin) — así un capturista sin ese permiso nunca puede borrar por accidente una
+// evaluación que ya había puesto el residente, aunque él sí pueda guardar el resto del día.
+function _maqLeerEvaluacionOperador(){
+  const block=document.getElementById('maqEvalOperadorBlock');
+  if(!block || block.style.display==='none') return undefined;
+  const manejo=(document.getElementById('maq_eval_manejo')||{}).value||'';
+  const desempeno=(document.getElementById('maq_eval_desempeno')||{}).value||'';
+  const comentario=((document.getElementById('maq_eval_comentario')||{}).value||'').trim();
+  if(!manejo && !desempeno && !comentario) return null;
+  return { manejo, desempeno, comentario };
+}
+window.guardarBitacoraMaquinaria=async function(){
+  const equipoId=document.getElementById('maq_equipo').value;
+  if(!equipoId){ toast('Selecciona un equipo (o agrega uno primero)','err'); return; }
+  const eq=_equipos.find(e=>e._id===equipoId);
+  const fecha=document.getElementById('maq_fecha').value || fechaJornada();
+  const horas=_maqCalcHoras();
+  const modo=(document.querySelector('input[name="maq_modo_horas"]:checked')||{}).value||'horometro';
+  // El dictado por voz escribe directo al campo sin pasar por oninput — hay que releer el valor
+  // final del DOM antes de guardar, o se perdería lo dictado en la descripción de incidencias.
+  _maqIncidencias.forEach((it,i)=>{ const el=document.getElementById('maq_inc_desc_'+i); if(el) it.descripcion=el.value; });
+  const conceptosGuardar=(_maqConceptos||[]).filter(c=>c.id).map(c=>{
+    const auto=_volumenRealDiaConcepto(fecha, c.id);
+    const vol=c.manual ? (parseFloat(c.volumenManual)||0) : auto;
+    return { id:c.id, label:(getCatItem(c.id)||{}).label||c.id, volumen:vol, volumenAutomatico:auto, fuenteManual:!!c.manual };
+  });
+  const vol=conceptosGuardar.reduce((s,c)=>s+c.volumen,0);
+  const litrosTotal=_maqDiesel.reduce((s,d)=>s+(parseFloat(d.litros)||0),0);
+  const data={
+    equipoId, equipoNombre:eq?eq.nombre:'', obra:obraActiva, fecha,
+    operador:(document.getElementById('maq_operador').value||'').trim(),
+    modoHoras:modo,
+    horometroInicio: modo==='horometro' ? (parseFloat(document.getElementById('maq_hor_ini').value)||null) : null,
+    horometroFin:    modo==='horometro' ? (parseFloat(document.getElementById('maq_hor_fin').value)||null) : null,
+    horaInicio: modo==='reloj' ? document.getElementById('maq_hora_ini').value : '',
+    horaFin:    modo==='reloj' ? document.getElementById('maq_hora_fin').value : '',
+    horasTrabajadas: horas!=null ? +horas.toFixed(2) : null,
+    conceptos:conceptosGuardar,
+    volumenAtendido: vol||null,
+    rendimiento: (horas>0 && vol>0) ? +(vol/horas).toFixed(2) : null,
+    incidencias:_maqIncidencias.filter(i=>i.hora||i.descripcion),
+    diesel:_maqDiesel.filter(d=>d.litros>0),
+    litrosDieselTotal:litrosTotal||null,
+    observaciones:(document.getElementById('maq_observaciones').value||'').trim(),
+    ts:Date.now(),
+    by:(typeof session!=='undefined'&&session&&session.nombre)||'admin'
+  };
+  // Firestore no acepta campos con valor undefined — solo se agrega si aplica (residente/admin
+  // guardando) y solo se sobreescribe si trae algo, para no borrar una evaluación ya puesta.
+  const evalOp=_maqLeerEvaluacionOperador();
+  if(evalOp!==undefined && evalOp!==null) data.evaluacionOperador=evalOp;
+  try{
+    if(_maqEditandoId){ await updateDoc(doc(db,'bitacoraMaq039',_maqEditandoId), data); toast('✓ Registro actualizado','ok'); }
+    else { await addDoc(collection(db,'bitacoraMaq039'), data); toast('✓ Registro guardado','ok'); }
+    _maqLimpiarForm();
+  }catch(e){ console.warn('guardarBitacoraMaquinaria:',e); toast('Error al guardar (revisa conexión)','err'); }
+};
+function _maqLimpiarForm(){
+  _maqEditandoId=null;
+  document.getElementById('maq_fecha').value=fechaJornada();
+  document.getElementById('maq_operador').value='';
+  document.getElementById('maq_hor_ini').value=''; document.getElementById('maq_hor_fin').value='';
+  document.getElementById('maq_hora_ini').value=''; document.getElementById('maq_hora_fin').value='';
+  document.getElementById('maq_observaciones').value='';
+  _maqLimpiarCamposEvaluacion();
+  document.getElementById('maqHorasCalc').textContent='—'; document.getElementById('maqRendimiento').textContent='';
+  _maqIncidencias=[]; _maqDiesel=[]; _maqConceptos=[]; _maqRenderIncidencias(); _maqRenderDiesel(); _maqRenderConceptos();
+}
+function _maqLimpiarCamposEvaluacion(){
+  const m=document.getElementById('maq_eval_manejo'), d=document.getElementById('maq_eval_desempeno'), c=document.getElementById('maq_eval_comentario');
+  if(m) m.value=''; if(d) d.value=''; if(c) c.value='';
+}
+window.switchMaqSub=function(cual){
+  document.getElementById('maqSubBitacora').style.display = cual==='bitacora' ? '' : 'none';
+  document.getElementById('maqSubHistorial').style.display = cual==='historial' ? '' : 'none';
+  document.getElementById('maqSubCerrados').style.display = cual==='cerrados' ? '' : 'none';
+  document.getElementById('btnMaqSubBitacora').style.borderColor = cual==='bitacora' ? 'var(--gold)' : 'var(--bord)';
+  document.getElementById('btnMaqSubHistorial').style.borderColor = cual==='historial' ? 'var(--gold)' : 'var(--bord)';
+  document.getElementById('btnMaqSubCerrados').style.borderColor = cual==='cerrados' ? 'var(--gold)' : 'var(--bord)';
+  if(cual==='historial') renderMaqHistorial();
+  if(cual==='cerrados') renderMaqCerrados();
+};
+function renderMaqHistorial(){
+  const body=document.getElementById('maqHistorialBody'); if(!body) return;
+  const lista=_bitacoras.filter(b=>(b.obra||'039')===obraActiva);
+  if(!lista.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin registros de maquinaria todavía.</div>'; return; }
+  const puedeVerEval = typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente');
+  body.innerHTML = lista.map(b=>{
+    const ev=b.evaluacionOperador;
+    const evTxt = (puedeVerEval && ev && (ev.manejo||ev.desempeno||ev.comentario))
+      ? `<div style="font-size:11px;margin-top:4px;background:rgba(240,180,41,.1);border-radius:6px;padding:4px 6px">👤 Manejo: <b>${ev.manejo?ev.manejo[0].toUpperCase()+ev.manejo.slice(1):'—'}</b> · Desempeño: <b>${ev.desempeno?ev.desempeno[0].toUpperCase()+ev.desempeno.slice(1):'—'}</b>${ev.comentario?' · '+ev.comentario:''}</div>`
+      : '';
+    return `
+    <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:800;color:var(--gold);font-size:13px">${b.equipoNombre||'—'} · ${b.fecha||'—'}</div>
+        <button onclick="_maqEditarBitacora('${b._id}')" style="background:none;border:1px solid var(--bord);border-radius:6px;color:var(--blue);padding:3px 8px;font-size:11px;cursor:pointer">Editar</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">
+        Operador: ${b.operador||'—'} · Horas: ${b.horasTrabajadas!=null?b.horasTrabajadas+' hrs':'—'} ${b.rendimiento?' · Rendimiento: '+b.rendimiento+' m³/hr':''}
+        ${b.litrosDieselTotal?' · Diésel: '+b.litrosDieselTotal+' L':''}
+      </div>
+      ${(b.conceptos&&b.conceptos.length)?`<div style="font-size:11px;color:var(--txt);margin-top:4px">🏗️ ${b.conceptos.map(c=>c.label+' ('+c.volumen+' m³'+(c.fuenteManual?' · ajustado a mano':' · automático')+')').join(' · ')}</div>`:''}
+      ${(b.incidencias&&b.incidencias.length)?`<div style="font-size:11px;margin-top:4px">${b.incidencias.map(i=>`<span style="color:${i.resuelto?'#22c55e':'#dc2626'}">${i.resuelto?'✓':'⚠️'} ${(i.hora?i.hora+' — ':'')+i.descripcion}</span>`).join(' · ')}</div>`:''}
+      ${b.observaciones?`<div style="font-size:11px;color:var(--muted);margin-top:4px">📝 ${b.observaciones}</div>`:''}
+      ${evTxt}
+    </div>`;
+  }).join('');
+}
+window._maqEditarBitacora=function(id){
+  const b=_bitacoras.find(x=>x._id===id); if(!b) return;
+  _maqEditandoId=id;
+  switchMaqSub('bitacora');
+  document.getElementById('maq_equipo').value=b.equipoId||'';
+  document.getElementById('maq_fecha').value=b.fecha||'';
+  document.getElementById('maq_operador').value=b.operador||'';
+  const radios=document.querySelectorAll('input[name="maq_modo_horas"]');
+  radios.forEach(r=>{ r.checked = r.value===(b.modoHoras||'horometro'); });
+  _maqToggleModoHoras();
+  document.getElementById('maq_hor_ini').value=b.horometroInicio!=null?b.horometroInicio:'';
+  document.getElementById('maq_hor_fin').value=b.horometroFin!=null?b.horometroFin:'';
+  document.getElementById('maq_hora_ini').value=b.horaInicio||'';
+  document.getElementById('maq_hora_fin').value=b.horaFin||'';
+  document.getElementById('maq_observaciones').value=b.observaciones||'';
+  const ev=b.evaluacionOperador||{};
+  const elM=document.getElementById('maq_eval_manejo'), elD=document.getElementById('maq_eval_desempeno'), elC=document.getElementById('maq_eval_comentario');
+  if(elM) elM.value=ev.manejo||''; if(elD) elD.value=ev.desempeno||''; if(elC) elC.value=ev.comentario||'';
+  _maqConceptos=(b.conceptos||[]).map(c=>({id:c.id, manual:!!c.fuenteManual, volumenManual:c.fuenteManual?c.volumen:0}));
+  _maqIncidencias=(b.incidencias||[]).map(i=>({...i}));
+  _maqDiesel=(b.diesel||[]).map(d=>({...d}));
+  _maqRenderConceptos(); _maqRenderIncidencias(); _maqRenderDiesel(); _maqCalcHoras();
+  toast('Editando registro — guarda para actualizar','ok');
+};
+
+// ═══ CIERRE / TRASLADO DE EQUIPO ═══
+// Marca el equipo como inactivo en esta obra (ya no aparece en el selector de captura diaria),
+// dejando registro de a dónde se fue, a qué hora, motivo y evidencia fotográfica opcional.
+window.abrirCierreEquipo=function(){
+  const sel=document.getElementById('maq_equipo');
+  const equipoId=sel?sel.value:'';
+  if(!equipoId){ toast('Selecciona primero el equipo que se va a cerrar','err'); return; }
+  const eq=_equipos.find(e=>e._id===equipoId); if(!eq) return;
+  document.getElementById('cierreEquipoNombre').textContent=`${eq.nombre}${eq.numero?' · '+eq.numero:''}`;
+  document.getElementById('ce_fecha').value=fechaJornada();
+  document.getElementById('ce_hora').value='';
+  document.getElementById('ce_destino_tipo').value='obra';
+  document.getElementById('ce_destino_otro').value='';
+  document.getElementById('ce_motivo').value='';
+  _ceFoto=null; document.getElementById('ceFotoPreview').innerHTML='';
+  const selObra=document.getElementById('ce_destino_obra');
+  selObra.innerHTML=Object.keys(OBRAS).filter(k=>k!==obraActiva).map(k=>`<option value="${k}">${OBRAS[k].nombre||k}</option>`).join('') || '<option value="">— no hay otra obra configurada —</option>';
+  _ceToggleDestino();
+  document.getElementById('cierreEquipoModal').style.display='flex';
+};
+window._ceToggleDestino=function(){
+  const tipo=document.getElementById('ce_destino_tipo').value;
+  document.getElementById('ce_destino_obra_wrap').style.display = tipo==='obra' ? '' : 'none';
+  document.getElementById('ce_destino_otro_wrap').style.display = tipo==='otro' ? '' : 'none';
+};
+window._ceAgregarFoto=function(e){
+  const file=e.target.files[0]; if(!file) return;
+  comprimirFoto(file).then(b64=>{
+    _ceFoto=b64;
+    document.getElementById('ceFotoPreview').innerHTML=`<div class="ftp"><img src="${b64}"><button class="fdel" onclick="_ceFoto=null;document.getElementById('ceFotoPreview').innerHTML=''">✕</button></div>`;
+  }).catch(()=>toast('Error procesando la foto','err'));
+  e.target.value='';
+};
+window.confirmarCierreEquipo=async function(){
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  if(!equipoId){ toast('No hay equipo seleccionado','err'); return; }
+  const eq=_equipos.find(e=>e._id===equipoId); if(!eq) return;
+  const tipo=document.getElementById('ce_destino_tipo').value;
+  let destino='', obraDestinoClave=null;
+  if(tipo==='obra'){
+    obraDestinoClave=document.getElementById('ce_destino_obra').value;
+    destino=OBRAS[obraDestinoClave]?.nombre||obraDestinoClave;
+    if(!destino){ toast('No hay obra destino disponible — usa "Otro"','err'); return; }
+  }
+  else if(tipo==='taller') destino='Taller';
+  else destino=(document.getElementById('ce_destino_otro').value||'').trim();
+  if(!destino){ toast('Falta especificar el destino','err'); return; }
+  const fechaSale=document.getElementById('ce_fecha').value||fechaJornada();
+  const horaSale=document.getElementById('ce_hora').value||'';
+  const motivo=(document.getElementById('ce_motivo').value||'').trim();
+  const horometroSale=_maqUltimoHorometro(equipoId);
+  const esTraslado = tipo==='obra' && obraDestinoClave && obraDestinoClave!==obraActiva;
+  const msg = esTraslado
+    ? `¿Confirmas el traslado a "${destino}"? Cierra las horas y combustible de esta obra, y el equipo pasará a aparecer en "${destino}" con horómetro de llegada ${horometroSale}.`
+    : `¿Confirmas cerrar este equipo? Dejará de aparecer en la captura diaria (destino: ${destino}).`;
+  const ok=confirm(msg);
+  if(!ok) return;
+  const cierre={ fecha:fechaSale, hora:horaSale, destino, motivo, foto:_ceFoto||null, ts:Date.now(), by:(typeof session!=='undefined'&&session&&session.nombre)||'admin' };
+  const histEntry={ obra:eq.obra||obraActiva, fechaEntra:eq.fechaLlegada||'', horometroEntra:eq.horometroLlegada||0, fechaSale, horometroSale, destino, motivo, ts:Date.now() };
+  const historialObras=[...(eq.historialObras||[]), histEntry];
+  try{
+    if(esTraslado){
+      // Se mueve a otra obra que la app también controla: sigue activo, solo cambia de obra —
+      // así queda su historial completo y no se pierde el registro (es la MISMA máquina física).
+      await updateDoc(doc(db,'equipos039',equipoId), {
+        obra:obraDestinoClave, fechaLlegada:fechaSale, horometroLlegada:horometroSale,
+        fechaInicioTrabajo:fechaSale, historialObras, ultimoCierre:cierre
+      });
+      toast('✓ Equipo trasladado a '+destino,'ok');
+    } else {
+      await updateDoc(doc(db,'equipos039',equipoId), { activo:false, cierre, historialObras });
+      toast('✓ Equipo cerrado','ok');
+    }
+    document.getElementById('cierreEquipoModal').style.display='none';
+    sel.value='';
+  }catch(e){ console.warn('confirmarCierreEquipo:',e); toast('Error al cerrar el equipo','err'); }
+};
+function renderMaqCerrados(){
+  const body=document.getElementById('maqCerradosBody'); if(!body) return;
+  const lista=_equipos.filter(e=>(e.obra||'039')===obraActiva && e.activo===false);
+  if(!lista.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin equipos cerrados en esta obra.</div>'; return; }
+  body.innerHTML = lista.map(e=>{
+    const c=e.cierre||{};
+    return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-weight:800;color:var(--gold);font-size:13px">${e.nombre}${e.numero?' · '+e.numero:''}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">Salió: ${c.fecha||'—'} ${c.hora||''} · Destino: ${c.destino||'—'}${c.motivo?' · '+c.motivo:''}</div>
+      ${c.foto?`<div class="ftp" style="margin-top:6px;width:90px"><img src="${c.foto}" onclick="openLightbox('${c.foto}')"></div>`:''}
+      <button onclick="_maqReabrirEquipo('${e._id}')" style="margin-top:6px;background:none;border:1px solid var(--bord);border-radius:6px;color:var(--blue);padding:3px 8px;font-size:11px;cursor:pointer">↩️ Reabrir (fue un error)</button>
+    </div>`;
+  }).join('');
+}
+window._maqReabrirEquipo=async function(id){
+  try{ await updateDoc(doc(db,'equipos039',id), { activo:true }); toast('✓ Equipo reactivado','ok'); }
+  catch(e){ toast('Error al reactivar','err'); }
+};
+
+// ═══ RECEPCIÓN DEL EQUIPO (condición al llegar) ═══
+const _RC_PREGUNTAS=[
+  {id:'faros', label:'¿Sirven los faros?'},
+  {id:'espejos', label:'¿Cuenta con espejos?'},
+  {id:'alarmaReversa', label:'¿Sirve la alarma de reversa?'},
+  {id:'llantas', label:'¿Llantas en buen estado?'},
+  {id:'birlos', label:'¿Birlos completos y apretados?'},
+  {id:'sistemaRiego', label:'¿Sistema de riego funciona?'},
+  {id:'aspersores', label:'¿Aspersores/espreas en buen estado?'},
+];
+let _rcFotos=[];
+function _rcRenderPreguntas(respuestas, detalles){
+  const cont=document.getElementById('rc_preguntas'); if(!cont) return;
+  cont.innerHTML=_RC_PREGUNTAS.map(p=>{
+    const val=(respuestas&&respuestas[p.id])||'';
+    const det=(detalles&&detalles[p.id])||'';
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--bord)">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:12px;color:var(--txt)">${p.label}</span>
+        <select id="rc_${p.id}" style="background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px 8px;font-size:12px;color:var(--txt)">
+          <option value="si" ${val==='si'?'selected':''}>Sí</option>
+          <option value="no" ${val==='no'?'selected':''}>No</option>
+          <option value="na" ${val==='na'||!val?'selected':''}>N/A</option>
+        </select>
+      </div>
+      <input type="text" id="rc_det_${p.id}" value="${det.replace(/"/g,'&quot;')}" placeholder="Detalle de este punto en ESTA máquina (opcional)" style="width:100%;margin-top:4px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:5px 8px;font-size:11px;color:var(--txt)">
+    </div>`;
+  }).join('');
+}
+window.abrirRecepcionEquipo=function(){
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  if(!equipoId){ toast('Selecciona un equipo primero','err'); return; }
+  const eq=_equipos.find(e=>e._id===equipoId); if(!eq) return;
+  document.getElementById('recepcionEquipoNombre').textContent=`${eq.nombre}${eq.numero?' · '+eq.numero:''}`;
+  const rec=eq.recepcion||{};
+  document.getElementById('rc_fecha').value=rec.fecha||fechaJornada();
+  document.getElementById('rc_ultimo_servicio').value=rec.ultimoServicio||'';
+  document.getElementById('rc_notas').value=rec.notas||'';
+  _rcRenderPreguntas(rec.respuestas||{}, rec.detalles||{});
+  _rcFotos=(rec.fotos||[]).map(f=>({b64:f}));
+  _rcRenderFotos();
+  document.getElementById('recepcionEquipoModal').style.display='flex';
+};
+function _rcRenderFotos(){
+  const el=document.getElementById('rcFotosPreview'); if(!el) return;
+  el.innerHTML=_rcFotos.map((f,i)=>`<div class="ftp"><img src="${f.b64}" onclick="openLightbox('${f.b64}')"><button class="fdel" onclick="_rcFotos.splice(${i},1);_rcRenderFotos()">✕</button></div>`).join('');
+}
+window._rcAgregarFoto=function(e){
+  const file=e.target.files[0]; if(!file) return;
+  comprimirFoto(file).then(b64=>{ _rcFotos.push({b64}); _rcRenderFotos(); }).catch(()=>toast('Error procesando la foto','err'));
+  e.target.value='';
+};
+window.guardarRecepcionEquipo=async function(){
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  if(!equipoId){ toast('No hay equipo seleccionado','err'); return; }
+  const respuestas={}, detalles={};
+  _RC_PREGUNTAS.forEach(p=>{
+    const el=document.getElementById('rc_'+p.id); respuestas[p.id]=el?el.value:'na';
+    const detEl=document.getElementById('rc_det_'+p.id); detalles[p.id]=detEl?detEl.value.trim():'';
+  });
+  const recepcion={
+    fecha:document.getElementById('rc_fecha').value||fechaJornada(),
+    respuestas, detalles,
+    ultimoServicio:(document.getElementById('rc_ultimo_servicio').value||'').trim(),
+    notas:(document.getElementById('rc_notas').value||'').trim(),
+    fotos:_rcFotos.map(f=>f.b64),
+    ts:Date.now(), by:(typeof session!=='undefined'&&session&&session.nombre)||'admin'
+  };
+  try{
+    await updateDoc(doc(db,'equipos039',equipoId), { recepcion });
+    toast('✓ Recepción guardada','ok');
+    document.getElementById('recepcionEquipoModal').style.display='none';
+    renderMaqEquipoInfo();
+  }catch(e){ console.warn('guardarRecepcionEquipo:',e); toast('Error al guardar la recepción','err'); }
+};
+// Si algo se marcó "No" en la recepción, es evidencia de que llegó dañado — se avisa aquí para
+// que la obra actual no se lleve la culpa de un daño que ya traía desde antes.
+function _maqCheckAvisoDano(){
+  const banner=document.getElementById('maqAvisoDano'); if(!banner) return;
+  const sel=document.getElementById('maq_equipo'); const eq=_equipos.find(e=>e._id===(sel?sel.value:''));
+  if(!eq || !eq.recepcion || !eq.recepcion.respuestas){ banner.style.display='none'; return; }
+  const malos=_RC_PREGUNTAS.filter(p=>eq.recepcion.respuestas[p.id]==='no');
+  if(malos.length){
+    banner.style.display='block';
+    const det=eq.recepcion.detalles||{};
+    banner.innerHTML=`⚠️ Este equipo llegó con daños reportados el ${eq.recepcion.fecha||'—'}: `
+      +malos.map(p=>{
+        const d=(det[p.id]||'').trim();
+        return p.label.replace('¿','').replace('?','')+(d?` (${d})`:'');
+      }).join(', ')+'.';
+  } else banner.style.display='none';
+}
+
+// ═══ HISTORIAL DE PROBLEMAS del equipo (resueltos y pendientes), visible en la captura diaria ═══
+let _maqHistProbAbierto=false;
+window._maqToggleHistorialProblemas=function(){ _maqHistProbAbierto=!_maqHistProbAbierto; _maqRenderHistorialProblemas(); };
+function _maqRenderHistorialProblemas(){
+  const cont=document.getElementById('maqHistorialProblemas'); if(!cont) return;
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  if(!equipoId){ cont.innerHTML=''; _maqCheckAvisoDano(); return; }
+  const problemas=[];
+  _bitacoras.filter(b=>b.equipoId===equipoId).forEach(b=>(b.incidencias||[]).forEach(i=>problemas.push({...i, fecha:b.fecha})));
+  problemas.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const pendientes=problemas.filter(p=>!p.resuelto).length;
+  const resumen=`<button type="button" onclick="_maqToggleHistorialProblemas()" style="width:100%;text-align:left;background:none;border:1px solid var(--bord);border-radius:8px;padding:7px 10px;font-size:11px;font-weight:700;color:${pendientes?'#dc2626':'var(--muted)'};cursor:pointer">
+    📋 Historial de problemas de este equipo: ${problemas.length} total${pendientes?` · ${pendientes} PENDIENTE(S)`:' · sin pendientes'} ${_maqHistProbAbierto?'▲':'▼'}
+  </button>`;
+  const detalle = _maqHistProbAbierto ? (problemas.length ? `<div style="border:1px solid var(--bord);border-top:none;border-radius:0 0 8px 8px;padding:8px;font-size:11px;max-height:180px;overflow-y:auto">
+      ${problemas.map(p=>`<div style="padding:4px 0;border-bottom:1px solid var(--bord)"><span style="color:${p.resuelto?'#22c55e':'#dc2626'};font-weight:700">${p.resuelto?'✓ Resuelto':'⚠️ Pendiente'}</span> · ${p.fecha||'—'} ${p.hora?p.hora:''} — ${p.descripcion||''}${p.resuelto&&p.solucion?` (solución: ${p.solucion})`:''}</div>`).join('')}
+    </div>` : `<div style="border:1px solid var(--bord);border-top:none;border-radius:0 0 8px 8px;padding:8px;font-size:11px;color:var(--muted)">Sin incidencias registradas.</div>`) : '';
+  cont.innerHTML = resumen+detalle;
+  _maqCheckAvisoDano();
+}
+// ═══ REPORTE EXCEL — historial completo de bitácora (obra activa) ═══
+window.exportarBitacoraExcel=function(){
+  const lista=_bitacoras.filter(b=>(b.obra||'039')===obraActiva).slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  if(!lista.length){ toast('No hay registros de maquinaria en esta obra','warn'); return; }
+  const filas=lista.map(b=>({
+    'Equipo':b.equipoNombre||'', 'Fecha':b.fecha||'', 'Operador':b.operador||'',
+    'Modo horas':b.modoHoras==='reloj'?'Reloj':'Horómetro',
+    'Horómetro inicio':b.horometroInicio!=null?b.horometroInicio:'', 'Horómetro fin':b.horometroFin!=null?b.horometroFin:'',
+    'Hora inicio':b.horaInicio||'', 'Hora fin':b.horaFin||'',
+    'Horas trabajadas':b.horasTrabajadas!=null?b.horasTrabajadas:'',
+    'Conceptos':(b.conceptos||[]).map(c=>c.label+' ('+c.volumen+' m³)').join(' · '),
+    'Volumen total m³':b.volumenAtendido!=null?b.volumenAtendido:'',
+    'Rendimiento m³/hr':b.rendimiento!=null?b.rendimiento:'',
+    'Diésel litros':b.litrosDieselTotal!=null?b.litrosDieselTotal:'',
+    'Incidencias':(b.incidencias||[]).map(i=>(i.resuelto?'[RESUELTO] ':'[PENDIENTE] ')+(i.hora?i.hora+' — ':'')+i.descripcion).join(' · '),
+    'Observaciones':b.observaciones||''
+  }));
+  const ws=XLSX.utils.json_to_sheet(filas);
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Bitácora maquinaria');
+  XLSX.writeFile(wb, `TENDIDO_039_BITACORA_MAQUINARIA_${new Date().toISOString().slice(0,10)}.xlsx`);
+  toast('✓ Excel descargado','ok');
+};
+
+// ═══ REPORTE PDF — ficha de un equipo (horas/mes, servicios, historial de obras, problemas) ═══
+window.reportePdfEquipo=function(){
+  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+  if(!equipoId){ toast('Selecciona un equipo primero','err'); return; }
+  const eq=_equipos.find(e=>e._id===equipoId); if(!eq) return;
+  const bits=_bitacoras.filter(b=>b.equipoId===equipoId).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+
+  // Horas trabajadas por mes
+  const porMes={};
+  bits.forEach(b=>{ if(b.horasTrabajadas==null||!b.fecha) return; const m=b.fecha.slice(0,7); porMes[m]=(porMes[m]||0)+b.horasTrabajadas; });
+  const mesesFilas=Object.keys(porMes).sort().map(m=>`<tr><td>${m}</td><td style="text-align:right">${porMes[m].toFixed(1)} hrs</td></tr>`).join('') || '<tr><td colspan="2">Sin horas registradas</td></tr>';
+
+  // Servicios
+  const servs=(eq.servicios||[]).slice().sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
+  const servFilas=servs.map(s=>`<tr><td>${s.fecha||'—'}</td><td>${({aceite:'Cambio de aceite',filtros:'Cambio de filtros',otro:'Otro'})[s.tipo]||s.tipo}</td><td>${s.horometro!=null?s.horometro:'—'}</td><td>${s.notas||''}</td></tr>`).join('') || '<tr><td colspan="4">Sin servicios registrados</td></tr>';
+
+  // Historial de obras
+  const hist=[...(eq.historialObras||[]), {obra:eq.obra||obraActiva, fechaEntra:eq.fechaLlegada||'', horometroEntra:eq.horometroLlegada||0, fechaSale:'', horometroSale:'', destino:'(actual)'}];
+  const histFilas=hist.map(h=>`<tr><td>${OBRAS[h.obra]?.nombre||h.obra||'—'}</td><td>${h.fechaEntra||'—'}</td><td>${h.fechaSale||'(en curso)'}</td><td>${h.destino||'—'}</td></tr>`).join('');
+
+  // Problemas: pendientes y resueltos
+  const problemas=[];
+  bits.forEach(b=>(b.incidencias||[]).forEach(i=>problemas.push({...i, fecha:b.fecha})));
+  const probFilas=problemas.map(p=>`<tr><td>${p.fecha||'—'}</td><td>${p.hora||'—'}</td><td>${p.descripcion||''}</td><td style="color:${p.resuelto?'#16a34a':'#dc2626'};font-weight:700">${p.resuelto?'Resuelto':'PENDIENTE'}</td><td>${p.solucion||''}</td></tr>`).join('') || '<tr><td colspan="5">Sin incidencias registradas</td></tr>';
+
+  const totalHoras=bits.reduce((s,b)=>s+(b.horasTrabajadas||0),0);
+  const totalDiesel=bits.reduce((s,b)=>s+(b.litrosDieselTotal||0),0);
+
+  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups','warn'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Ficha de equipo — ${eq.nombre}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px;font-size:12px}
+    h1{font-size:17px;margin:0 0 3px}
+    h2{font-size:13px;margin:18px 0 6px;border-bottom:2px solid #333;padding-bottom:3px}
+    .meta{font-size:11px;color:#555;margin-bottom:4px}
+    table{width:100%;border-collapse:collapse;margin-bottom:6px}
+    th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;font-size:11px}
+    th{background:#f0f0f0}
+    .resumen{display:flex;gap:24px;margin:8px 0 4px}
+    .resumen div{font-size:12px}
+    .resumen b{font-size:15px;display:block}
+    @page{ size: A4 portrait; margin:12mm }
+    @media print{ .noprint{display:none} }
+  </style></head><body>
+  <h1>FICHA DE EQUIPO — ${eq.nombre}${eq.numero?' · '+eq.numero:''}</h1>
+  <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Generado ${new Date().toLocaleString('es-MX')}</div>
+  <div class="resumen">
+    <div>Horas totales<b>${totalHoras.toFixed(1)} hrs</b></div>
+    <div>Diésel total<b>${totalDiesel.toFixed(0)} L</b></div>
+    <div>Renta diaria<b>$${(eq.costoRentaDiario||0).toLocaleString('es-MX')}</b></div>
+    <div>Próx. aceite<b>${eq.proximoAceiteHorometro!=null?eq.proximoAceiteHorometro:'—'}</b></div>
+    <div>Próx. filtros<b>${eq.proximoFiltrosHorometro!=null?eq.proximoFiltrosHorometro:'—'}</b></div>
+  </div>
+  <h2>Horas trabajadas por mes</h2>
+  <table><tr><th>Mes</th><th>Horas</th></tr>${mesesFilas}</table>
+  <h2>Servicios realizados</h2>
+  <table><tr><th>Fecha</th><th>Tipo</th><th>Horómetro</th><th>Notas</th></tr>${servFilas}</table>
+  <h2>Historial de obras</h2>
+  <table><tr><th>Obra</th><th>Entró</th><th>Salió</th><th>Destino</th></tr>${histFilas}</table>
+  <h2>Incidencias / problemas</h2>
+  <table><tr><th>Fecha</th><th>Hora</th><th>Descripción</th><th>Estado</th><th>Solución</th></tr>${probFilas}</table>
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },300);
+};
+
+// ═══ REPORTE DE PENDIENTES — todas las máquinas de la obra activa ═══
+window.reportePendientesEquipos=function(){
+  const eqsObra=_equipos.filter(e=>(e.obra||'039')===obraActiva);
+  const filas=[];
+  eqsObra.forEach(eq=>{
+    const bits=_bitacoras.filter(b=>b.equipoId===eq._id);
+    bits.forEach(b=>(b.incidencias||[]).forEach(i=>{
+      if(!i.resuelto) filas.push({equipo:eq.nombre, fecha:b.fecha, hora:i.hora||'', descripcion:i.descripcion||''});
+    }));
+    const horActual=_maqUltimoHorometro(eq._id);
+    if(eq.proximoAceiteHorometro!=null && horActual>=eq.proximoAceiteHorometro) filas.push({equipo:eq.nombre, fecha:'—', hora:'', descripcion:`Servicio vencido: cambio de aceite (programado a ${eq.proximoAceiteHorometro}, va en ${horActual})`});
+    if(eq.proximoFiltrosHorometro!=null && horActual>=eq.proximoFiltrosHorometro) filas.push({equipo:eq.nombre, fecha:'—', hora:'', descripcion:`Servicio vencido: cambio de filtros (programado a ${eq.proximoFiltrosHorometro}, va en ${horActual})`});
+  });
+  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups','warn'); return; }
+  const filasHtml=filas.length ? filas.map(f=>`<tr><td>${f.equipo}</td><td>${f.fecha}</td><td>${f.hora}</td><td>${f.descripcion}</td></tr>`).join('') : '<tr><td colspan="4">✓ Sin pendientes en ninguna máquina de esta obra.</td></tr>';
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Reparaciones pendientes — Maquinaria</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px;font-size:12px}
+    h1{font-size:16px;margin:0 0 3px;color:#b91c1c}
+    .meta{font-size:11px;color:#555;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:12px}
+    th{background:#fee2e2}
+    @page{ size: A4 portrait; margin:12mm }
+    @media print{ .noprint{display:none} }
+  </style></head><body>
+  <h1>⚠️ REPARACIONES / SERVICIOS PENDIENTES — Maquinaria obra ${OBRAS[obraActiva]?.nombre||obraActiva}</h1>
+  <div class="meta">Generado ${new Date().toLocaleString('es-MX')}</div>
+  <table><tr><th>Equipo</th><th>Fecha reportado</th><th>Hora</th><th>Problema</th></tr>${filasHtml}</table>
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },300);
+};
+
+// ═══ REPORTE — Estadística de fallas por equipo (CRUZA TODAS LAS OBRAS donde haya trabajado) ═══
+// Un equipo conserva el mismo _id aunque se traslade de obra (así lo maneja confirmarCierreEquipo),
+// así que su bitácora de incidencias YA acumula todo su historial completo sin importar en cuántas
+// obras distintas haya estado — aquí solo se agrupa y cuenta por categoría para poder evaluarlo.
+window.reporteEstadisticaFallas=function(){
+  // Lista de equipos: todos los que existan en Firestore, activos o cerrados, de cualquier obra —
+  // porque la idea es ver el historial COMPLETO de la máquina, no solo lo de la obra activa.
+  const porEquipo={};
+  _equipos.forEach(eq=>{ porEquipo[eq._id]={eq, total:0, pendientes:0, resueltos:0, porCategoria:{}, obras:new Set()}; });
+  _bitacoras.forEach(b=>{
+    const acc=porEquipo[b.equipoId]; if(!acc) return;
+    acc.obras.add(b.obra||'039');
+    (b.incidencias||[]).forEach(i=>{
+      acc.total++;
+      if(i.resuelto) acc.resueltos++; else acc.pendientes++;
+      const cat=i.categoria||'Otro';
+      acc.porCategoria[cat]=(acc.porCategoria[cat]||0)+1;
+    });
+  });
+  const lista=Object.values(porEquipo).filter(a=>a.total>0).sort((a,b)=>b.total-a.total);
+  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups','warn'); return; }
+  const filasHtml=lista.length ? lista.map(a=>{
+    const cats=Object.entries(a.porCategoria).sort((x,y)=>y[1]-x[1]).map(([c,n])=>`${c}: ${n}`).join(' · ');
+    const obrasTxt=[...a.obras].map(o=>OBRAS[o]?.nombre||o).join(', ');
+    return `<tr>
+      <td>${a.eq.nombre}${a.eq.numero?' · '+a.eq.numero:''}</td>
+      <td style="text-align:center">${a.total}</td>
+      <td style="text-align:center;color:#b91c1c;font-weight:700">${a.pendientes}</td>
+      <td style="text-align:center;color:#16a34a">${a.resueltos}</td>
+      <td>${cats}</td>
+      <td style="font-size:10px">${obrasTxt}</td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="6">Sin incidencias registradas en ningún equipo todavía.</td></tr>';
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Estadística de fallas — Maquinaria</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px;font-size:12px}
+    h1{font-size:16px;margin:0 0 3px;color:#1e293b}
+    .meta{font-size:11px;color:#555;margin-bottom:14px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left;font-size:11px;vertical-align:top}
+    th{background:#f1f5f9}
+    @page{ size: A4 landscape; margin:12mm }
+    @media print{ .noprint{display:none} }
+  </style></head><body>
+  <h1>📊 ESTADÍSTICA DE FALLAS POR EQUIPO — historial completo, todas las obras</h1>
+  <div class="meta">Generado ${new Date().toLocaleString('es-MX')} · Ordenado de más a menos incidencias, para evaluar qué máquinas dan más problemas</div>
+  <table><tr><th>Equipo</th><th>Total fallas</th><th>Pendientes</th><th>Resueltas</th><th>Por categoría</th><th>Obras donde trabajó</th></tr>${filasHtml}</table>
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },300);
+};
+
 const _CANON_ID={reniv:'RENIV-O1',carp3:'CARPETA3-O1',bach1:'BACHEO-O1',carp5:'CARPETA5-O2',bach2:'BACHEO-O2'};
 function _procesarCadExcel(rows){
   const cambios=[], errores=[], porViaje={};
@@ -4293,19 +5665,29 @@ window.buscarCadenamientoCarril=function(i){
     return;
   }
   const ult=mismoConceptoYCarril[0];
-  let kaUlt=ult.ka;
+  let kaUlt=ult.ka, anchoUlt=null;
   if(ult.conceptos&&Array.isArray(ult.conceptos)){
     const c=ult.conceptos.find(c=>c.id===concId && (c.carril||ult.carril)===carrilSel);
     if(c&&c.ka) kaUlt=c.ka;
+    if(c) anchoUlt=(c.ancho_fin!=null?c.ancho_fin:(c.ancho!=null?c.ancho:null));
+  } else {
+    anchoUlt=(ult.ancho_fin!=null?ult.ancho_fin:(ult.ancho!=null?ult.ancho:null));
   }
   if(!kaUlt){ alert('Encontré el viaje pero no tiene cadenamiento final guardado — revísalo a mano.'); return; }
-  const ok=confirm(`El carril "${carrilSel}" (${concLabel}) se quedó en ${fmtCad(kaUlt)}, del viaje #${ult.num_viaje_dia||'?'} del ${ult.fecha} (${ult.placas||'?'}).\n\n¿Confirmas iniciar este camión ahí?`);
+  const anchoTxt = anchoUlt!=null ? `\nAncho con el que terminó ese carril: ${(+anchoUlt).toFixed(2)} m` : '\n(ese viaje no tiene ancho final guardado)';
+  const ok=confirm(`El carril "${carrilSel}" (${concLabel}) se quedó en ${fmtCad(kaUlt)}, del viaje #${ult.num_viaje_dia||'?'} del ${ult.fecha} (${ult.placas||'?'}).${anchoTxt}\n\n¿Confirmas iniciar este camión ahí${anchoUlt!=null?' (también se copia el ancho inicial)':''}?`);
   if(!ok) return;
   const el=document.getElementById('f_kde_'+i);
   if(el){ el.value=fmtCad(kaUlt); el.dataset.autofill='1'; }
   conceptosViaje[i].kde=kaUlt;
+  if(anchoUlt!=null){
+    conceptosViaje[i].aw1=+anchoUlt;
+    const elA=document.getElementById('f_aw1_'+i);
+    if(elA) elA.value=(+anchoUlt).toFixed(2);
+  }
   calcKaConcepto(i);
-  toast('✓ Cadenamiento inicial confirmado: '+fmtCad(kaUlt));
+  if(typeof calcResumenViaje==='function') calcResumenViaje();
+  toast('✓ Cadenamiento inicial confirmado: '+fmtCad(kaUlt)+(anchoUlt!=null?' · ancho '+(+anchoUlt).toFixed(2)+' m':''));
 };
 function prellenarKdePorConcepto(forzar){
   const el=document.getElementById('f_kde_0');
@@ -4350,7 +5732,7 @@ function prellenarKde(){
   if(deHoy.length){ el.value=fmtCad(deHoy[0].ka); }
 }
 function renderAll() {
-  document.getElementById('cntBadge').textContent=records.length;
+  document.getElementById('cntBadge').textContent=records.length+' viaje'+(records.length===1?'':'s');
   updateCounter();
   actualizarPlacasList();
   actualizarStatusEmul();
@@ -4406,16 +5788,28 @@ function renderList() {
           return `${o.tramo} · ${o.carril}: ${rango} (${o.ml.toFixed(2)}m)`;
         }).join(' · ')
       : (rd.kdeMin!=null&&rd.kaMax!=null ? `${fmtCad(rd.kdeMin)} → ${fmtCad(rd.kaMax)}${mlDia!=null?' ('+mlDia.toFixed(2)+'m)':''}` : '');
-    // Km promedio POR SUBTRAMO: promedio del cadenamiento min/max entre los carriles de CADA
-    // subtramo, usando TODO el histórico de la obra (no solo el día) — nunca se promedian juntos.
-    const cadProm = _cadPromedioCarriles();
-    const promTxt = Object.keys(cadProm).map(t=>{
-      const cp=cadProm[t];
-      return `📍 ${t} prom. (${cp.n} carril${cp.n>1?'es':''}): ${fmtCad(cp.ini)} → ${fmtCad(cp.fin)} (${((cp.fin-cp.ini)/1000).toFixed(2)} km)`;
-    }).join('  |  ');
+    // Progreso POR CARRIL (individual, no promediado): ML trabajados y faltantes para llegar a
+    // la meta del tramo — el ACUMULADO usa todo el histórico de la obra, pero SOLO se muestran
+    // los carriles que se trabajaron ESTE día (si hoy solo tocaste 1 carril, no se listan los otros).
+    const carrProg = _carrilesProgreso();
+    const carrilesHoy=new Set();
+    rs.forEach(r=>{
+      const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{carril:r.carril,id:r.concepto}];
+      cs.forEach(c=>{ if(c.carril) carrilesHoy.add(tramoDeConcepto(c.id)+'::'+c.carril); });
+    });
+    const promTxt = Object.keys(carrProg).map(t=>{
+      return Object.keys(carrProg[t]).filter(carril=>carrilesHoy.has(t+'::'+carril)).map(carril=>{
+        const p=carrProg[t][carril];
+        return `🛣️ ${t}·${carril}: ${_fmtMlOKm(p.ml)} trabajados · faltan ${_fmtMlOKm(p.faltante)} para meta (${_fmtMlOKm(p.meta)})`;
+      }).join('  |  ');
+    }).filter(Boolean).join('  |  ');
+    // Horas trabajadas del día: un solo dato, suma de los minutos de descarga de TODOS los
+    // camiones de esa jornada (el detalle por camión ya está en el reporte "Tiempos por camión").
+    const minDia=rs.reduce((s,r)=>s+(r.duracion_descarga_min!=null&&r.duracion_descarga_min!==''?+r.duracion_descarga_min:0),0);
+    const horasTxt = minDia>0 ? `⏱️ Horas trabajadas: ${(minDia/60).toFixed(2)} hrs` : '';
     const espTxt = rd.espProm>0 ? `Esp. prom ${rd.espProm.toFixed(2)}cm` : '';
     const rendEmulTxt = rd.rendTxt ? `· 🛢️ ${rd.rendTxt}` : '';
-    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(2)} ton · ${rs.length} vj · ${m2Dia.toFixed(1)} m² · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">${cadPorCarrilTxt}</span><br><span style="font-size:10px;color:var(--muted)">${promTxt}${edTxt?' · '+edTxt:''}</span><br><span style="font-size:10px;color:var(--muted)">${espTxt} ${rendEmulTxt}</span></div></div>`;
+    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(2)} ton · ${rs.length} vj · ${m2Dia.toFixed(1)} m² · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">${cadPorCarrilTxt}</span><br><span style="font-size:10px;color:var(--muted)">${promTxt}${edTxt?' · '+edTxt:''}</span><br><span style="font-size:10px;color:var(--muted)">${espTxt} ${rendEmulTxt}${horasTxt?' · '+horasTxt:''}</span></div></div>`;
     rs.forEach(r=>{
       const G=r.gp==='GANANCIA', ce=puedeEditar(r);
       html+=`<div class="rc${ce?'':' no-edit'}" onclick="${ce?`openEdit('${r._id}')`:''}" >
@@ -4812,7 +6206,7 @@ const REP_COLS=[
   {k:'concepto',t:'Concepto'},{k:'carril',t:'Carril'},{k:'sentido',t:'Sentido'},
   {k:'dekm',t:'De KM',cad:1},{k:'akm',t:'A KM',cad:1},
   {k:'ml',t:'ML',d:2,sum:1},{k:'ancho',t:'Ancho',d:3},{k:'esp',t:'Espesor (cm)',d:1},
-  {k:'area',t:'m²',d:2,sum:1},{k:'vol',t:'m³',d:3,sum:1},{k:'ton',t:'Ton',d:2,sum:1},
+  {k:'area',t:'m²',d:2,sum:1},{k:'vol',t:'m³',d:3,sum:1},{k:'volreal',t:'m³ real colocado',d:3,sum:1},{k:'ton',t:'Ton',d:2,sum:1},
   {k:'espreal',t:'Esp.real(cm)',d:2},{k:'m3fav',t:'m³ favor',d:3},{k:'gp',t:'Result.'},
   {k:'tprod',t:'Temp.prod',d:0},{k:'ttend',t:'Temp.tend',d:0},
   {k:'hcap',t:'Hora captura'},{k:'hini',t:'Inicia tendido'},{k:'hfin',t:'Termina tendido'},{k:'dur',t:'Min descarga',d:1},
@@ -4844,7 +6238,7 @@ window.repColsPreset=function(p){
   let s;
   if(p==='generador') s=['fecha','concepto','carril','sentido','dekm','akm','ml','ancho','esp','area','vol'];
   else if(p==='pago') s=['fecha','viaje','placas','concepto','ton','vale','remision'];
-  else if(p==='volumen') s=['fecha','concepto','dekm','akm','ml','ancho','esp','vol','ton'];
+  else if(p==='volumen') s=['fecha','concepto','dekm','akm','ml','ancho','esp','vol','ton','volreal'];
   else if(p==='todo') s=REP_COLS.map(c=>c.k);
   else s=REP_DEFAULT.slice();
   localStorage.setItem('t039_rep_cols',JSON.stringify(s)); renderReporte();
@@ -4872,11 +6266,12 @@ function _repRows(){
     const area=c.area!=null?+c.area:+(ml*aw);
     const vol=c.volumen!=null?+c.volumen:+(area*esp/100);
     const espreal=area>0?ton/(area*DEN)*100:0;
+    const volreal=ton>0?+(ton/DEN).toFixed(3):0;
     const mf=(ton&&area&&esp)?(((esp/100)-(ton/(area*DEN)))*area):0;
     rows.push({ fecha:v.fecha||'', obra:v.obra||'039', viaje:v.num_viaje_dia||'', placas:v.placas||'',
       camion:v.tipo_camion||'', material:v.material||'', pg:v.pg||'', mezcla:v.tipo_mezcla||'',
       concepto:conceptoCanon(c.id, c.label||'', (c.kde!=null?c.kde:v.kde)), carril:c.carril||v.carril||'', sentido:(c.sentido||v.sentido||'sube'),
-      dekm:c.kde, akm:c.ka, ml, ancho:aw, esp, area, vol, ton, espreal, m3fav:mf, gp:(mf>=0?'GANANCIA':'PERDIDA'),
+      dekm:c.kde, akm:c.ka, ml, ancho:aw, esp, area, vol, volreal, ton, espreal, m3fav:mf, gp:(mf>=0?'GANANCIA':'PERDIDA'),
       tprod:v.temp_produccion, ttend:v.temp_tendido,
       hcap:v.hora_captura||'', hini:v.hora_inicio_tendido||'', hfin:v.hora_fin_tendido||'',
       dur:(v.duracion_descarga_min!=null&&v.duracion_descarga_min!=='')?+v.duracion_descarga_min:'',
@@ -4885,6 +6280,64 @@ function _repRows(){
   return rows;
 }
 function _repGrafVisible(){ try{ return localStorage.getItem('t039_rep_graf')!=='0'; }catch(e){ return true; } }
+// ═══ REPORTE — Tiempo detenido por camión, sumado por jornada (día) ═══
+// "Tiempo detenido" = duracion_descarga_min de cada viaje (desde que marcó ▶ Inicia tendido hasta
+// ■ Termina). Se agrupa por día y por placas — así se ve cuánto tiempo total estuvo parado cada
+// camión en cada jornada completa, no viaje por viaje.
+window.reporteTiemposCamion=function(){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
+  const sel=(_repDias instanceof Set)?_repDias:new Set(fechas);
+  const rs=records.filter(r=>sel.has(r.fecha) && r.duracion_descarga_min!=null && r.duracion_descarga_min!=='');
+  if(!rs.length){ toast('No hay viajes con tiempo de descarga capturado en los días seleccionados','warn'); return; }
+  const porDia={};
+  rs.forEach(r=>{
+    const f=r.fecha; const p=r.placas||'SIN PLACA'; const dur=+r.duracion_descarga_min||0;
+    if(!porDia[f]) porDia[f]={};
+    if(!porDia[f][p]) porDia[f][p]={viajes:0,min:0};
+    porDia[f][p].viajes++; porDia[f][p].min+=dur;
+  });
+  const porCamionTotal={};
+  Object.values(porDia).forEach(dia=>Object.entries(dia).forEach(([p,d])=>{
+    if(!porCamionTotal[p]) porCamionTotal[p]={viajes:0,min:0};
+    porCamionTotal[p].viajes+=d.viajes; porCamionTotal[p].min+=d.min;
+  }));
+  const diasOrdenados=Object.keys(porDia).sort();
+  const bloquesDias=diasOrdenados.map(f=>{
+    const filas=Object.entries(porDia[f]).sort((a,b)=>b[1].min-a[1].min).map(([p,d])=>
+      `<tr><td>${p}</td><td style="text-align:center">${d.viajes}</td><td style="text-align:center">${d.min.toFixed(0)}</td><td style="text-align:center">${(d.min/d.viajes).toFixed(1)}</td></tr>`
+    ).join('');
+    const totalDia=Object.values(porDia[f]).reduce((s,d)=>s+d.min,0);
+    return `<h2>${(f||'').split('-').reverse().join('/')}</h2>
+      <table><tr><th>Placas</th><th>Viajes</th><th>Min. detenido total</th><th>Min. promedio/viaje</th></tr>${filas}
+      <tr style="font-weight:700;background:#f1f5f9"><td colspan="2">TOTAL DEL DÍA</td><td style="text-align:center">${totalDia.toFixed(0)}</td><td></td></tr></table>`;
+  }).join('');
+  const filasResumen=Object.entries(porCamionTotal).sort((a,b)=>b[1].min-a[1].min).map(([p,d])=>
+    `<tr><td>${p}</td><td style="text-align:center">${d.viajes}</td><td style="text-align:center">${d.min.toFixed(0)}</td><td style="text-align:center">${(d.min/d.viajes).toFixed(1)}</td></tr>`
+  ).join('');
+  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups','warn'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tiempos por camión — TENDIDO 039</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px;font-size:12px}
+    h1{font-size:16px;margin:0 0 3px}
+    h2{font-size:13px;margin:16px 0 6px;border-bottom:2px solid #333;padding-bottom:3px}
+    .meta{font-size:11px;color:#555;margin-bottom:10px}
+    table{width:100%;border-collapse:collapse;margin-bottom:4px}
+    th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;font-size:11px}
+    th{background:#f0f0f0}
+    @page{ size: A4 portrait; margin:12mm }
+    @media print{ .noprint{display:none} }
+  </style></head><body>
+  <h1>⏱️ TIEMPO DETENIDO POR CAMIÓN — por jornada</h1>
+  <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Generado ${new Date().toLocaleString('es-MX')} · Suma de minutos entre "Inicia tendido" y "Termina tendido" de cada viaje</div>
+  ${bloquesDias}
+  <h2>TOTAL — TODOS LOS DÍAS SELECCIONADOS</h2>
+  <table><tr><th>Placas</th><th>Viajes</th><th>Min. detenido total</th><th>Min. promedio/viaje</th></tr>${filasResumen}</table>
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },300);
+};
 window.repToggleGraf=function(){ try{ localStorage.setItem('t039_rep_graf', _repGrafVisible()?'0':'1'); }catch(e){} renderReporte(); };
 function _repUnidad(){ try{ return localStorage.getItem('t039_rep_unidad')==='m3'?'m3':'ton'; }catch(e){ return 'ton'; } }
 window.repSetUnidad=function(u){ try{ localStorage.setItem('t039_rep_unidad', u==='m3'?'m3':'ton'); }catch(e){} renderReporte(); };
@@ -5010,6 +6463,7 @@ function renderReporte() {
           <button onclick="repColsPreset('volumen')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Volumen</button>
           <button onclick="repColsPreset('todo')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Todas</button>
           <button onclick="repColsPreset('')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Reset</button>
+          <button onclick="reporteTiemposCamion()" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg);border-color:#3b82f6;color:#3b82f6">⏱️ Tiempos por camión</button>
         </div>
         <div style="font-size:10px;color:var(--muted);margin:2px 0 3px">En el reporte · ordena con ◀ ▶ · quita con ✕:</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${chipsSel}</div>
@@ -5253,6 +6707,7 @@ window.switchTab=function(id,el) {
   document.getElementById('view-'+id).classList.add('active');
   el.classList.add('active');
   if (id==='viajes') renderList();
+  else if (id==='maquinaria'){ renderMaqEquipoSelect(); const fe=document.getElementById('maq_fecha'); if(fe&&!fe.value) fe.value=fechaJornada(); _maqRenderConceptos(); _maqRenderIncidencias(); _maqRenderDiesel(); renderMaqHistorial(); _maqCargarOAutorellenar(); }
   else if (id==='rep-camiones') renderRepCamiones();
   else if (id==='rep-volumen') renderRepVolumen();
   else if (id==='reporte') renderReporte();
