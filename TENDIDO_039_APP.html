@@ -747,6 +747,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <button class="be" onclick="switchMaqSub('bitacora')" id="btnMaqSubBitacora" style="padding:6px 12px;font-size:12px">📝 Registrar día</button>
       <button class="be" onclick="switchMaqSub('historial')" id="btnMaqSubHistorial" style="padding:6px 12px;font-size:12px">📚 Historial</button>
       <button class="be" onclick="switchMaqSub('cerrados')" id="btnMaqSubCerrados" style="padding:6px 12px;font-size:12px">🚚 Equipos cerrados</button>
+      <button class="be" onclick="switchMaqSub('reportesop')" id="btnMaqSubReportesOp" style="padding:6px 12px;font-size:12px;position:relative">📥 Reportes de operadores<span id="maqReportesOpBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:99px;font-size:9px;font-weight:800;padding:1px 5px">0</span></button>
       <button class="be" onclick="exportarBitacoraExcel()" style="padding:6px 12px;font-size:12px;border-color:#22c55e;color:#22c55e">📊 Excel</button>
       <button class="be" onclick="reportePendientesEquipos()" style="padding:6px 12px;font-size:12px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes</button>
       <button class="be" onclick="reporteEstadisticaFallas()" style="padding:6px 12px;font-size:12px;border-color:#3b82f6;color:#3b82f6">📈 Estadística de fallas</button>
@@ -878,6 +879,11 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
     <div id="maqSubCerrados" style="display:none">
       <div id="maqCerradosBody"></div>
+    </div>
+
+    <div id="maqSubReportesOp" style="display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Reportes que mandaron los operadores desde su link (sin usar la app completa) — revísalos y confírmalos, o descártalos si vienen mal.</div>
+      <div id="maqReportesOpBody"></div>
     </div>
   </div>
 
@@ -1918,6 +1924,7 @@ function startListener() {
   startExtrasListener();
   startEquiposListener();
   startBitacoraListener();
+  startReportesOpListener();
   try {
     const q = query(collection(db, COL), orderBy('ts','desc'));
     onSnapshot(q, snap => {
@@ -3980,6 +3987,7 @@ function _rebuildExtras(){
 // 'bitacoraMaq039' (un registro por máquina por día). Capturar aquí es SIEMPRE opcional — si un
 // día no se anota nada, no rompe nada del resto de la app (igual que el resto de los módulos).
 let _equipos=[], _bitacoras=[], _equiposListenerStarted=false, _bitacoraListenerStarted=false;
+let _reportesOp=[], _reportesOpListenerStarted=false;
 let _maqIncidencias=[], _maqDiesel=[], _maqConceptos=[], _maqEditandoId=null, _ceFoto=null;
 
 function startEquiposListener(){
@@ -3996,6 +4004,16 @@ function startBitacoraListener(){
     _bitacoras = snap.docs.map(d=>({_id:d.id, ...d.data()}));
     if(document.getElementById('view-maquinaria') && document.getElementById('view-maquinaria').classList.contains('active')) renderMaqHistorial();
   }); }catch(e){ console.warn('bitacora listener', e); }
+}
+// Reportes que mandan los operadores desde su propio link (sin login) — solo admin/residente los
+// puede leer (por la regla de Firestore). Si un capturista sin ese rol llega a este punto, el
+// listener simplemente no trae nada (permiso denegado silencioso), no truena la app.
+function startReportesOpListener(){
+  if(_reportesOpListenerStarted) return; _reportesOpListenerStarted=true;
+  try{ onSnapshot(collection(db,'reportesOperador039'), snap=>{
+    _reportesOp = snap.docs.map(d=>({_id:d.id, ...d.data()}));
+    renderMaqReportesOp();
+  }, e=>console.warn('reportesOp listener (puede ser normal si no eres admin/residente):', e.code||e)); }catch(e){ console.warn('reportesOp listener', e); }
 }
 
 let _eqEditandoId=null;
@@ -4416,11 +4434,67 @@ window.switchMaqSub=function(cual){
   document.getElementById('maqSubBitacora').style.display = cual==='bitacora' ? '' : 'none';
   document.getElementById('maqSubHistorial').style.display = cual==='historial' ? '' : 'none';
   document.getElementById('maqSubCerrados').style.display = cual==='cerrados' ? '' : 'none';
+  document.getElementById('maqSubReportesOp').style.display = cual==='reportesop' ? '' : 'none';
   document.getElementById('btnMaqSubBitacora').style.borderColor = cual==='bitacora' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubHistorial').style.borderColor = cual==='historial' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubCerrados').style.borderColor = cual==='cerrados' ? 'var(--gold)' : 'var(--bord)';
+  document.getElementById('btnMaqSubReportesOp').style.borderColor = cual==='reportesop' ? 'var(--gold)' : 'var(--bord)';
   if(cual==='historial') renderMaqHistorial();
   if(cual==='cerrados') renderMaqCerrados();
+  if(cual==='reportesop') renderMaqReportesOp();
+};
+// Bandeja de reportes que mandan los operadores desde su link público (sin login). Cada uno trae
+// horómetro, diésel y anomalía "en crudo" — aquí se revisan uno por uno: "Usar" pre-llena el
+// formulario del día para ESE equipo con esos datos (tú confirmas/ajustas y guardas normal), o
+// "Descartar" si vino mal o duplicado.
+function renderMaqReportesOp(){
+  const badge=document.getElementById('maqReportesOpBadge');
+  const pendientes=_reportesOp.filter(r=>r.estado==='pendiente');
+  if(badge){ badge.style.display=pendientes.length?'block':'none'; badge.textContent=pendientes.length; }
+  const body=document.getElementById('maqReportesOpBody'); if(!body) return;
+  if(!pendientes.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin reportes pendientes de operadores.</div>'; return; }
+  body.innerHTML = pendientes.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).map(r=>`
+    <div style="background:var(--surf);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;margin-bottom:8px">
+      <div style="font-weight:800;color:var(--gold);font-size:13px">${r.equipoNombre||'—'} · ${r.fecha||'—'}</div>
+      <div style="font-size:11px;color:var(--muted);margin-top:4px">
+        Operador (auto-reportado): ${r.operador||'—'} · Horómetro: ${r.horometroInicio!=null?r.horometroInicio:'—'} → ${r.horometroFin!=null?r.horometroFin:'—'} · Diésel: ${r.litrosDiesel!=null?r.litrosDiesel+' L':'—'}
+      </div>
+      ${r.anomalia?`<div style="font-size:11px;color:#f87171;margin-top:4px">⚠️ ${r.anomalia}</div>`:''}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button onclick="_maqUsarReporteOp('${r._id}')" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#0a0a0a;padding:6px;font-size:11px;font-weight:700;cursor:pointer">✓ Usar este reporte</button>
+        <button onclick="_maqDescartarReporteOp('${r._id}')" style="flex:1;background:none;border:1px solid var(--bord);border-radius:6px;color:var(--muted);padding:6px;font-size:11px;cursor:pointer">✕ Descartar</button>
+      </div>
+    </div>`).join('');
+}
+// "Usar" no guarda solo directo — pre-llena el formulario del día para que TÚ lo revises,
+// ajustes si hace falta, y guardes con el botón normal. Así nunca se sube nada sin que lo veas.
+window._maqUsarReporteOp=function(id){
+  const r=_reportesOp.find(x=>x._id===id); if(!r) return;
+  switchMaqSub('bitacora');
+  const selEq=document.getElementById('maq_equipo');
+  if(selEq) selEq.value=r.equipoId;
+  document.getElementById('maq_fecha').value=r.fecha||fechaJornada();
+  _maqCargarOAutorellenar(); // por si ya había un registro de ese día, lo abre en modo edición
+  document.getElementById('maq_operador').value=r.operador||document.getElementById('maq_operador').value;
+  document.getElementById('maq_hor_ini').value=r.horometroInicio!=null?r.horometroInicio:document.getElementById('maq_hor_ini').value;
+  document.getElementById('maq_hor_fin').value=r.horometroFin!=null?r.horometroFin:'';
+  if(r.anomalia){
+    _maqIncidencias.push({hora:'',descripcion:r.anomalia,categoria:'Otro'});
+    _maqRenderIncidencias();
+  }
+  if(r.litrosDiesel!=null){
+    _maqDiesel.push({hora:'',litros:r.litrosDiesel});
+    _maqRenderDiesel();
+  }
+  _maqCalcHoras();
+  updateDoc(doc(db,'reportesOperador039',id), {estado:'usado', usadoTs:Date.now()}).catch(e=>console.warn('marcar reporte usado:',e));
+  toast('✓ Datos cargados en el formulario — revisa y guarda','ok');
+};
+window._maqDescartarReporteOp=async function(id){
+  const ok=confirm('¿Descartar este reporte? No se va a usar.');
+  if(!ok) return;
+  try{ await updateDoc(doc(db,'reportesOperador039',id), {estado:'descartado', descartadoTs:Date.now()}); toast('Descartado','ok'); }
+  catch(e){ toast('Error al descartar','err'); }
 };
 function renderMaqHistorial(){
   const body=document.getElementById('maqHistorialBody'); if(!body) return;
@@ -4436,7 +4510,10 @@ function renderMaqHistorial(){
     <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px 12px;margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div style="font-weight:800;color:var(--gold);font-size:13px">${b.equipoNombre||'—'} · ${b.fecha||'—'}</div>
-        <button onclick="_maqEditarBitacora('${b._id}')" style="background:none;border:1px solid var(--bord);border-radius:6px;color:var(--blue);padding:3px 8px;font-size:11px;cursor:pointer">Editar</button>
+        <div style="display:flex;gap:6px">
+          <button onclick="_maqEditarBitacora('${b._id}')" style="background:none;border:1px solid var(--bord);border-radius:6px;color:var(--blue);padding:3px 8px;font-size:11px;cursor:pointer">Editar</button>
+          ${esEditor()?`<button onclick="_maqBorrarBitacora('${b._id}')" style="background:none;border:1px solid #dc2626;border-radius:6px;color:#dc2626;padding:3px 8px;font-size:11px;cursor:pointer">Eliminar</button>`:''}
+        </div>
       </div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">
         Operador: ${b.operador||'—'} · Horas: ${b.horasTrabajadas!=null?b.horasTrabajadas+' hrs':'—'} ${b.rendimiento?' · Rendimiento: '+b.rendimiento+' m³/hr':''}
@@ -4571,6 +4648,19 @@ function renderMaqCerrados(){
     </div>`;
   }).join('');
 }
+// Borrar un registro de bitácora — SOLO admin/residente (esEditor), para que un operador con
+// acceso a un dispositivo no pueda borrar evidencia de un problema por su cuenta ("sabotaje").
+window._maqBorrarBitacora=async function(id){
+  if(!esEditor()){ toast('Solo admin o residente pueden eliminar registros','err'); return; }
+  const b=_bitacoras.find(x=>x._id===id);
+  const desc=b?`${b.equipoNombre||'equipo'} · ${b.fecha||'?'}`:'este registro';
+  const ok=confirm(`¿Eliminar el registro de ${desc}? Esta acción NO se puede deshacer.`);
+  if(!ok) return;
+  const ok2=confirm('Confirma una vez más — se borrará permanentemente de la nube.');
+  if(!ok2) return;
+  try{ await deleteDoc(doc(db,'bitacoraMaq039',id)); toast('✓ Registro eliminado','ok'); }
+  catch(e){ console.warn('_maqBorrarBitacora:',e); toast('Error al eliminar','err'); }
+};
 window._maqReabrirEquipo=async function(id){
   try{ await updateDoc(doc(db,'equipos039',id), { activo:true }); toast('✓ Equipo reactivado','ok'); }
   catch(e){ toast('Error al reactivar','err'); }
@@ -6763,7 +6853,7 @@ window.switchTab=function(id,el) {
   document.getElementById('view-'+id).classList.add('active');
   el.classList.add('active');
   if (id==='viajes') renderList();
-  else if (id==='maquinaria'){ renderMaqEquipoSelect(); const fe=document.getElementById('maq_fecha'); if(fe&&!fe.value) fe.value=fechaJornada(); _maqRenderConceptos(); _maqRenderIncidencias(); _maqRenderDiesel(); renderMaqHistorial(); _maqCargarOAutorellenar(); }
+  else if (id==='maquinaria'){ renderMaqEquipoSelect(); const fe=document.getElementById('maq_fecha'); if(fe&&!fe.value) fe.value=fechaJornada(); _maqRenderConceptos(); _maqRenderIncidencias(); _maqRenderDiesel(); renderMaqHistorial(); _maqCargarOAutorellenar(); renderMaqReportesOp(); }
   else if (id==='rep-camiones') renderRepCamiones();
   else if (id==='rep-volumen') renderRepVolumen();
   else if (id==='reporte') renderReporte();

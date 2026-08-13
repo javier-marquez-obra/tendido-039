@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Reporte de máquina · TENDIDO 039</title>
+<style>
+  :root{
+    --bg:#0f1115; --surf:#171a21; --card:#1d212b; --bord:#2a2f3a;
+    --txt:#e8eaed; --muted:#8b93a3; --gold:#eab308; --green:#22c55e; --red:#f87171; --blue:#60a5fa;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh}
+  .wrap{max-width:480px;margin:0 auto;padding:16px 16px 40px}
+  header{text-align:center;padding:18px 0 10px}
+  header .tag{font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+  header h1{font-size:20px;margin:4px 0 0;color:var(--gold)}
+  .card{background:var(--card);border:1px solid var(--bord);border-radius:14px;padding:16px;margin-bottom:14px}
+  label{display:block;font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:5px}
+  input,select,textarea{width:100%;background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:13px;font-size:16px;color:var(--txt);font-family:inherit}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--gold);border-color:var(--gold)}
+  .field{margin-bottom:14px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  textarea{resize:vertical;min-height:70px}
+  .voice-btn{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:12px;margin-top:6px;background:var(--surf);border:1px solid var(--bord);border-radius:10px;color:var(--muted);font-size:13px;font-weight:700;cursor:pointer}
+  .voice-btn.rec{background:rgba(248,113,113,.15);border-color:var(--red);color:var(--red)}
+  .btn-primary{width:100%;padding:16px;background:var(--green);border:none;border-radius:12px;color:#08240f;font-size:16px;font-weight:800;cursor:pointer;margin-top:6px}
+  .btn-primary:disabled{opacity:.5}
+  .hint{font-size:11px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5}
+  .ok-screen{text-align:center;padding:50px 16px}
+  .ok-screen .check{font-size:56px;margin-bottom:10px}
+  .ok-screen h2{color:var(--green);margin:0 0 8px}
+  .ok-screen p{color:var(--muted);font-size:14px;margin-bottom:24px}
+  .btn-secondary{padding:13px 20px;background:none;border:1px solid var(--bord);border-radius:10px;color:var(--txt);font-size:14px;font-weight:700;cursor:pointer}
+  .estado{position:fixed;top:0;left:0;right:0;text-align:center;padding:6px;font-size:11px;font-weight:700;z-index:50}
+  .estado.off{background:var(--red);color:#2a0505}
+  .estado.pend{background:var(--gold);color:#2a1e00}
+  #pantallaForm{display:none}
+  #pantallaCarga{text-align:center;padding:60px 16px;color:var(--muted)}
+  #pantallaOk{display:none}
+</style>
+</head>
+<body>
+
+<div id="estadoBar" class="estado off" style="display:none"></div>
+
+<div class="wrap">
+  <header>
+    <div class="tag">TENDIDO 039 · Reporte diario</div>
+    <h1>🚜 Reporte de máquina</h1>
+  </header>
+
+  <div id="pantallaCarga">Cargando lista de equipos…</div>
+
+  <div id="pantallaForm">
+    <div class="card">
+      <div class="field">
+        <label>¿Cuál máquina es?</label>
+        <select id="f_equipo"></select>
+      </div>
+      <div class="field">
+        <label>Tu nombre (operador)</label>
+        <input type="text" id="f_operador" placeholder="Nombre completo" autocomplete="name">
+      </div>
+      <div class="field">
+        <label>Fecha</label>
+        <input type="date" id="f_fecha">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row2">
+        <div class="field">
+          <label>Horómetro inicial</label>
+          <input type="number" step="0.1" inputmode="decimal" id="f_hor_ini" placeholder="0.0">
+        </div>
+        <div class="field">
+          <label>Horómetro final</label>
+          <input type="number" step="0.1" inputmode="decimal" id="f_hor_fin" placeholder="0.0">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label>Litros de diésel cargados hoy</label>
+        <input type="number" step="0.1" inputmode="decimal" id="f_diesel" placeholder="0">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="field" style="margin-bottom:0">
+        <label>¿Alguna falla, anomalía o detalle? (opcional)</label>
+        <textarea id="f_anomalia" placeholder="ej. se ponchó una llanta, hace ruido raro el motor..."></textarea>
+        <button type="button" class="voice-btn" id="btnVoz" onclick="toggleVoz()">🎙️ Dictar en vez de escribir</button>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btnEnviar" onclick="enviarReporte()">Enviar reporte</button>
+    <div class="hint">El residente lo revisa y lo confirma en la app.<br>Si no hay señal ahora, se manda solo en cuanto la haya.</div>
+  </div>
+
+  <div id="pantallaOk">
+    <div class="ok-screen">
+      <div class="check">✅</div>
+      <h2>Reporte enviado</h2>
+      <p>Gracias — el residente lo va a revisar.</p>
+      <button class="btn-secondary" onclick="nuevoReporte()">Enviar otro reporte</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getFirestore, collection, addDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyA9fVBF7SvhFh60SwmTY2LOIe32eaKxO1s",
+  authDomain: "tendido-039.firebaseapp.com",
+  projectId: "tendido-039",
+  storageBucket: "tendido-039.firebasestorage.app",
+  messagingSenderId: "251497365328",
+  appId: "1:251497365328:web:8167a07a5c2557d6ca3655"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const auth = getAuth(fbApp);
+
+const QUEUE_KEY = 't039_op_pendientes';
+let equipos = [];
+
+function hoyLocal(){
+  const d=new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function setEstadoBar(){
+  const bar=document.getElementById('estadoBar');
+  const pend=cargarCola().length;
+  if(!navigator.onLine){
+    bar.style.display='block'; bar.className='estado off';
+    bar.textContent='📴 Sin señal — tus reportes se guardan y se mandan solos cuando regrese';
+  } else if(pend>0){
+    bar.style.display='block'; bar.className='estado pend';
+    bar.textContent='📤 Enviando '+pend+' reporte(s) pendiente(s)…';
+  } else {
+    bar.style.display='none';
+  }
+}
+
+function cargarCola(){
+  try{ return JSON.parse(localStorage.getItem(QUEUE_KEY)||'[]'); }catch(e){ return []; }
+}
+function guardarCola(arr){
+  try{ localStorage.setItem(QUEUE_KEY, JSON.stringify(arr)); }catch(e){}
+}
+function encolar(data){
+  const cola=cargarCola(); cola.push(data); guardarCola(cola); setEstadoBar();
+}
+async function intentarVaciarCola(){
+  if(!navigator.onLine) return;
+  let cola=cargarCola();
+  if(!cola.length) return;
+  const restantes=[];
+  for(const item of cola){
+    try{ await addDoc(collection(db,'reportesOperador039'), item); }
+    catch(e){ restantes.push(item); }
+  }
+  guardarCola(restantes);
+  setEstadoBar();
+}
+
+async function cargarEquipos(){
+  try{
+    const snap=await getDocs(query(collection(db,'equipos039'), where('activo','!=', false)));
+    equipos=snap.docs.map(d=>({_id:d.id, ...d.data()})).filter(e=>e.activo!==false);
+  }catch(e){
+    // Si falla (sin señal en la primera carga), intenta con lo último que haya quedado en caché del navegador
+    console.warn('cargarEquipos:', e);
+  }
+  const sel=document.getElementById('f_equipo');
+  if(equipos.length){
+    sel.innerHTML=equipos.map(e=>`<option value="${e._id}">${e.nombre}${e.numero?' · '+e.numero:''}</option>`).join('');
+  } else {
+    sel.innerHTML='<option value="">— no hay equipos cargados, revisa tu señal —</option>';
+  }
+  document.getElementById('pantallaCarga').style.display='none';
+  document.getElementById('pantallaForm').style.display='block';
+  document.getElementById('f_fecha').value=hoyLocal();
+}
+
+window.nuevoReporte=function(){
+  document.getElementById('pantallaOk').style.display='none';
+  document.getElementById('pantallaForm').style.display='block';
+  document.getElementById('f_hor_ini').value='';
+  document.getElementById('f_hor_fin').value='';
+  document.getElementById('f_diesel').value='';
+  document.getElementById('f_anomalia').value='';
+  document.getElementById('f_fecha').value=hoyLocal();
+  // Deja el operador y la máquina como estaban — normalmente la siguiente captura es la misma persona.
+};
+
+window.enviarReporte=async function(){
+  const equipoId=document.getElementById('f_equipo').value;
+  const equipoNombre=(equipos.find(e=>e._id===equipoId)||{}).nombre||'';
+  const operador=(document.getElementById('f_operador').value||'').trim();
+  if(!equipoId){ alert('Elige la máquina de la lista.'); return; }
+  if(!operador){ alert('Escribe tu nombre.'); return; }
+  const data={
+    equipoId, equipoNombre,
+    operador,
+    fecha: document.getElementById('f_fecha').value||hoyLocal(),
+    horometroInicio: parseFloat(document.getElementById('f_hor_ini').value)||null,
+    horometroFin: parseFloat(document.getElementById('f_hor_fin').value)||null,
+    litrosDiesel: parseFloat(document.getElementById('f_diesel').value)||null,
+    anomalia: (document.getElementById('f_anomalia').value||'').trim(),
+    estado: 'pendiente',
+    ts: Date.now()
+  };
+  const btn=document.getElementById('btnEnviar');
+  btn.disabled=true; btn.textContent='Enviando…';
+  try{
+    await addDoc(collection(db,'reportesOperador039'), data);
+  }catch(e){
+    console.warn('enviarReporte, se guarda para reintentar:', e);
+    encolar(data);
+  }
+  btn.disabled=false; btn.textContent='Enviar reporte';
+  document.getElementById('pantallaForm').style.display='none';
+  document.getElementById('pantallaOk').style.display='block';
+};
+
+// ═══ Dictado por voz (mismo patrón que la app principal) ═══
+let vozActiva=false, vozRec=null;
+window.toggleVoz=function(){
+  if(!('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)){
+    alert('Este navegador no tiene reconocimiento de voz. Escribe el detalle a mano.'); return;
+  }
+  const btn=document.getElementById('btnVoz');
+  if(vozActiva){ vozRec&&vozRec.stop(); vozActiva=false; btn.className='voice-btn'; btn.textContent='🎙️ Dictar en vez de escribir'; return; }
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  vozRec=new SR(); vozRec.lang='es-MX'; vozRec.continuous=true; vozRec.interimResults=false;
+  vozRec.onresult=e=>{
+    const txt=Array.from(e.results).map(r=>r[0].transcript).join(' ');
+    const el=document.getElementById('f_anomalia');
+    el.value=(el.value?el.value+' ':'')+txt;
+  };
+  vozRec.onerror=()=>{ vozActiva=false; btn.className='voice-btn'; btn.textContent='🎙️ Dictar en vez de escribir'; };
+  vozRec.onend=()=>{ vozActiva=false; btn.className='voice-btn'; btn.textContent='🎙️ Dictar en vez de escribir'; };
+  vozRec.start(); vozActiva=true; btn.className='voice-btn rec'; btn.textContent='🔴 Grabando… (toca para parar)';
+};
+
+// ═══ Arranque ═══
+window.addEventListener('online', ()=>{ setEstadoBar(); intentarVaciarCola(); });
+window.addEventListener('offline', setEstadoBar);
+onAuthStateChanged(auth, user=>{
+  if(user){ cargarEquipos(); intentarVaciarCola(); }
+});
+signInAnonymously(auth).catch(e=>{
+  console.warn('signInAnonymously:', e);
+  document.getElementById('pantallaCarga').textContent='No se pudo conectar. Revisa tu señal y vuelve a abrir esta página.';
+});
+setEstadoBar();
+</script>
+</body>
+</html>
