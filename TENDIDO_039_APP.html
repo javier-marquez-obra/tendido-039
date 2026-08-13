@@ -386,6 +386,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div class="field" style="margin-bottom:14px"><label>Costo de renta diario ($)</label>
         <input type="number" step="0.01" inputmode="decimal" id="eq_costo_renta" placeholder="0.00" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
       </div>
+      <div class="field" style="margin-bottom:14px"><label>Operador asignado (opcional — bloquea el link de reportes a ese nombre)</label>
+        <input type="text" id="eq_operador_asignado" placeholder="ej. Juan Pérez — déjalo vacío para no restringir" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
 
       <div id="eqServicioBlock" style="display:none">
         <div style="border-top:1px solid var(--bord);margin:4px 0 12px"></div>
@@ -4073,6 +4076,7 @@ window.abrirNuevoEquipo=function(){
   document.getElementById('eq_hor_llega').value='';
   document.getElementById('eq_fecha_inicio').value=fechaJornada();
   document.getElementById('eq_costo_renta').value='';
+  document.getElementById('eq_operador_asignado').value='';
   document.getElementById('eqNumeroAviso').style.display='none';
   document.getElementById('equipoModal').style.display='flex';
 };
@@ -4112,6 +4116,7 @@ window.abrirEditarEquipo=function(){
   document.getElementById('eq_hor_llega').value=eq.horometroLlegada!=null?eq.horometroLlegada:'';
   document.getElementById('eq_fecha_inicio').value=eq.fechaInicioTrabajo||'';
   document.getElementById('eq_costo_renta').value=eq.costoRentaDiario!=null?eq.costoRentaDiario:'';
+  document.getElementById('eq_operador_asignado').value=eq.operadorAsignado||'';
   document.getElementById('eq_prox_aceite').value=eq.proximoAceiteHorometro!=null?eq.proximoAceiteHorometro:'';
   document.getElementById('eq_prox_filtros').value=eq.proximoFiltrosHorometro!=null?eq.proximoFiltrosHorometro:'';
   document.getElementById('eq_serv_fecha').value=fechaJornada();
@@ -4156,6 +4161,7 @@ window.guardarNuevoEquipo=async function(){
       horometroLlegada:parseFloat(document.getElementById('eq_hor_llega').value)||0,
       fechaInicioTrabajo:document.getElementById('eq_fecha_inicio').value||'',
       costoRentaDiario:parseFloat(document.getElementById('eq_costo_renta').value)||0,
+      operadorAsignado:(document.getElementById('eq_operador_asignado').value||'').trim(),
       proximoAceiteHorometro:parseFloat(document.getElementById('eq_prox_aceite').value)||null,
       proximoFiltrosHorometro:parseFloat(document.getElementById('eq_prox_filtros').value)||null,
     };
@@ -4171,6 +4177,7 @@ window.guardarNuevoEquipo=async function(){
     horometroLlegada:parseFloat(document.getElementById('eq_hor_llega').value)||0,
     fechaInicioTrabajo:document.getElementById('eq_fecha_inicio').value||'',
     costoRentaDiario:parseFloat(document.getElementById('eq_costo_renta').value)||0,
+    operadorAsignado:(document.getElementById('eq_operador_asignado').value||'').trim(),
     proximoAceiteHorometro:null, proximoFiltrosHorometro:null,
     servicios:[], historialObras:[],
     activo:true,

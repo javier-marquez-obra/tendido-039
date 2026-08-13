@@ -27,20 +27,18 @@
   .btn-primary{width:100%;padding:16px;background:var(--green);border:none;border-radius:12px;color:#08240f;font-size:16px;font-weight:800;cursor:pointer;margin-top:6px}
   .btn-primary:disabled{opacity:.5}
   .hint{font-size:11px;color:var(--muted);text-align:center;margin-top:10px;line-height:1.5}
-  .ok-screen{text-align:center;padding:50px 16px}
-  .ok-screen .check{font-size:56px;margin-bottom:10px}
-  .ok-screen h2{color:var(--green);margin:0 0 8px}
-  .ok-screen p{color:var(--muted);font-size:14px;margin-bottom:24px}
+  .hint-inline{font-size:11px;color:var(--blue);margin-top:-8px;margin-bottom:12px}
   .btn-secondary{padding:13px 20px;background:none;border:1px solid var(--bord);border-radius:10px;color:var(--txt);font-size:14px;font-weight:700;cursor:pointer}
   .estado{position:fixed;top:0;left:0;right:0;text-align:center;padding:6px;font-size:11px;font-weight:700;z-index:50}
   .estado.off{background:var(--red);color:#2a0505}
   .estado.pend{background:var(--gold);color:#2a1e00}
+  .estado.ok{background:var(--green);color:#08240f}
   #pantallaForm{display:none}
   #pantallaCarga{text-align:center;padding:60px 16px;color:var(--muted)}
-  #pantallaOk{display:none}
   #pantallaPin{display:none;text-align:center;padding-top:40px}
   #pantallaPin input{text-align:center;font-size:24px;letter-spacing:.15em}
   #pantallaPin .err{color:var(--red);font-size:13px;margin-top:8px;display:none}
+  .badge-editando{display:none;background:rgba(96,165,250,.15);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:8px 10px;font-size:11px;margin-bottom:12px}
 </style>
 </head>
 <body>
@@ -67,18 +65,21 @@
   </div>
 
   <div id="pantallaForm">
+    <div id="badgeEditando" class="badge-editando">📝 Ya habías empezado este reporte hoy — sigue donde te quedaste.</div>
+
     <div class="card">
       <div class="field">
         <label>¿Cuál máquina es?</label>
-        <select id="f_equipo"></select>
+        <select id="f_equipo" onchange="cambiarEquipoSeleccionado()"></select>
       </div>
       <div class="field">
         <label>Tu nombre (operador)</label>
         <input type="text" id="f_operador" placeholder="Nombre completo" autocomplete="name">
+        <div class="hint-inline" id="operadorAsignadoHint" style="display:none">🔒 Esta máquina está asignada a este operador — si tú eres otra persona, pídele al residente que la reasigne.</div>
       </div>
-      <div class="field">
+      <div class="field" style="margin-bottom:0">
         <label>Fecha</label>
-        <input type="date" id="f_fecha">
+        <input type="date" id="f_fecha" onchange="cambiarEquipoSeleccionado()">
       </div>
     </div>
 
@@ -90,9 +91,10 @@
         </div>
         <div class="field">
           <label>Horómetro final</label>
-          <input type="number" step="0.1" inputmode="decimal" id="f_hor_fin" placeholder="0.0">
+          <input type="number" step="0.1" inputmode="decimal" id="f_hor_fin" placeholder="0.0 (al terminar tu jornada)">
         </div>
       </div>
+      <div class="hint-inline" id="horIniHint" style="display:none">↑ Es el último horómetro registrado de esta máquina — corrígelo si no es correcto.</div>
       <div class="field" style="margin-bottom:0">
         <label>Litros de diésel cargados hoy</label>
         <input type="number" step="0.1" inputmode="decimal" id="f_diesel" placeholder="0">
@@ -107,23 +109,14 @@
       </div>
     </div>
 
-    <button class="btn-primary" id="btnEnviar" onclick="enviarReporte()">Enviar reporte</button>
-    <div class="hint">El residente lo revisa y lo confirma en la app.<br>Si no hay señal ahora, se manda solo en cuanto la haya.</div>
-  </div>
-
-  <div id="pantallaOk">
-    <div class="ok-screen">
-      <div class="check">✅</div>
-      <h2>Reporte enviado</h2>
-      <p>Gracias — el residente lo va a revisar.</p>
-      <button class="btn-secondary" onclick="nuevoReporte()">Enviar otro reporte</button>
-    </div>
+    <button class="btn-primary" id="btnGuardar" onclick="guardarReporte()">💾 Guardar reporte</button>
+    <div class="hint">Puedes volver a entrar las veces que necesites en el día para completarlo — por ejemplo, poner el horómetro inicial en la mañana y el final al terminar. El residente lo revisa y lo confirma en la app.<br>Si no hay señal ahora, se guarda y se manda solo en cuanto la haya.</div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, query, where, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, addDoc, updateDoc, getDoc, getDocs, query, where, doc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -139,15 +132,24 @@ const db = getFirestore(fbApp);
 const auth = getAuth(fbApp);
 
 const QUEUE_KEY = 't039_op_pendientes';
+const DRAFTS_KEY = 't039_op_drafts'; // { "equipoId|fecha": {docId} } — para reabrir el MISMO reporte del día
 let equipos = [];
+let draftActualId = null; // id del documento que se está editando ahorita (null = todavía no se ha guardado nada)
 
 function hoyLocal(){
   const d=new Date();
   return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 }
+function claveDraft(equipoId, fecha){ return equipoId+'|'+fecha; }
+function leerDrafts(){ try{ return JSON.parse(localStorage.getItem(DRAFTS_KEY)||'{}'); }catch(e){ return {}; } }
+function guardarDraftLocal(equipoId, fecha, docId){
+  const d=leerDrafts(); d[claveDraft(equipoId,fecha)]={docId};
+  try{ localStorage.setItem(DRAFTS_KEY, JSON.stringify(d)); }catch(e){}
+}
 
-function setEstadoBar(){
+function setEstadoBar(msg, tipo){
   const bar=document.getElementById('estadoBar');
+  if(msg){ bar.style.display='block'; bar.className='estado '+(tipo||'off'); bar.textContent=msg; return; }
   const pend=cargarCola().length;
   if(!navigator.onLine){
     bar.style.display='block'; bar.className='estado off';
@@ -166,17 +168,19 @@ function cargarCola(){
 function guardarCola(arr){
   try{ localStorage.setItem(QUEUE_KEY, JSON.stringify(arr)); }catch(e){}
 }
-function encolar(data){
-  const cola=cargarCola(); cola.push(data); guardarCola(cola); setEstadoBar();
+function encolar(op){
+  const cola=cargarCola(); cola.push(op); guardarCola(cola); setEstadoBar();
 }
 async function intentarVaciarCola(){
   if(!navigator.onLine) return;
   let cola=cargarCola();
   if(!cola.length) return;
   const restantes=[];
-  for(const item of cola){
-    try{ await addDoc(collection(db,'reportesOperador039'), item); }
-    catch(e){ restantes.push(item); }
+  for(const op of cola){
+    try{
+      if(op.tipo==='update' && op.docId){ await updateDoc(doc(db,'reportesOperador039',op.docId), op.data); }
+      else { const ref=await addDoc(collection(db,'reportesOperador039'), op.data); guardarDraftLocal(op.data.equipoId, op.data.fecha, ref.id); }
+    }catch(e){ restantes.push(op); }
   }
   guardarCola(restantes);
   setEstadoBar();
@@ -187,7 +191,6 @@ async function cargarEquipos(){
     const snap=await getDocs(query(collection(db,'equipos039'), where('activo','!=', false)));
     equipos=snap.docs.map(d=>({_id:d.id, ...d.data()})).filter(e=>e.activo!==false);
   }catch(e){
-    // Si falla (sin señal en la primera carga), intenta con lo último que haya quedado en caché del navegador
     console.warn('cargarEquipos:', e);
   }
   const sel=document.getElementById('f_equipo');
@@ -199,47 +202,113 @@ async function cargarEquipos(){
   document.getElementById('pantallaCarga').style.display='none';
   document.getElementById('pantallaForm').style.display='block';
   document.getElementById('f_fecha').value=hoyLocal();
+  await cambiarEquipoSeleccionado();
 }
 
-window.nuevoReporte=function(){
-  document.getElementById('pantallaOk').style.display='none';
-  document.getElementById('pantallaForm').style.display='block';
+// Se llama al elegir equipo o cambiar la fecha: busca si YA hay un reporte empezado hoy para esa
+// máquina (para seguir editándolo, no duplicar) — si no hay, arranca uno nuevo con el horómetro
+// inicial autorellenado con el último conocido de esa máquina.
+window.cambiarEquipoSeleccionado=async function(){
+  const equipoId=document.getElementById('f_equipo').value;
+  const fecha=document.getElementById('f_fecha').value||hoyLocal();
+  if(!equipoId) return;
+  draftActualId=null;
+  document.getElementById('badgeEditando').style.display='none';
   document.getElementById('f_hor_ini').value='';
   document.getElementById('f_hor_fin').value='';
   document.getElementById('f_diesel').value='';
   document.getElementById('f_anomalia').value='';
-  document.getElementById('f_fecha').value=hoyLocal();
-  // Deja el operador y la máquina como estaban — normalmente la siguiente captura es la misma persona.
+  document.getElementById('horIniHint').style.display='none';
+
+  // Si la máquina tiene operador asignado, el campo se BLOQUEA con ese nombre — así nadie más
+  // puede meter reportes a nombre de otro para esa máquina mientras no se reasigne desde la app.
+  const eq=equipos.find(e=>e._id===equipoId);
+  const opEl=document.getElementById('f_operador'), opHint=document.getElementById('operadorAsignadoHint');
+  if(eq && eq.operadorAsignado){
+    opEl.value=eq.operadorAsignado; opEl.readOnly=true; opEl.style.opacity='.7';
+    opHint.style.display='block';
+  } else {
+    opEl.readOnly=false; opEl.style.opacity='1'; opHint.style.display='none';
+  }
+
+  const drafts=leerDrafts();
+  const guardado=drafts[claveDraft(equipoId,fecha)];
+  if(guardado && guardado.docId){
+    try{
+      const snap=await getDoc(doc(db,'reportesOperador039',guardado.docId));
+      if(snap.exists() && snap.data().estado==='pendiente'){
+        const d=snap.data();
+        draftActualId=guardado.docId;
+        document.getElementById('badgeEditando').style.display='block';
+        if(!(eq && eq.operadorAsignado)) opEl.value=d.operador||opEl.value;
+        document.getElementById('f_hor_ini').value=d.horometroInicio!=null?d.horometroInicio:'';
+        document.getElementById('f_hor_fin').value=d.horometroFin!=null?d.horometroFin:'';
+        document.getElementById('f_diesel').value=d.litrosDiesel!=null?d.litrosDiesel:'';
+        document.getElementById('f_anomalia').value=d.anomalia||'';
+        return; // ya se cargó lo que había, no se pisa con el autorelleno de abajo
+      }
+    }catch(e){ console.warn('no se pudo reabrir el borrador (puede que ya lo haya revisado el residente):', e); }
+  }
+  // No hay reporte empezado hoy para esta máquina → autorellena horómetro inicial con el último conocido
+  if(eq && eq.ultimoHorometro!=null){
+    document.getElementById('f_hor_ini').value=eq.ultimoHorometro;
+    document.getElementById('horIniHint').style.display='block';
+  }
 };
 
-window.enviarReporte=async function(){
+window.guardarReporte=async function(){
   const equipoId=document.getElementById('f_equipo').value;
-  const equipoNombre=(equipos.find(e=>e._id===equipoId)||{}).nombre||'';
+  const eq=equipos.find(e=>e._id===equipoId);
+  const equipoNombre=(eq||{}).nombre||'';
   const operador=(document.getElementById('f_operador').value||'').trim();
   if(!equipoId){ alert('Elige la máquina de la lista.'); return; }
   if(!operador){ alert('Escribe tu nombre.'); return; }
+  // Refuerzo local: si la máquina tiene operador asignado, el nombre DEBE coincidir exacto — el
+  // campo ya viene bloqueado, pero esto cubre el caso de que alguien lo manipule a la fuerza.
+  // La regla de Firestore hace la misma revisión del lado del servidor (no depende solo de esto).
+  if(eq && eq.operadorAsignado && operador.trim().toLowerCase()!==eq.operadorAsignado.trim().toLowerCase()){
+    alert('Esta máquina está asignada a "'+eq.operadorAsignado+'". Pídele al residente que la reasigne si tú eres el operador correcto.');
+    return;
+  }
+  const fecha=document.getElementById('f_fecha').value||hoyLocal();
+  const horFin=parseFloat(document.getElementById('f_hor_fin').value);
   const data={
     equipoId, equipoNombre,
     operador,
-    fecha: document.getElementById('f_fecha').value||hoyLocal(),
+    fecha,
     horometroInicio: parseFloat(document.getElementById('f_hor_ini').value)||null,
-    horometroFin: parseFloat(document.getElementById('f_hor_fin').value)||null,
+    horometroFin: isNaN(horFin)?null:horFin,
     litrosDiesel: parseFloat(document.getElementById('f_diesel').value)||null,
     anomalia: (document.getElementById('f_anomalia').value||'').trim(),
     estado: 'pendiente',
+    creadoPorUid: auth.currentUser ? auth.currentUser.uid : null,
     ts: Date.now()
   };
-  const btn=document.getElementById('btnEnviar');
-  btn.disabled=true; btn.textContent='Enviando…';
+  const btn=document.getElementById('btnGuardar');
+  btn.disabled=true; btn.textContent='Guardando…';
   try{
-    await addDoc(collection(db,'reportesOperador039'), data);
+    if(draftActualId){
+      await updateDoc(doc(db,'reportesOperador039',draftActualId), data);
+    } else {
+      const ref=await addDoc(collection(db,'reportesOperador039'), data);
+      draftActualId=ref.id;
+      guardarDraftLocal(equipoId, fecha, ref.id);
+      document.getElementById('badgeEditando').style.display='block';
+    }
+    // Best-effort: actualiza el horómetro "conocido" de la máquina para que el siguiente que
+    // capture (aunque sea otro operador) ya lo vea autorellenado. Si falla, no importa — no bloquea.
+    if(!isNaN(horFin)){
+      try{ await updateDoc(doc(db,'equipos039',equipoId), {ultimoHorometro:horFin, ultimoHorometroTs:Date.now()}); }
+      catch(e){ console.warn('no se pudo actualizar el horómetro de la máquina:', e); }
+    }
+    setEstadoBar('✅ Reporte guardado — puedes seguir editándolo o cerrar esta página', 'ok');
+    setTimeout(()=>setEstadoBar(), 3000);
   }catch(e){
-    console.warn('enviarReporte, se guarda para reintentar:', e);
-    encolar(data);
+    console.warn('guardarReporte, se guarda para reintentar cuando haya señal:', e);
+    encolar({ tipo: draftActualId?'update':'create', docId: draftActualId, data });
+    setEstadoBar();
   }
-  btn.disabled=false; btn.textContent='Enviar reporte';
-  document.getElementById('pantallaForm').style.display='none';
-  document.getElementById('pantallaOk').style.display='block';
+  btn.disabled=false; btn.textContent='💾 Guardar reporte';
 };
 
 // ═══ Dictado por voz (mismo patrón que la app principal) ═══
@@ -263,8 +332,6 @@ window.toggleVoz=function(){
 };
 
 // ═══ Código de acceso (PIN compartido, lo controla el admin desde la app) ═══
-// Se guarda en config039/accesoOperador — misma colección/regla que ya usan los carriles
-// (cualquiera con sesión, incluida la anónima, puede LEER; solo admin puede escribir/cambiarlo).
 const PIN_KEY = 't039_op_pin_ok';
 let pinActual = null;
 async function verificarAccesoPin(){
@@ -273,18 +340,15 @@ async function verificarAccesoPin(){
     pinActual = (snap.exists() && snap.data().pin) ? String(snap.data().pin) : null;
   }catch(e){ console.warn('verificarAccesoPin:', e); pinActual = null; }
   if(!pinActual){
-    // El admin todavía no configuró ningún código — no bloquea, deja pasar directo.
     document.getElementById('pantallaPin').style.display='none';
     cargarEquipos();
     return;
   }
   const guardado = localStorage.getItem(PIN_KEY);
   if(guardado && guardado===pinActual){
-    // Ya se validó antes EN ESTE código exacto — no hace falta volver a pedirlo cada día.
     document.getElementById('pantallaPin').style.display='none';
     cargarEquipos();
   } else {
-    // Si el admin cambió el código, lo guardado ya no coincide — se le vuelve a pedir aquí.
     document.getElementById('pantallaCarga').style.display='none';
     document.getElementById('pantallaPin').style.display='block';
   }
