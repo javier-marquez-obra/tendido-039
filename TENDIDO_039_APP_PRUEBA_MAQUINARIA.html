@@ -1631,6 +1631,41 @@ function _cadPromedioCarriles(){
   });
   return out; // {tramo: {ini,fin,n}, ...} — solo incluye los subtramos que sí tienen cadenamiento capturado
 }
+// ML trabajados y ML faltantes PARA LLEGAR A LA META, por cada carril individual (no promediado
+// entre carriles como _cadPromedioCarriles) — la meta de cada carril es el largo total del tramo
+// donde vive (RANGO_TRAMO), ya que cada carril debe recorrer esa misma longitud completa.
+// Formato de distancia: en METROS si es menor a 1000, en KILÓMETROS con 2 decimales si es 1000+.
+function _fmtMlOKm(m){
+  const v=+m||0;
+  return v>=1000 ? (v/1000).toFixed(2)+' km' : v.toFixed(2)+' m';
+}
+function _carrilesProgreso(){
+  const porTramo={};
+  records.forEach(r=>{
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril,id:r.concepto}];
+    cs.forEach(c=>{
+      if(!c.carril) return;
+      const tramo=tramoDeConcepto(c.id);
+      if(!porTramo[tramo]) porTramo[tramo]={};
+      const pc=porTramo[tramo];
+      if(!pc[c.carril]) pc[c.carril]={min:null,max:null};
+      const o=pc[c.carril];
+      if(c.kde!=null&&!isNaN(+c.kde)) o.min = o.min==null?+c.kde:Math.min(o.min,+c.kde);
+      if(c.ka!=null&&!isNaN(+c.ka)) o.max = o.max==null?+c.ka:Math.max(o.max,+c.ka);
+    });
+  });
+  const out={};
+  Object.keys(porTramo).forEach(tramo=>{
+    const metaTramo=(RANGO_TRAMO[tramo]?(RANGO_TRAMO[tramo].max-RANGO_TRAMO[tramo].min):0);
+    out[tramo]={};
+    Object.keys(porTramo[tramo]).forEach(carril=>{
+      const o=porTramo[tramo][carril];
+      const ml = (o.min!=null&&o.max!=null) ? Math.abs(o.max-o.min) : 0;
+      out[tramo][carril] = { ml, faltante: Math.max(0, metaTramo-ml), meta: metaTramo };
+    });
+  });
+  return out; // {tramo:{carril:{ml,faltante,meta}}}
+}
 const CONTRATO   = '2026-14-CB-D-039-W-00-2026';
 const EMPRESA    = 'Grupo Urbanizador Inmobiliario Yenter, S.A. de C.V.';
 
@@ -5750,16 +5785,22 @@ function renderList() {
           return `${o.tramo} · ${o.carril}: ${rango} (${o.ml.toFixed(2)}m)`;
         }).join(' · ')
       : (rd.kdeMin!=null&&rd.kaMax!=null ? `${fmtCad(rd.kdeMin)} → ${fmtCad(rd.kaMax)}${mlDia!=null?' ('+mlDia.toFixed(2)+'m)':''}` : '');
-    // Km promedio POR SUBTRAMO: promedio del cadenamiento min/max entre los carriles de CADA
-    // subtramo, usando TODO el histórico de la obra (no solo el día) — nunca se promedian juntos.
-    const cadProm = _cadPromedioCarriles();
-    const promTxt = Object.keys(cadProm).map(t=>{
-      const cp=cadProm[t];
-      return `📍 ${t} prom. (${cp.n} carril${cp.n>1?'es':''}): ${fmtCad(cp.ini)} → ${fmtCad(cp.fin)} (${((cp.fin-cp.ini)/1000).toFixed(2)} km)`;
+    // Progreso POR CARRIL (individual, no promediado): ML trabajados y faltantes para llegar a
+    // la meta del tramo — usando TODO el histórico de la obra (no solo el día), igual que antes.
+    const carrProg = _carrilesProgreso();
+    const promTxt = Object.keys(carrProg).map(t=>{
+      return Object.keys(carrProg[t]).map(carril=>{
+        const p=carrProg[t][carril];
+        return `🛣️ ${t}·${carril}: ${_fmtMlOKm(p.ml)} trabajados · faltan ${_fmtMlOKm(p.faltante)} para meta (${_fmtMlOKm(p.meta)})`;
+      }).join('  |  ');
     }).join('  |  ');
+    // Horas trabajadas del día: un solo dato, suma de los minutos de descarga de TODOS los
+    // camiones de esa jornada (el detalle por camión ya está en el reporte "Tiempos por camión").
+    const minDia=rs.reduce((s,r)=>s+(r.duracion_descarga_min!=null&&r.duracion_descarga_min!==''?+r.duracion_descarga_min:0),0);
+    const horasTxt = minDia>0 ? `⏱️ Horas trabajadas: ${(minDia/60).toFixed(2)} hrs` : '';
     const espTxt = rd.espProm>0 ? `Esp. prom ${rd.espProm.toFixed(2)}cm` : '';
     const rendEmulTxt = rd.rendTxt ? `· 🛢️ ${rd.rendTxt}` : '';
-    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(2)} ton · ${rs.length} vj · ${m2Dia.toFixed(1)} m² · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">${cadPorCarrilTxt}</span><br><span style="font-size:10px;color:var(--muted)">${promTxt}${edTxt?' · '+edTxt:''}</span><br><span style="font-size:10px;color:var(--muted)">${espTxt} ${rendEmulTxt}</span></div></div>`;
+    html+=`<div class="dh"><div class="dl">${lb}</div><div class="dt">${tt.toFixed(2)} ton · ${rs.length} vj · ${m2Dia.toFixed(1)} m² · ${_fmtMlPorTipo(mlTipo)}<br><span style="font-size:10px;color:var(--muted)">${cadPorCarrilTxt}</span><br><span style="font-size:10px;color:var(--muted)">${promTxt}${edTxt?' · '+edTxt:''}</span><br><span style="font-size:10px;color:var(--muted)">${espTxt} ${rendEmulTxt}${horasTxt?' · '+horasTxt:''}</span></div></div>`;
     rs.forEach(r=>{
       const G=r.gp==='GANANCIA', ce=puedeEditar(r);
       html+=`<div class="rc${ce?'':' no-edit'}" onclick="${ce?`openEdit('${r._id}')`:''}" >
@@ -6156,7 +6197,7 @@ const REP_COLS=[
   {k:'concepto',t:'Concepto'},{k:'carril',t:'Carril'},{k:'sentido',t:'Sentido'},
   {k:'dekm',t:'De KM',cad:1},{k:'akm',t:'A KM',cad:1},
   {k:'ml',t:'ML',d:2,sum:1},{k:'ancho',t:'Ancho',d:3},{k:'esp',t:'Espesor (cm)',d:1},
-  {k:'area',t:'m²',d:2,sum:1},{k:'vol',t:'m³',d:3,sum:1},{k:'ton',t:'Ton',d:2,sum:1},
+  {k:'area',t:'m²',d:2,sum:1},{k:'vol',t:'m³',d:3,sum:1},{k:'volreal',t:'m³ real colocado',d:3,sum:1},{k:'ton',t:'Ton',d:2,sum:1},
   {k:'espreal',t:'Esp.real(cm)',d:2},{k:'m3fav',t:'m³ favor',d:3},{k:'gp',t:'Result.'},
   {k:'tprod',t:'Temp.prod',d:0},{k:'ttend',t:'Temp.tend',d:0},
   {k:'hcap',t:'Hora captura'},{k:'hini',t:'Inicia tendido'},{k:'hfin',t:'Termina tendido'},{k:'dur',t:'Min descarga',d:1},
@@ -6188,7 +6229,7 @@ window.repColsPreset=function(p){
   let s;
   if(p==='generador') s=['fecha','concepto','carril','sentido','dekm','akm','ml','ancho','esp','area','vol'];
   else if(p==='pago') s=['fecha','viaje','placas','concepto','ton','vale','remision'];
-  else if(p==='volumen') s=['fecha','concepto','dekm','akm','ml','ancho','esp','vol','ton'];
+  else if(p==='volumen') s=['fecha','concepto','dekm','akm','ml','ancho','esp','vol','ton','volreal'];
   else if(p==='todo') s=REP_COLS.map(c=>c.k);
   else s=REP_DEFAULT.slice();
   localStorage.setItem('t039_rep_cols',JSON.stringify(s)); renderReporte();
@@ -6216,11 +6257,12 @@ function _repRows(){
     const area=c.area!=null?+c.area:+(ml*aw);
     const vol=c.volumen!=null?+c.volumen:+(area*esp/100);
     const espreal=area>0?ton/(area*DEN)*100:0;
+    const volreal=ton>0?+(ton/DEN).toFixed(3):0;
     const mf=(ton&&area&&esp)?(((esp/100)-(ton/(area*DEN)))*area):0;
     rows.push({ fecha:v.fecha||'', obra:v.obra||'039', viaje:v.num_viaje_dia||'', placas:v.placas||'',
       camion:v.tipo_camion||'', material:v.material||'', pg:v.pg||'', mezcla:v.tipo_mezcla||'',
       concepto:conceptoCanon(c.id, c.label||'', (c.kde!=null?c.kde:v.kde)), carril:c.carril||v.carril||'', sentido:(c.sentido||v.sentido||'sube'),
-      dekm:c.kde, akm:c.ka, ml, ancho:aw, esp, area, vol, ton, espreal, m3fav:mf, gp:(mf>=0?'GANANCIA':'PERDIDA'),
+      dekm:c.kde, akm:c.ka, ml, ancho:aw, esp, area, vol, volreal, ton, espreal, m3fav:mf, gp:(mf>=0?'GANANCIA':'PERDIDA'),
       tprod:v.temp_produccion, ttend:v.temp_tendido,
       hcap:v.hora_captura||'', hini:v.hora_inicio_tendido||'', hfin:v.hora_fin_tendido||'',
       dur:(v.duracion_descarga_min!=null&&v.duracion_descarga_min!=='')?+v.duracion_descarga_min:'',
