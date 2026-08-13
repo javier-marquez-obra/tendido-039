@@ -2942,7 +2942,8 @@ function _pctAvanceGeo(){
   return { tot, TOT, extra, pct: TOT>0?(tot/TOT*100):0 };
 }
 function _avanceHeaderHtml(av){
-  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(2)}%</b> (${av.tot.toFixed(2)} / ${av.TOT} m³ del catálogo${obraActiva==='039'?' E-7':''})${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(2)} m³ extra</span>`:''}</div>`;
+  const faltante=Math.max(0, av.TOT - av.tot);
+  return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(2)}%</b> (${av.tot.toFixed(2)} / ${av.TOT} m³ del catálogo${obraActiva==='039'?' E-7':''}) · <b style="color:#f87171">Faltan ${faltante.toFixed(2)} m³ por ejecutar</b>${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(2)} m³ extra</span>`:''}</div>`;
 }
 function _puedeImprimirGrafico(){
   return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
@@ -3612,15 +3613,16 @@ window.exportarTablaExcel=function(){
     const area=c.area!=null?+(+c.area).toFixed(2):+(ml*aw).toFixed(2);
     const vol=c.volumen!=null?+(+c.volumen).toFixed(3):+(area*esp/100).toFixed(3);
     const er=area>0?+(ton/(area*DEN_TIRO)*100).toFixed(2):0;
+    const volReal=ton>0?+(ton/DEN_TIRO).toFixed(3):0;
     filas.push({ID:v._id,IDX:ci,Fecha:v.fecha,Viaje:v.num_viaje_dia||'',Placas:v.placas||'',
       Material:v.material||'',Concepto:c.label||c.id||'',Carril:c.carril||v.carril||'',Sentido:sent,
       'De KM':c.kde!=null?+(+c.kde).toFixed(2):'', ML:ml, 'A KM':c.ka!=null?+(+c.ka).toFixed(2):'',
-      Ancho:aw, 'm²':area, 'Espesor (cm)':esp, 'm³':vol, Ton:ton, 'Esp.real(cm)':er,
+      Ancho:aw, 'm²':area, 'Espesor (cm)':esp, 'm³':vol, Ton:ton, 'Esp.real(cm)':er, 'm³ Real (Ton/Dens)':volReal,
       'T.Prod':v.temp_produccion!=null&&v.temp_produccion!==''?+v.temp_produccion:'',
       'T.Tend':v.temp_tendido!=null&&v.temp_tendido!==''?+v.temp_tendido:''});
   }));
   if(!filas.length){ toast('No hay tiros en los días seleccionados','err'); return; }
-  const header=['ID','IDX','Fecha','Viaje','Placas','Material','Concepto','Carril','Sentido','De KM','ML','A KM','Ancho','m²','Espesor (cm)','m³','Ton','Esp.real(cm)','T.Prod','T.Tend'];
+  const header=['ID','IDX','Fecha','Viaje','Placas','Material','Concepto','Carril','Sentido','De KM','ML','A KM','Ancho','m²','Espesor (cm)','m³','Ton','Esp.real(cm)','m³ Real (Ton/Dens)','T.Prod','T.Tend'];
   const ws=XLSX.utils.json_to_sheet(filas,{header});
   filas.forEach((f,i)=>{
     const R=i+2;
@@ -3633,15 +3635,18 @@ window.exportarTablaExcel=function(){
     ws['P'+R]={t:'n', f:`N${R}*O${R}/100`, v:f['m³']||0};
     // R Esp.real(cm) = Ton(Q) / (m²(N) × densidad) × 100
     ws['R'+R]={t:'n', f:`IF(N${R}>0,Q${R}/(N${R}*${DEN_TIRO})*100,0)`, v:f['Esp.real(cm)']||0};
+    // S m³ Real = Ton(Q) / densidad — volumen REALMENTE ejecutado, no el geométrico/teórico de P
+    ws['S'+R]={t:'n', f:`Q${R}/${DEN_TIRO}`, v:f['m³ Real (Ton/Dens)']||0};
   });
-  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:9},{wch:18},{wch:9},{wch:7},{wch:11},{wch:8},{wch:11},{wch:7},{wch:9},{wch:11},{wch:8},{wch:8},{wch:11},{wch:7},{wch:7}];
-  // Fila de TOTALES con fórmulas SUMA (m², m³, Ton)
+  ws['!cols']=[{wch:22},{wch:5},{wch:11},{wch:6},{wch:10},{wch:9},{wch:18},{wch:9},{wch:7},{wch:11},{wch:8},{wch:11},{wch:7},{wch:9},{wch:11},{wch:8},{wch:8},{wch:11},{wch:11},{wch:7},{wch:7}];
+  // Fila de TOTALES con fórmulas SUMA (m², m³, Ton, m³ Real)
   const tot=filas.length+2;
   ws['M'+tot]={t:'s',v:'TOTALES ▸'};
   ws['N'+tot]={t:'n', f:`SUM(N2:N${filas.length+1})`};
   ws['P'+tot]={t:'n', f:`SUM(P2:P${filas.length+1})`};
   ws['Q'+tot]={t:'n', f:`SUM(Q2:Q${filas.length+1})`};
-  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length+1,c:19}});
+  ws['S'+tot]={t:'n', f:`SUM(S2:S${filas.length+1})`};
+  ws['!ref']=XLSX.utils.encode_range({s:{r:0,c:0},e:{r:filas.length+1,c:20}});
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,'Tabla de tiro');
   XLSX.writeFile(wb,`TENDIDO_039_TABLA_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Tabla exportada · puedes editar Concepto (Renivelación/Bacheo/Carpeta 3cm/Carpeta 5cm), Ton, Carril, De KM, ML, Sentido, Ancho y Espesor','ok');
@@ -5622,19 +5627,29 @@ window.buscarCadenamientoCarril=function(i){
     return;
   }
   const ult=mismoConceptoYCarril[0];
-  let kaUlt=ult.ka;
+  let kaUlt=ult.ka, anchoUlt=null;
   if(ult.conceptos&&Array.isArray(ult.conceptos)){
     const c=ult.conceptos.find(c=>c.id===concId && (c.carril||ult.carril)===carrilSel);
     if(c&&c.ka) kaUlt=c.ka;
+    if(c) anchoUlt=(c.ancho_fin!=null?c.ancho_fin:(c.ancho!=null?c.ancho:null));
+  } else {
+    anchoUlt=(ult.ancho_fin!=null?ult.ancho_fin:(ult.ancho!=null?ult.ancho:null));
   }
   if(!kaUlt){ alert('Encontré el viaje pero no tiene cadenamiento final guardado — revísalo a mano.'); return; }
-  const ok=confirm(`El carril "${carrilSel}" (${concLabel}) se quedó en ${fmtCad(kaUlt)}, del viaje #${ult.num_viaje_dia||'?'} del ${ult.fecha} (${ult.placas||'?'}).\n\n¿Confirmas iniciar este camión ahí?`);
+  const anchoTxt = anchoUlt!=null ? `\nAncho con el que terminó ese carril: ${(+anchoUlt).toFixed(2)} m` : '\n(ese viaje no tiene ancho final guardado)';
+  const ok=confirm(`El carril "${carrilSel}" (${concLabel}) se quedó en ${fmtCad(kaUlt)}, del viaje #${ult.num_viaje_dia||'?'} del ${ult.fecha} (${ult.placas||'?'}).${anchoTxt}\n\n¿Confirmas iniciar este camión ahí${anchoUlt!=null?' (también se copia el ancho inicial)':''}?`);
   if(!ok) return;
   const el=document.getElementById('f_kde_'+i);
   if(el){ el.value=fmtCad(kaUlt); el.dataset.autofill='1'; }
   conceptosViaje[i].kde=kaUlt;
+  if(anchoUlt!=null){
+    conceptosViaje[i].aw1=+anchoUlt;
+    const elA=document.getElementById('f_aw1_'+i);
+    if(elA) elA.value=(+anchoUlt).toFixed(2);
+  }
   calcKaConcepto(i);
-  toast('✓ Cadenamiento inicial confirmado: '+fmtCad(kaUlt));
+  if(typeof calcResumenViaje==='function') calcResumenViaje();
+  toast('✓ Cadenamiento inicial confirmado: '+fmtCad(kaUlt)+(anchoUlt!=null?' · ancho '+(+anchoUlt).toFixed(2)+' m':''));
 };
 function prellenarKdePorConcepto(forzar){
   const el=document.getElementById('f_kde_0');
@@ -6214,6 +6229,64 @@ function _repRows(){
   return rows;
 }
 function _repGrafVisible(){ try{ return localStorage.getItem('t039_rep_graf')!=='0'; }catch(e){ return true; } }
+// ═══ REPORTE — Tiempo detenido por camión, sumado por jornada (día) ═══
+// "Tiempo detenido" = duracion_descarga_min de cada viaje (desde que marcó ▶ Inicia tendido hasta
+// ■ Termina). Se agrupa por día y por placas — así se ve cuánto tiempo total estuvo parado cada
+// camión en cada jornada completa, no viaje por viaje.
+window.reporteTiemposCamion=function(){
+  const fechas=[...new Set(records.map(r=>r.fecha).filter(Boolean))];
+  const sel=(_repDias instanceof Set)?_repDias:new Set(fechas);
+  const rs=records.filter(r=>sel.has(r.fecha) && r.duracion_descarga_min!=null && r.duracion_descarga_min!=='');
+  if(!rs.length){ toast('No hay viajes con tiempo de descarga capturado en los días seleccionados','warn'); return; }
+  const porDia={};
+  rs.forEach(r=>{
+    const f=r.fecha; const p=r.placas||'SIN PLACA'; const dur=+r.duracion_descarga_min||0;
+    if(!porDia[f]) porDia[f]={};
+    if(!porDia[f][p]) porDia[f][p]={viajes:0,min:0};
+    porDia[f][p].viajes++; porDia[f][p].min+=dur;
+  });
+  const porCamionTotal={};
+  Object.values(porDia).forEach(dia=>Object.entries(dia).forEach(([p,d])=>{
+    if(!porCamionTotal[p]) porCamionTotal[p]={viajes:0,min:0};
+    porCamionTotal[p].viajes+=d.viajes; porCamionTotal[p].min+=d.min;
+  }));
+  const diasOrdenados=Object.keys(porDia).sort();
+  const bloquesDias=diasOrdenados.map(f=>{
+    const filas=Object.entries(porDia[f]).sort((a,b)=>b[1].min-a[1].min).map(([p,d])=>
+      `<tr><td>${p}</td><td style="text-align:center">${d.viajes}</td><td style="text-align:center">${d.min.toFixed(0)}</td><td style="text-align:center">${(d.min/d.viajes).toFixed(1)}</td></tr>`
+    ).join('');
+    const totalDia=Object.values(porDia[f]).reduce((s,d)=>s+d.min,0);
+    return `<h2>${(f||'').split('-').reverse().join('/')}</h2>
+      <table><tr><th>Placas</th><th>Viajes</th><th>Min. detenido total</th><th>Min. promedio/viaje</th></tr>${filas}
+      <tr style="font-weight:700;background:#f1f5f9"><td colspan="2">TOTAL DEL DÍA</td><td style="text-align:center">${totalDia.toFixed(0)}</td><td></td></tr></table>`;
+  }).join('');
+  const filasResumen=Object.entries(porCamionTotal).sort((a,b)=>b[1].min-a[1].min).map(([p,d])=>
+    `<tr><td>${p}</td><td style="text-align:center">${d.viajes}</td><td style="text-align:center">${d.min.toFixed(0)}</td><td style="text-align:center">${(d.min/d.viajes).toFixed(1)}</td></tr>`
+  ).join('');
+  const w=window.open('','_blank');
+  if(!w){ toast('El navegador bloqueó la ventana — permite pop-ups','warn'); return; }
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tiempos por camión — TENDIDO 039</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:18px;font-size:12px}
+    h1{font-size:16px;margin:0 0 3px}
+    h2{font-size:13px;margin:16px 0 6px;border-bottom:2px solid #333;padding-bottom:3px}
+    .meta{font-size:11px;color:#555;margin-bottom:10px}
+    table{width:100%;border-collapse:collapse;margin-bottom:4px}
+    th,td{border:1px solid #ccc;padding:5px 8px;text-align:left;font-size:11px}
+    th{background:#f0f0f0}
+    @page{ size: A4 portrait; margin:12mm }
+    @media print{ .noprint{display:none} }
+  </style></head><body>
+  <h1>⏱️ TIEMPO DETENIDO POR CAMIÓN — por jornada</h1>
+  <div class="meta">Contrato 2026-14-CB-D-039-W-00-2026 · Generado ${new Date().toLocaleString('es-MX')} · Suma de minutos entre "Inicia tendido" y "Termina tendido" de cada viaje</div>
+  ${bloquesDias}
+  <h2>TOTAL — TODOS LOS DÍAS SELECCIONADOS</h2>
+  <table><tr><th>Placas</th><th>Viajes</th><th>Min. detenido total</th><th>Min. promedio/viaje</th></tr>${filasResumen}</table>
+  <div class="noprint" style="margin-top:14px"><button onclick="window.print()" style="padding:8px 16px;font-weight:700">Imprimir / Guardar PDF</button></div>
+  </body></html>`);
+  w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); },300);
+};
 window.repToggleGraf=function(){ try{ localStorage.setItem('t039_rep_graf', _repGrafVisible()?'0':'1'); }catch(e){} renderReporte(); };
 function _repUnidad(){ try{ return localStorage.getItem('t039_rep_unidad')==='m3'?'m3':'ton'; }catch(e){ return 'ton'; } }
 window.repSetUnidad=function(u){ try{ localStorage.setItem('t039_rep_unidad', u==='m3'?'m3':'ton'); }catch(e){} renderReporte(); };
@@ -6339,6 +6412,7 @@ function renderReporte() {
           <button onclick="repColsPreset('volumen')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Volumen</button>
           <button onclick="repColsPreset('todo')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Todas</button>
           <button onclick="repColsPreset('')" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg)">Reset</button>
+          <button onclick="reporteTiemposCamion()" style="${cb};font-size:11px;padding:3px 9px;background:var(--bg);border-color:#3b82f6;color:#3b82f6">⏱️ Tiempos por camión</button>
         </div>
         <div style="font-size:10px;color:var(--muted);margin:2px 0 3px">En el reporte · ordena con ◀ ▶ · quita con ✕:</div>
         <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">${chipsSel}</div>
