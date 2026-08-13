@@ -38,6 +38,9 @@
   #pantallaForm{display:none}
   #pantallaCarga{text-align:center;padding:60px 16px;color:var(--muted)}
   #pantallaOk{display:none}
+  #pantallaPin{display:none;text-align:center;padding-top:40px}
+  #pantallaPin input{text-align:center;font-size:24px;letter-spacing:.15em}
+  #pantallaPin .err{color:var(--red);font-size:13px;margin-top:8px;display:none}
 </style>
 </head>
 <body>
@@ -50,7 +53,18 @@
     <h1>🚜 Reporte de máquina</h1>
   </header>
 
-  <div id="pantallaCarga">Cargando lista de equipos…</div>
+  <div id="pantallaCarga">Cargando…</div>
+
+  <div id="pantallaPin">
+    <div class="card">
+      <div class="field">
+        <label>Código de acceso</label>
+        <input type="text" id="f_pin" inputmode="numeric" placeholder="••••" maxlength="8" autofocus>
+      </div>
+      <button class="btn-primary" onclick="verificarPin()">Entrar</button>
+      <div class="err" id="pinError">Código incorrecto — pregúntale al residente el código actual.</div>
+    </div>
+  </div>
 
   <div id="pantallaForm">
     <div class="card">
@@ -109,7 +123,7 @@
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, query, where } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDocs, query, where, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -248,11 +262,51 @@ window.toggleVoz=function(){
   vozRec.start(); vozActiva=true; btn.className='voice-btn rec'; btn.textContent='🔴 Grabando… (toca para parar)';
 };
 
+// ═══ Código de acceso (PIN compartido, lo controla el admin desde la app) ═══
+// Se guarda en config039/accesoOperador — misma colección/regla que ya usan los carriles
+// (cualquiera con sesión, incluida la anónima, puede LEER; solo admin puede escribir/cambiarlo).
+const PIN_KEY = 't039_op_pin_ok';
+let pinActual = null;
+async function verificarAccesoPin(){
+  try{
+    const snap = await getDoc(doc(db,'config039','accesoOperador'));
+    pinActual = (snap.exists() && snap.data().pin) ? String(snap.data().pin) : null;
+  }catch(e){ console.warn('verificarAccesoPin:', e); pinActual = null; }
+  if(!pinActual){
+    // El admin todavía no configuró ningún código — no bloquea, deja pasar directo.
+    document.getElementById('pantallaPin').style.display='none';
+    cargarEquipos();
+    return;
+  }
+  const guardado = localStorage.getItem(PIN_KEY);
+  if(guardado && guardado===pinActual){
+    // Ya se validó antes EN ESTE código exacto — no hace falta volver a pedirlo cada día.
+    document.getElementById('pantallaPin').style.display='none';
+    cargarEquipos();
+  } else {
+    // Si el admin cambió el código, lo guardado ya no coincide — se le vuelve a pedir aquí.
+    document.getElementById('pantallaCarga').style.display='none';
+    document.getElementById('pantallaPin').style.display='block';
+  }
+}
+window.verificarPin=function(){
+  const val=(document.getElementById('f_pin').value||'').trim();
+  if(val===pinActual){
+    localStorage.setItem(PIN_KEY, val);
+    document.getElementById('pantallaPin').style.display='none';
+    document.getElementById('pantallaCarga').style.display='block';
+    document.getElementById('pantallaCarga').textContent='Cargando…';
+    cargarEquipos();
+  } else {
+    document.getElementById('pinError').style.display='block';
+  }
+};
+
 // ═══ Arranque ═══
 window.addEventListener('online', ()=>{ setEstadoBar(); intentarVaciarCola(); });
 window.addEventListener('offline', setEstadoBar);
 onAuthStateChanged(auth, user=>{
-  if(user){ cargarEquipos(); intentarVaciarCola(); }
+  if(user){ verificarAccesoPin(); intentarVaciarCola(); }
 });
 signInAnonymously(auth).catch(e=>{
   console.warn('signInAnonymously:', e);

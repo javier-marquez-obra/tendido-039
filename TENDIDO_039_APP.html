@@ -421,6 +421,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     </div>
   </div>
 
+  <div id="codigoOperadoresModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:420px;width:100%;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px">🔑 Código de acceso para operadores</div>
+        <button onclick="document.getElementById('codigoOperadoresModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Es el código que le piden a cualquiera que abra el link de reporte de operadores. Si lo cambias aquí, todos los que ya tenían acceso (incluido alguien que ya no trabaje contigo) quedan bloqueados en automático hasta que les des el nuevo código.</div>
+      <div id="codigoOperadoresActual" style="font-size:12px;color:var(--muted);margin-bottom:10px">Cargando código actual…</div>
+      <div class="field" style="margin-bottom:14px"><label>Nuevo código</label>
+        <input type="text" id="co_nuevo_pin" inputmode="numeric" placeholder="ej. 4821" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)">
+      </div>
+      <button onclick="guardarCodigoOperadores()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Guardar código nuevo</button>
+    </div>
+  </div>
+
   <div id="cierreEquipoModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
     <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
@@ -744,6 +759,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
   <div class="view" id="view-maquinaria">
     <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
       <button class="be" onclick="abrirNuevoEquipo()" style="padding:6px 12px;font-size:12px">➕ Nuevo equipo</button>
+      <button class="be" onclick="abrirCodigoOperadores()" style="padding:6px 12px;font-size:12px;border-color:var(--gold);color:var(--gold)">🔑 Código de operadores</button>
       <button class="be" onclick="switchMaqSub('bitacora')" id="btnMaqSubBitacora" style="padding:6px 12px;font-size:12px">📝 Registrar día</button>
       <button class="be" onclick="switchMaqSub('historial')" id="btnMaqSubHistorial" style="padding:6px 12px;font-size:12px">📚 Historial</button>
       <button class="be" onclick="switchMaqSub('cerrados')" id="btnMaqSubCerrados" style="padding:6px 12px;font-size:12px">🚚 Equipos cerrados</button>
@@ -4017,6 +4033,33 @@ function startReportesOpListener(){
 }
 
 let _eqEditandoId=null;
+// Código de acceso compartido para la página pública de reportes de operador (REPORTE_OPERADOR.html).
+// Se guarda en config039/accesoOperador (misma colección/regla que carriles) — solo admin escribe,
+// cualquiera con sesión (incluida la anónima del operador) lo puede leer para validarse.
+window.abrirCodigoOperadores=async function(){
+  document.getElementById('co_nuevo_pin').value='';
+  document.getElementById('codigoOperadoresActual').textContent='Cargando código actual…';
+  document.getElementById('codigoOperadoresModal').style.display='flex';
+  try{
+    const snap=await getDoc(doc(db,'config039','accesoOperador'));
+    const actual=(snap.exists()&&snap.data().pin)?snap.data().pin:null;
+    document.getElementById('codigoOperadoresActual').textContent = actual
+      ? 'Código actual: '+actual
+      : 'Todavía no has puesto ningún código — el link de operadores está abierto sin pedir nada.';
+  }catch(e){
+    console.warn('abrirCodigoOperadores:',e);
+    document.getElementById('codigoOperadoresActual').textContent='No se pudo leer el código actual (revisa tu conexión).';
+  }
+};
+window.guardarCodigoOperadores=async function(){
+  const nuevo=(document.getElementById('co_nuevo_pin').value||'').trim();
+  if(!nuevo){ toast('Escribe el código nuevo','err'); return; }
+  try{
+    await setDoc(doc(db,'config039','accesoOperador'), {pin:nuevo, actualizadoTs:Date.now(), by:(typeof session!=='undefined'&&session&&session.nombre)||'admin'});
+    toast('✓ Código actualizado — quien ya tenía acceso queda bloqueado hasta que le des el nuevo','ok');
+    document.getElementById('codigoOperadoresModal').style.display='none';
+  }catch(e){ console.warn('guardarCodigoOperadores:',e); toast('Error al guardar el código','err'); }
+};
 window.abrirNuevoEquipo=function(){
   _eqEditandoId=null;
   document.getElementById('equipoModalTitulo').textContent='🚜 Nuevo equipo';
