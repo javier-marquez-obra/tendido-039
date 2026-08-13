@@ -284,6 +284,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div class="cnt-badge" id="cntBadge">0</div>
       <button id="btnTiro" onclick="abrirTiro()" title="Tabla de tiro"
         style="background:var(--surf);border:1px solid var(--bord);color:var(--gold);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">📋 Tiro</button>
+      <button id="btnForzarUpdate" onclick="forzarActualizacionApp()" title="Si la app se ve vieja o no jalan los cambios recientes, dale clic aquí"
+        style="background:var(--surf);border:1px solid var(--bord);color:var(--blue);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap">🔄 Actualizar</button>
       <button id="btnSalir" onclick="cerrarSesion()" title="Cerrar sesión"
         style="background:var(--surf);border:1px solid var(--bord);color:var(--muted);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:4px;white-space:nowrap">⎋ Salir</button>
     </div>
@@ -1739,8 +1741,38 @@ if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' }).then(reg => {
     reg.update().catch(()=>{});
     setInterval(() => reg.update().catch(()=>{}), 60000); // revisa actualización cada minuto
+    // En celular, el temporizador de arriba se pausa cuando la app queda en segundo plano — por
+    // eso también se revisa cada vez que la app vuelve a primer plano (justo cuando el residente
+    // la reabre), que es el momento donde más importa detectar una versión nueva.
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState==='visible') reg.update().catch(()=>{});
+    });
   }).catch(()=>{});
 }
+// Botón "🔄 Actualizar" visible para todos (cualquier rol) — arreglo manual para cuando la
+// actualización automática no llega (señal que falla justo al revisar, no solo lenta: el
+// service worker se queda pegado en la última copia guardada y no hay reintento automático).
+// Borra el service worker Y toda su caché, y recarga directo de la red — sin depender de que
+// la red responda a tiempo en ese momento puntual.
+window.forzarActualizacionApp=async function(){
+  const ok=confirm('Esto va a borrar la versión guardada en este dispositivo y recargar la app directo de internet.\n\nNecesitas tener señal en este momento. ¿Continuar?');
+  if(!ok) return;
+  try{
+    if('serviceWorker' in navigator){
+      const regs=await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map(r=>r.unregister()));
+    }
+    if('caches' in window){
+      const keys=await caches.keys();
+      await Promise.all(keys.map(k=>caches.delete(k)));
+    }
+  }catch(e){ console.warn('forzarActualizacionApp:', e); }
+  // Cache-busting en la URL para saltarse también cualquier caché HTTP intermedia (del navegador
+  // o de la red del celular), no solo la del service worker.
+  const url=new URL(location.href);
+  url.searchParams.set('_v', Date.now());
+  location.href=url.toString();
+};
 window.addEventListener('online',  ()=>toast('📶 Señal recuperada · sincronizando viajes pendientes...'));
 window.addEventListener('offline', ()=>toast('📴 Sin señal · la app sigue funcionando, todo se guarda en el dispositivo','err'));
 
