@@ -277,6 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="h-left">
       <div class="h-logo">TENDIDO 039</div>
       <div class="h-info" id="hInfo">—</div>
+      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-14 10:05</div>
     </div>
     <div class="h-right">
       <div class="sync-dot loading" id="syncDot"></div>
@@ -4028,14 +4029,20 @@ function startEquiposListener(){
   try{ onSnapshot(collection(db,'equipos039'), snap=>{
     _equipos = snap.docs.map(d=>({_id:d.id, ...d.data()}));
     renderMaqEquipoSelect();
-    if(document.getElementById('view-maquinaria') && document.getElementById('view-maquinaria').classList.contains('active')) renderMaqHistorial();
+    if(document.getElementById('view-maquinaria') && document.getElementById('view-maquinaria').classList.contains('active')){
+      renderMaqHistorial();
+      renderMaqResumen();
+    }
   }); }catch(e){ console.warn('equipos listener', e); }
 }
 function startBitacoraListener(){
   if(_bitacoraListenerStarted) return; _bitacoraListenerStarted=true;
   try{ onSnapshot(query(collection(db,'bitacoraMaq039'), orderBy('fecha','desc')), snap=>{
     _bitacoras = snap.docs.map(d=>({_id:d.id, ...d.data()}));
-    if(document.getElementById('view-maquinaria') && document.getElementById('view-maquinaria').classList.contains('active')) renderMaqHistorial();
+    if(document.getElementById('view-maquinaria') && document.getElementById('view-maquinaria').classList.contains('active')){
+      renderMaqHistorial();
+      renderMaqResumen();
+    }
   }); }catch(e){ console.warn('bitacora listener', e); }
 }
 // Reportes que mandan los operadores desde su propio link (sin login) — solo admin/residente los
