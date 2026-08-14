@@ -767,14 +767,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     </div>
     <div id="maqMasMenu" style="display:none;background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px;margin-bottom:14px">
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button class="be" onclick="switchMaqSub('resumen');toggleMaqMasMenu()" id="btnMaqSubResumen" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">📋 Resumen de equipos (solo consultar)</button>
-        <button class="be" onclick="abrirNuevoEquipo();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px">➕ Nuevo equipo</button>
-        <button class="be" onclick="abrirCodigoOperadores();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">🔑 Código de operadores</button>
-        <button class="be" onclick="switchMaqSub('cerrados');toggleMaqMasMenu()" id="btnMaqSubCerrados" style="text-align:left;padding:11px 14px;font-size:14px">🚚 Equipos cerrados</button>
-        <button class="be" onclick="switchMaqSub('reportesop');toggleMaqMasMenu()" id="btnMaqSubReportesOp" style="text-align:left;padding:11px 14px;font-size:14px;position:relative">📥 Reportes de operadores<span id="maqReportesOpBadge" style="display:none;position:absolute;top:-6px;right:8px;background:#dc2626;color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 6px">0</span></button>
-        <button class="be" onclick="exportarBitacoraExcel();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#22c55e;color:#22c55e">📊 Excel</button>
-        <button class="be" onclick="reportePendientesEquipos();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes (PDF de reparaciones)</button>
-        <button class="be" onclick="reporteEstadisticaFallas();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#3b82f6;color:#3b82f6">📈 Estadística de fallas</button>
+        <button class="be" onclick="switchMaqSub('resumen')" id="btnMaqSubResumen" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">📋 Resumen de equipos (solo consultar)</button>
+        <button class="be" onclick="abrirNuevoEquipo();cerrarMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px">➕ Nuevo equipo</button>
+        <button class="be" onclick="abrirCodigoOperadores();cerrarMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">🔑 Código de operadores</button>
+        <button class="be" onclick="switchMaqSub('cerrados')" id="btnMaqSubCerrados" style="text-align:left;padding:11px 14px;font-size:14px">🚚 Equipos cerrados</button>
+        <button class="be" onclick="switchMaqSub('reportesop')" id="btnMaqSubReportesOp" style="text-align:left;padding:11px 14px;font-size:14px;position:relative">📥 Reportes de operadores<span id="maqReportesOpBadge" style="display:none;position:absolute;top:-6px;right:8px;background:#dc2626;color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 6px">0</span></button>
+        <button class="be" onclick="exportarBitacoraExcel();cerrarMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#22c55e;color:#22c55e">📊 Excel</button>
+        <button class="be" onclick="reportePendientesEquipos();cerrarMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes (PDF de reparaciones)</button>
+        <button class="be" onclick="reporteEstadisticaFallas();cerrarMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#3b82f6;color:#3b82f6">📈 Estadística de fallas</button>
       </div>
     </div>
 
@@ -4499,7 +4499,15 @@ window.toggleMaqMasMenu=function(){
   const m=document.getElementById('maqMasMenu'); if(!m) return;
   m.style.display = m.style.display==='none' ? '' : 'none';
 };
+// Se usa en TODOS los botones del menú "Más" (los que cambian de pestaña Y los que no) para
+// garantizar que el menú se cierre siempre, sin importar desde dónde se le dio clic — antes solo
+// algunos botones lo cerraban, y si entrabas por otro camino se quedaba pegado abierto empujando
+// todo el contenido de abajo (Registrar día / Historial aparecían mucho más abajo de lo normal).
+window.cerrarMaqMasMenu=function(){
+  const m=document.getElementById('maqMasMenu'); if(m) m.style.display='none';
+};
 window.switchMaqSub=function(cual){
+  cerrarMaqMasMenu();
   document.getElementById('maqSubBitacora').style.display = cual==='bitacora' ? '' : 'none';
   document.getElementById('maqSubHistorial').style.display = cual==='historial' ? '' : 'none';
   document.getElementById('maqSubCerrados').style.display = cual==='cerrados' ? '' : 'none';
@@ -4509,6 +4517,7 @@ window.switchMaqSub=function(cual){
   document.getElementById('btnMaqSubHistorial').style.borderColor = cual==='historial' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubCerrados').style.borderColor = cual==='cerrados' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubReportesOp').style.borderColor = cual==='reportesop' ? 'var(--gold)' : 'var(--bord)';
+  const bR=document.getElementById('btnMaqSubResumen'); if(bR) bR.style.borderColor = cual==='resumen' ? 'var(--gold)' : 'var(--bord)';
   if(cual==='historial') renderMaqHistorial();
   if(cual==='cerrados') renderMaqCerrados();
   if(cual==='reportesop') renderMaqReportesOp();
