@@ -4105,8 +4105,9 @@ window._eqBuscarPorNumero=function(){
 };
 // Abre el mismo modal pero en modo edición: muestra próximo servicio, historial de obras,
 // servicios ya registrados, y permite anotar uno nuevo — para el equipo elegido en el selector.
-window.abrirEditarEquipo=function(){
-  const sel=document.getElementById('maq_equipo'); const equipoId=sel?sel.value:'';
+window.abrirEditarEquipo=function(equipoIdForzado){
+  const sel=document.getElementById('maq_equipo');
+  const equipoId=equipoIdForzado || (sel?sel.value:'');
   if(!equipoId){ toast('Selecciona un equipo primero','err'); return; }
   const eq=_equipos.find(e=>e._id===equipoId); if(!eq) return;
   _eqEditandoId=equipoId;
@@ -4567,13 +4568,13 @@ function renderMaqHistorial(){
   const lista=_bitacoras.filter(b=>(b.obra||'039')===obraActiva);
   if(!lista.length){ body.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">Sin registros de maquinaria todavía.</div>'; return; }
   const puedeVerEval = typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente');
-  const porMaquina={};
-  lista.forEach(b=>{ const k=b.equipoNombre||'—'; if(!porMaquina[k]) porMaquina[k]=[]; porMaquina[k].push(b); });
-  Object.values(porMaquina).forEach(arr=>arr.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')));
+  const porMaquina={}; // agrupa por equipoId (no solo por nombre) — así se puede abrir "editar equipo" directo
+  lista.forEach(b=>{ const k=b.equipoId||b.equipoNombre||'—'; if(!porMaquina[k]) porMaquina[k]={nombre:b.equipoNombre||'—', regs:[]}; porMaquina[k].regs.push(b); });
+  Object.values(porMaquina).forEach(g=>g.regs.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')));
 
-  body.innerHTML = Object.keys(porMaquina).sort().map(nombreMaquina=>{
-    const regs=porMaquina[nombreMaquina];
-    const filas=regs.map(b=>{
+  body.innerHTML = Object.keys(porMaquina).sort((a,b)=>porMaquina[a].nombre.localeCompare(porMaquina[b].nombre)).map(equipoId=>{
+    const grupo=porMaquina[equipoId];
+    const filas=grupo.regs.map(b=>{
       const abierto=!!_maqHistExpandido[b._id];
       const ev=b.evaluacionOperador;
       const evTxt = (puedeVerEval && ev && (ev.manejo||ev.desempeno||ev.comentario))
@@ -4597,6 +4598,7 @@ function renderMaqHistorial(){
           ${b.observaciones?`<div style="font-size:14px;color:var(--muted);margin-bottom:6px">📝 ${b.observaciones}</div>`:''}
           ${evTxt}
           <div style="display:flex;gap:8px;margin-top:10px">
+            <button onclick="_maqToggleHistItem('${b._id}')" style="flex:1;background:none;border:1px solid var(--bord);border-radius:8px;color:var(--muted);padding:8px;font-size:13px;font-weight:700;cursor:pointer">✖️ Cancelar (solo consultar, no cambiar nada)</button>
             <button onclick="_maqEditarBitacora('${b._id}')" style="flex:1;background:none;border:1px solid var(--blue);border-radius:8px;color:var(--blue);padding:8px;font-size:13px;font-weight:700;cursor:pointer">✏️ Editar</button>
             ${esEditor()?`<button onclick="_maqBorrarBitacora('${b._id}')" style="flex:1;background:none;border:1px solid #dc2626;border-radius:8px;color:#dc2626;padding:8px;font-size:13px;font-weight:700;cursor:pointer">🗑️ Eliminar</button>`:''}
           </div>
@@ -4604,11 +4606,19 @@ function renderMaqHistorial(){
       </div>`;
     }).join('');
     return `<div style="margin-bottom:18px">
-      <div style="font-size:17px;font-weight:800;color:var(--gold);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--gold)">🚜 ${nombreMaquina}</div>
+      <button onclick="_maqEditarEquipoDesdeHistorial('${equipoId}')" style="width:100%;text-align:left;background:none;border:none;padding:0 0 6px;cursor:pointer;display:flex;align-items:center;gap:8px;margin-bottom:8px;border-bottom:2px solid var(--gold)">
+        <span style="font-size:18px;font-weight:800;color:var(--gold)">🚜 ${grupo.nombre}</span>
+        <span style="font-size:12px;color:var(--blue);font-weight:700">✏️ editar datos del equipo</span>
+      </button>
       ${filas}
     </div>`;
   }).join('');
 }
+// Abre "Editar equipo" (nombre, número, costo renta, operador asignado, próximo servicio) desde
+// el encabezado de la máquina en el historial, sin tener que ir primero a "Registrar día".
+window._maqEditarEquipoDesdeHistorial=function(equipoId){
+  abrirEditarEquipo(equipoId);
+};
 window._maqEditarBitacora=function(id){
   const b=_bitacoras.find(x=>x._id===id); if(!b) return;
   _maqEditandoId=id;
