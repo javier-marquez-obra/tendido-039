@@ -760,16 +760,21 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
   <!-- MAQUINARIA -->
   <div class="view" id="view-maquinaria">
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap">
-      <button class="be" onclick="abrirNuevoEquipo()" style="padding:6px 12px;font-size:12px">➕ Nuevo equipo</button>
-      <button class="be" onclick="abrirCodigoOperadores()" style="padding:6px 12px;font-size:12px;border-color:var(--gold);color:var(--gold)">🔑 Código de operadores</button>
-      <button class="be" onclick="switchMaqSub('bitacora')" id="btnMaqSubBitacora" style="padding:6px 12px;font-size:12px">📝 Registrar día</button>
-      <button class="be" onclick="switchMaqSub('historial')" id="btnMaqSubHistorial" style="padding:6px 12px;font-size:12px">📚 Historial</button>
-      <button class="be" onclick="switchMaqSub('cerrados')" id="btnMaqSubCerrados" style="padding:6px 12px;font-size:12px">🚚 Equipos cerrados</button>
-      <button class="be" onclick="switchMaqSub('reportesop')" id="btnMaqSubReportesOp" style="padding:6px 12px;font-size:12px;position:relative">📥 Reportes de operadores<span id="maqReportesOpBadge" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:99px;font-size:9px;font-weight:800;padding:1px 5px">0</span></button>
-      <button class="be" onclick="exportarBitacoraExcel()" style="padding:6px 12px;font-size:12px;border-color:#22c55e;color:#22c55e">📊 Excel</button>
-      <button class="be" onclick="reportePendientesEquipos()" style="padding:6px 12px;font-size:12px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes</button>
-      <button class="be" onclick="reporteEstadisticaFallas()" style="padding:6px 12px;font-size:12px;border-color:#3b82f6;color:#3b82f6">📈 Estadística de fallas</button>
+    <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
+      <button class="be" onclick="switchMaqSub('bitacora')" id="btnMaqSubBitacora" style="padding:9px 16px;font-size:14px;font-weight:700">📝 Registrar día</button>
+      <button class="be" onclick="switchMaqSub('historial')" id="btnMaqSubHistorial" style="padding:9px 16px;font-size:14px;font-weight:700">📚 Historial</button>
+      <button class="be" onclick="toggleMaqMasMenu()" id="btnMaqMas" style="padding:9px 16px;font-size:14px;font-weight:700;position:relative">⋯ Más<span id="maqReportesOpBadgeMini" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 6px">0</span></button>
+    </div>
+    <div id="maqMasMenu" style="display:none;background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px;margin-bottom:14px">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="be" onclick="abrirNuevoEquipo();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px">➕ Nuevo equipo</button>
+        <button class="be" onclick="abrirCodigoOperadores();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">🔑 Código de operadores</button>
+        <button class="be" onclick="switchMaqSub('cerrados');toggleMaqMasMenu()" id="btnMaqSubCerrados" style="text-align:left;padding:11px 14px;font-size:14px">🚚 Equipos cerrados</button>
+        <button class="be" onclick="switchMaqSub('reportesop');toggleMaqMasMenu()" id="btnMaqSubReportesOp" style="text-align:left;padding:11px 14px;font-size:14px;position:relative">📥 Reportes de operadores<span id="maqReportesOpBadge" style="display:none;position:absolute;top:-6px;right:8px;background:#dc2626;color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 6px">0</span></button>
+        <button class="be" onclick="exportarBitacoraExcel();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#22c55e;color:#22c55e">📊 Excel</button>
+        <button class="be" onclick="reportePendientesEquipos();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes</button>
+        <button class="be" onclick="reporteEstadisticaFallas();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#3b82f6;color:#3b82f6">📈 Estadística de fallas</button>
+      </div>
     </div>
 
     <div id="maqSubBitacora">
@@ -4480,6 +4485,10 @@ function _maqLimpiarCamposEvaluacion(){
   const cont=document.getElementById('maqEvalOperadorContent'); const arrow=document.getElementById('maqEvalOperadorArrow');
   if(cont) cont.style.display='none'; if(arrow) arrow.textContent='▾';
 }
+window.toggleMaqMasMenu=function(){
+  const m=document.getElementById('maqMasMenu'); if(!m) return;
+  m.style.display = m.style.display==='none' ? '' : 'none';
+};
 window.switchMaqSub=function(cual){
   document.getElementById('maqSubBitacora').style.display = cual==='bitacora' ? '' : 'none';
   document.getElementById('maqSubHistorial').style.display = cual==='historial' ? '' : 'none';
@@ -4499,8 +4508,10 @@ window.switchMaqSub=function(cual){
 // "Descartar" si vino mal o duplicado.
 function renderMaqReportesOp(){
   const badge=document.getElementById('maqReportesOpBadge');
+  const badgeMini=document.getElementById('maqReportesOpBadgeMini');
   const pendientes=_reportesOp.filter(r=>r.estado==='pendiente');
   if(badge){ badge.style.display=pendientes.length?'block':'none'; badge.textContent=pendientes.length; }
+  if(badgeMini){ badgeMini.style.display=pendientes.length?'block':'none'; badgeMini.textContent=pendientes.length; }
   const body=document.getElementById('maqReportesOpBody'); if(!body) return;
   if(!pendientes.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin reportes pendientes de operadores.</div>'; return; }
   body.innerHTML = pendientes.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).map(r=>`
@@ -4546,33 +4557,55 @@ window._maqDescartarReporteOp=async function(id){
   try{ await updateDoc(doc(db,'reportesOperador039',id), {estado:'descartado', descartadoTs:Date.now()}); toast('Descartado','ok'); }
   catch(e){ toast('Error al descartar','err'); }
 };
+// Agrupado por MÁQUINA (no lista plana mezclada) — cada tarjeta de máquina se ve colapsada y
+// grande, con lo esencial de un vistazo; al tocarla se expande con todo el detalle del día.
+// Fuente más grande en todo (antes 11px era ilegible hasta en computadora).
+let _maqHistExpandido={}; // {bitacoraId: true/false}
+window._maqToggleHistItem=function(id){ _maqHistExpandido[id]=!_maqHistExpandido[id]; renderMaqHistorial(); };
 function renderMaqHistorial(){
   const body=document.getElementById('maqHistorialBody'); if(!body) return;
   const lista=_bitacoras.filter(b=>(b.obra||'039')===obraActiva);
-  if(!lista.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin registros de maquinaria todavía.</div>'; return; }
+  if(!lista.length){ body.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">Sin registros de maquinaria todavía.</div>'; return; }
   const puedeVerEval = typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente');
-  body.innerHTML = lista.map(b=>{
-    const ev=b.evaluacionOperador;
-    const evTxt = (puedeVerEval && ev && (ev.manejo||ev.desempeno||ev.comentario))
-      ? `<div style="font-size:11px;margin-top:4px;background:rgba(240,180,41,.1);border-radius:6px;padding:4px 6px">👤 Manejo: <b>${ev.manejo?ev.manejo[0].toUpperCase()+ev.manejo.slice(1):'—'}</b> · Desempeño: <b>${ev.desempeno?ev.desempeno[0].toUpperCase()+ev.desempeno.slice(1):'—'}</b>${ev.comentario?' · '+ev.comentario:''}</div>`
-      : '';
-    return `
-    <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px 12px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div style="font-weight:800;color:var(--gold);font-size:13px">${b.equipoNombre||'—'} · ${b.fecha||'—'}</div>
-        <div style="display:flex;gap:6px">
-          <button onclick="_maqEditarBitacora('${b._id}')" style="background:none;border:1px solid var(--bord);border-radius:6px;color:var(--blue);padding:3px 8px;font-size:11px;cursor:pointer">Editar</button>
-          ${esEditor()?`<button onclick="_maqBorrarBitacora('${b._id}')" style="background:none;border:1px solid #dc2626;border-radius:6px;color:#dc2626;padding:3px 8px;font-size:11px;cursor:pointer">Eliminar</button>`:''}
-        </div>
-      </div>
-      <div style="font-size:11px;color:var(--muted);margin-top:4px">
-        Operador: ${b.operador||'—'} · Horas: ${b.horasTrabajadas!=null?b.horasTrabajadas+' hrs':'—'} ${b.rendimiento?' · Rendimiento: '+b.rendimiento+' m³/hr':''}
-        ${b.litrosDieselTotal?' · Diésel: '+b.litrosDieselTotal+' L':''}
-      </div>
-      ${(b.conceptos&&b.conceptos.length)?`<div style="font-size:11px;color:var(--txt);margin-top:4px">🏗️ ${b.conceptos.map(c=>c.label+' ('+c.volumen+' m³'+(c.fuenteManual?' · ajustado a mano':' · automático')+')').join(' · ')}</div>`:''}
-      ${(b.incidencias&&b.incidencias.length)?`<div style="font-size:11px;margin-top:4px">${b.incidencias.map(i=>`<span style="color:${i.resuelto?'#22c55e':'#dc2626'}">${i.resuelto?'✓':'⚠️'} ${(i.hora?i.hora+' — ':'')+i.descripcion}</span>`).join(' · ')}</div>`:''}
-      ${b.observaciones?`<div style="font-size:11px;color:var(--muted);margin-top:4px">📝 ${b.observaciones}</div>`:''}
-      ${evTxt}
+  const porMaquina={};
+  lista.forEach(b=>{ const k=b.equipoNombre||'—'; if(!porMaquina[k]) porMaquina[k]=[]; porMaquina[k].push(b); });
+  Object.values(porMaquina).forEach(arr=>arr.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')));
+
+  body.innerHTML = Object.keys(porMaquina).sort().map(nombreMaquina=>{
+    const regs=porMaquina[nombreMaquina];
+    const filas=regs.map(b=>{
+      const abierto=!!_maqHistExpandido[b._id];
+      const ev=b.evaluacionOperador;
+      const evTxt = (puedeVerEval && ev && (ev.manejo||ev.desempeno||ev.comentario))
+        ? `<div style="font-size:14px;margin-top:8px;background:rgba(240,180,41,.1);border-radius:8px;padding:8px 10px">👤 Manejo: <b>${ev.manejo?ev.manejo[0].toUpperCase()+ev.manejo.slice(1):'—'}</b> · Desempeño: <b>${ev.desempeno?ev.desempeno[0].toUpperCase()+ev.desempeno.slice(1):'—'}</b>${ev.comentario?'<br>'+ev.comentario:''}</div>`
+        : '';
+      const resumenLinea = `${b.fecha||'—'} · ${b.operador||'sin operador'}${b.horasTrabajadas!=null?' · '+b.horasTrabajadas+' hrs':''}`;
+      const pendientesN = (b.incidencias||[]).filter(i=>!i.resuelto).length;
+      return `
+      <div style="border:1px solid var(--bord);border-radius:10px;margin-bottom:8px;overflow:hidden">
+        <button onclick="_maqToggleHistItem('${b._id}')" style="width:100%;text-align:left;background:var(--surf);border:none;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <span style="font-size:15px;font-weight:700;color:var(--txt)">${resumenLinea}</span>
+          <span style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            ${pendientesN?`<span style="background:#dc2626;color:#fff;border-radius:99px;font-size:12px;font-weight:800;padding:2px 8px">${pendientesN} ⚠️</span>`:''}
+            <span style="font-size:16px;color:var(--gold)">${abierto?'▲':'▼'}</span>
+          </span>
+        </button>
+        ${abierto?`<div style="padding:12px 14px;background:var(--card)">
+          ${b.rendimiento?`<div style="font-size:14px;color:var(--txt);margin-bottom:6px">⚙️ Rendimiento: <b>${b.rendimiento} m³/hr</b>${b.litrosDieselTotal?' · ⛽ Diésel: '+b.litrosDieselTotal+' L':''}</div>`:(b.litrosDieselTotal?`<div style="font-size:14px;color:var(--txt);margin-bottom:6px">⛽ Diésel: ${b.litrosDieselTotal} L</div>`:'')}
+          ${(b.conceptos&&b.conceptos.length)?`<div style="font-size:14px;color:var(--txt);margin-bottom:6px">🏗️ ${b.conceptos.map(c=>c.label+' ('+c.volumen+' m³'+(c.fuenteManual?' · ajustado a mano':' · automático')+')').join('<br>')}</div>`:''}
+          ${(b.incidencias&&b.incidencias.length)?`<div style="font-size:14px;margin-bottom:6px">${b.incidencias.map(i=>`<div style="color:${i.resuelto?'#22c55e':'#dc2626'};margin-bottom:2px">${i.resuelto?'✓ Resuelto':'⚠️ Pendiente'}${i.hora?' · '+i.hora:''} — ${i.descripcion}</div>`).join('')}</div>`:''}
+          ${b.observaciones?`<div style="font-size:14px;color:var(--muted);margin-bottom:6px">📝 ${b.observaciones}</div>`:''}
+          ${evTxt}
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button onclick="_maqEditarBitacora('${b._id}')" style="flex:1;background:none;border:1px solid var(--blue);border-radius:8px;color:var(--blue);padding:8px;font-size:13px;font-weight:700;cursor:pointer">✏️ Editar</button>
+            ${esEditor()?`<button onclick="_maqBorrarBitacora('${b._id}')" style="flex:1;background:none;border:1px solid #dc2626;border-radius:8px;color:#dc2626;padding:8px;font-size:13px;font-weight:700;cursor:pointer">🗑️ Eliminar</button>`:''}
+          </div>
+        </div>`:''}
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:18px">
+      <div style="font-size:17px;font-weight:800;color:var(--gold);margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--gold)">🚜 ${nombreMaquina}</div>
+      ${filas}
     </div>`;
   }).join('');
 }
