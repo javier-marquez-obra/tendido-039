@@ -767,12 +767,13 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     </div>
     <div id="maqMasMenu" style="display:none;background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px;margin-bottom:14px">
       <div style="display:flex;flex-direction:column;gap:8px">
+        <button class="be" onclick="switchMaqSub('resumen');toggleMaqMasMenu()" id="btnMaqSubResumen" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">📋 Resumen de equipos (solo consultar)</button>
         <button class="be" onclick="abrirNuevoEquipo();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px">➕ Nuevo equipo</button>
         <button class="be" onclick="abrirCodigoOperadores();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">🔑 Código de operadores</button>
         <button class="be" onclick="switchMaqSub('cerrados');toggleMaqMasMenu()" id="btnMaqSubCerrados" style="text-align:left;padding:11px 14px;font-size:14px">🚚 Equipos cerrados</button>
         <button class="be" onclick="switchMaqSub('reportesop');toggleMaqMasMenu()" id="btnMaqSubReportesOp" style="text-align:left;padding:11px 14px;font-size:14px;position:relative">📥 Reportes de operadores<span id="maqReportesOpBadge" style="display:none;position:absolute;top:-6px;right:8px;background:#dc2626;color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 6px">0</span></button>
         <button class="be" onclick="exportarBitacoraExcel();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#22c55e;color:#22c55e">📊 Excel</button>
-        <button class="be" onclick="reportePendientesEquipos();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes</button>
+        <button class="be" onclick="reportePendientesEquipos();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#dc2626;color:#dc2626">⚠️ Pendientes (PDF de reparaciones)</button>
         <button class="be" onclick="reporteEstadisticaFallas();toggleMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:#3b82f6;color:#3b82f6">📈 Estadística de fallas</button>
       </div>
     </div>
@@ -784,7 +785,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div class="field" style="margin-bottom:10px"><label>Equipo</label>
           <select id="maq_equipo" onchange="renderMaqEquipoInfo();_maqAutorellenarOperador();_maqCargarOAutorellenar()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:8px;font-size:13px;color:var(--txt)"></select>
         </div>
-        <div id="maqEquipoInfo" style="font-size:11px;color:var(--muted);margin:-4px 0 6px"></div>
+        <div id="maqEquipoInfo" style="margin:-4px 0 6px"></div>
         <div id="maqAvisoServicio" style="display:none;margin-bottom:8px;background:rgba(234,179,8,.12);border:1px solid var(--gold);border-radius:8px;padding:8px 10px;font-size:11px;font-weight:700;color:var(--gold)"></div>
         <div id="maqAvisoDano" style="display:none;margin-bottom:8px;background:rgba(220,38,38,.12);border:1px solid #dc2626;border-radius:8px;padding:8px 10px;font-size:11px;font-weight:700;color:#dc2626"></div>
         <div id="maqHistorialProblemas" style="margin-bottom:10px"></div>
@@ -908,6 +909,14 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div id="maqSubReportesOp" style="display:none">
       <div style="font-size:11px;color:var(--muted);margin-bottom:10px">Reportes que mandaron los operadores desde su link (sin usar la app completa) — revísalos y confírmalos, o descártalos si vienen mal.</div>
       <div id="maqReportesOpBody"></div>
+    </div>
+
+    <div id="maqSubResumen" style="display:none">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+        <div style="font-size:12px;color:var(--muted)">Solo para consultar de un vistazo — no abre nada al tocar una tarjeta.</div>
+        <button class="be" onclick="reportePendientesEquipos()" style="padding:8px 14px;font-size:13px;border-color:#dc2626;color:#dc2626">📄 PDF de reparaciones de esta obra</button>
+      </div>
+      <div id="maqResumenBody"></div>
     </div>
   </div>
 
@@ -4495,6 +4504,7 @@ window.switchMaqSub=function(cual){
   document.getElementById('maqSubHistorial').style.display = cual==='historial' ? '' : 'none';
   document.getElementById('maqSubCerrados').style.display = cual==='cerrados' ? '' : 'none';
   document.getElementById('maqSubReportesOp').style.display = cual==='reportesop' ? '' : 'none';
+  document.getElementById('maqSubResumen').style.display = cual==='resumen' ? '' : 'none';
   document.getElementById('btnMaqSubBitacora').style.borderColor = cual==='bitacora' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubHistorial').style.borderColor = cual==='historial' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubCerrados').style.borderColor = cual==='cerrados' ? 'var(--gold)' : 'var(--bord)';
@@ -4502,7 +4512,37 @@ window.switchMaqSub=function(cual){
   if(cual==='historial') renderMaqHistorial();
   if(cual==='cerrados') renderMaqCerrados();
   if(cual==='reportesop') renderMaqReportesOp();
+  if(cual==='resumen') renderMaqResumen();
 };
+// Vista SOLO INFORMATIVA de todos los equipos de la obra — nada se abre ni se edita al tocar,
+// es para ver de un vistazo horómetro inicial/actual, horas y diésel acumulados EN ESTA OBRA,
+// y qué reparaciones tiene pendientes cada máquina.
+function renderMaqResumen(){
+  const body=document.getElementById('maqResumenBody'); if(!body) return;
+  const eqsObra=_equipos.filter(e=>(e.obra||'039')===obraActiva && e.activo!==false);
+  if(!eqsObra.length){ body.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">Sin equipos activos en esta obra.</div>'; return; }
+  body.innerHTML = eqsObra.map(eq=>{
+    const bitsObra=_bitacoras.filter(b=>b.equipoId===eq._id && (b.obra||'039')===obraActiva);
+    const horasObra=bitsObra.reduce((s,b)=>s+(b.horasTrabajadas||0),0);
+    const dieselObra=bitsObra.reduce((s,b)=>s+(b.litrosDieselTotal||0),0);
+    const horAct=_maqUltimoHorometro(eq._id);
+    const problemas=[];
+    bitsObra.forEach(b=>(b.incidencias||[]).forEach(i=>{ if(!i.resuelto) problemas.push(i); }));
+    return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="font-size:16px;font-weight:800;color:var(--gold);margin-bottom:8px">🚜 ${eq.nombre}${eq.numero?' · '+eq.numero:''}</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <div style="font-size:13px;color:var(--txt)">Horómetro inicial (obra)<br><b style="font-size:15px">${eq.horometroLlegada!=null?eq.horometroLlegada:'—'}</b></div>
+        <div style="font-size:13px;color:var(--txt)">Horómetro actual<br><b style="font-size:15px">${horAct!=null?horAct:'—'}</b></div>
+        <div style="font-size:13px;color:var(--txt)">Horas trabajadas (obra)<br><b style="font-size:15px">${horasObra.toFixed(1)} hrs</b></div>
+        <div style="font-size:13px;color:var(--txt)">Diésel acumulado (obra)<br><b style="font-size:15px">${dieselObra.toFixed(0)} L</b></div>
+      </div>
+      <div style="font-size:13px;color:${problemas.length?'#dc2626':'#22c55e'};font-weight:700">
+        ${problemas.length?`⚠️ ${problemas.length} reparación(es) pendiente(s):`:'✓ Sin reparaciones pendientes'}
+      </div>
+      ${problemas.length?`<div style="font-size:13px;color:var(--txt);margin-top:4px">${problemas.map(p=>'• '+(p.hora?p.hora+' — ':'')+p.descripcion).join('<br>')}</div>`:''}
+    </div>`;
+  }).join('');
+}
 // Bandeja de reportes que mandan los operadores desde su link público (sin login). Cada uno trae
 // horómetro, diésel y anomalía "en crudo" — aquí se revisan uno por uno: "Usar" pre-llena el
 // formulario del día para ESE equipo con esos datos (tú confirmas/ajustas y guardas normal), o
