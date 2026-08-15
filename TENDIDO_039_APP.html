@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="h-left">
       <div class="h-logo">TENDIDO 039</div>
       <div class="h-info" id="hInfo">—</div>
-      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-14 10:05</div>
+      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-14 14:10</div>
     </div>
     <div class="h-right">
       <div class="sync-dot loading" id="syncDot"></div>
@@ -4571,19 +4571,45 @@ function renderMaqReportesOp(){
   if(badgeMini){ badgeMini.style.display=pendientes.length?'block':'none'; badgeMini.textContent=pendientes.length; }
   const body=document.getElementById('maqReportesOpBody'); if(!body) return;
   if(!pendientes.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin reportes pendientes de operadores.</div>'; return; }
-  body.innerHTML = pendientes.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).map(r=>`
+  // Agrupa por equipo+fecha: si hay varios reportes pendientes de la MISMA máquina el MISMO día
+  // (típicamente por pruebas repetidas, o porque un operador entró desde 2 dispositivos distintos),
+  // solo se muestra el más reciente arriba, y los viejos quedan colapsados con un botón para
+  // descartarlos todos de un jalón — así la bandeja no se ve saturada de "duplicados".
+  const grupos={};
+  pendientes.forEach(r=>{ const k=(r.equipoId||r.equipoNombre)+'|'+r.fecha; if(!grupos[k]) grupos[k]=[]; grupos[k].push(r); });
+  const clavesOrdenadas=Object.keys(grupos).sort((a,b)=>{
+    const ma=Math.max(...grupos[a].map(r=>r.ts||0)), mb=Math.max(...grupos[b].map(r=>r.ts||0));
+    return mb-ma;
+  });
+  body.innerHTML = clavesOrdenadas.map(k=>{
+    const grupo=grupos[k].slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
+    const r=grupo[0]; // el más reciente de ese equipo+día
+    const viejos=grupo.slice(1);
+    return `
     <div style="background:var(--surf);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;margin-bottom:8px">
       <div style="font-weight:800;color:var(--gold);font-size:13px">${r.equipoNombre||'—'} · ${r.fecha||'—'}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">
         Operador (auto-reportado): ${r.operador||'—'} · Horómetro: ${r.horometroInicio!=null?r.horometroInicio:'—'} → ${r.horometroFin!=null?r.horometroFin:'—'} · Diésel: ${r.litrosDiesel!=null?r.litrosDiesel+' L':'—'}
       </div>
       ${r.anomalia?`<div style="font-size:11px;color:#f87171;margin-top:4px">⚠️ ${r.anomalia}</div>`:''}
+      ${viejos.length?`<div style="font-size:10px;color:var(--muted);margin-top:6px">🗂️ ${viejos.length} reporte(s) anterior(es) de esta misma máquina y día — probablemente pruebas repetidas. <button onclick="_maqDescartarViejos('${viejos.map(v=>v._id).join(',')}')" style="background:none;border:none;color:var(--blue);text-decoration:underline;cursor:pointer;font-size:10px;padding:0">descartar los ${viejos.length} de una vez</button></div>`:''}
       <div style="display:flex;gap:6px;margin-top:8px">
         <button onclick="_maqUsarReporteOp('${r._id}')" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#0a0a0a;padding:6px;font-size:11px;font-weight:700;cursor:pointer">✓ Usar este reporte</button>
         <button onclick="_maqDescartarReporteOp('${r._id}')" style="flex:1;background:none;border:1px solid var(--bord);border-radius:6px;color:var(--muted);padding:6px;font-size:11px;cursor:pointer">✕ Descartar</button>
       </div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
+window._maqDescartarViejos=async function(idsCsv){
+  const ids=idsCsv.split(',').filter(Boolean);
+  const ok=confirm(`¿Descartar estos ${ids.length} reporte(s) repetido(s)?`);
+  if(!ok) return;
+  for(const id of ids){
+    try{ await updateDoc(doc(db,'reportesOperador039',id), {estado:'descartado', descartadoTs:Date.now(), motivo:'duplicado'}); }
+    catch(e){ console.warn('descartar duplicado:',id,e); }
+  }
+  toast(`✓ ${ids.length} reporte(s) repetido(s) descartado(s)`,'ok');
+};
 // "Usar" no guarda solo directo — pre-llena el formulario del día para que TÚ lo revises,
 // ajustes si hace falta, y guardes con el botón normal. Así nunca se sube nada sin que lo veas.
 window._maqUsarReporteOp=function(id){
