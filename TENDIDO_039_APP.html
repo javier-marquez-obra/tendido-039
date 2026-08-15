@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="h-left">
       <div class="h-logo">TENDIDO 039</div>
       <div class="h-info" id="hInfo">—</div>
-      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-14 14:10</div>
+      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-14 15:20</div>
     </div>
     <div class="h-right">
       <div class="sync-dot loading" id="syncDot"></div>
@@ -422,6 +422,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
 
       <button onclick="guardarNuevoEquipo()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer" id="btnGuardarEquipo">Guardar equipo</button>
+      <button onclick="eliminarEquipoDefinitivo()" id="btnEliminarEquipoDef" style="display:none;width:100%;margin-top:8px;background:none;border:1px solid #dc2626;border-radius:8px;color:#dc2626;padding:8px;font-size:12px;font-weight:700;cursor:pointer">🗑️ Eliminar este equipo definitivamente (ej. se dio de alta duplicado)</button>
     </div>
   </div>
 
@@ -4099,6 +4100,7 @@ window.abrirNuevoEquipo=function(){
   document.getElementById('eq_costo_renta').value='';
   document.getElementById('eq_operador_asignado').value='';
   document.getElementById('eqNumeroAviso').style.display='none';
+  document.getElementById('btnEliminarEquipoDef').style.display='none';
   document.getElementById('equipoModal').style.display='flex';
 };
 // Al escribir el № económico de un equipo NUEVO, busca si esa MISMA máquina ya existe registrada
@@ -4130,6 +4132,7 @@ window.abrirEditarEquipo=function(equipoIdForzado){
   document.getElementById('equipoModalTitulo').textContent='🔧 Editar equipo — '+eq.nombre;
   document.getElementById('btnGuardarEquipo').textContent='Guardar cambios';
   document.getElementById('eqServicioBlock').style.display='';
+  document.getElementById('btnEliminarEquipoDef').style.display='';
   document.getElementById('eq_lbl_fecha_llega').textContent='Día que llegó a esta obra (estancia actual)';
   document.getElementById('eq_lbl_hor_llega').textContent='Horómetro con el que llegó';
   document.getElementById('eq_nombre').value=eq.nombre||'';
@@ -4154,6 +4157,23 @@ window.abrirEditarEquipo=function(equipoIdForzado){
     ? servs.slice().reverse().map(s=>`<div>• ${s.fecha||'?'} — ${({aceite:'Cambio de aceite',filtros:'Cambio de filtros',otro:'Otro'})[s.tipo]||s.tipo} @ horómetro ${s.horometro!=null?s.horometro:'—'} ${s.notas?'· '+s.notas:''}</div>`).join('')
     : 'Sin servicios registrados.';
   document.getElementById('equipoModal').style.display='flex';
+};
+// Borra un equipo POR COMPLETO (ej. se dio de alta duplicado por error). Avisa si tiene historial
+// de bitácora guardado, para no borrar algo con datos reales sin darse cuenta.
+window.eliminarEquipoDefinitivo=async function(){
+  if(!_eqEditandoId){ toast('No hay equipo seleccionado para eliminar','err'); return; }
+  const eq=_equipos.find(e=>e._id===_eqEditandoId); if(!eq) return;
+  const registros=_bitacoras.filter(b=>b.equipoId===_eqEditandoId).length;
+  const avisoHist = registros ? `\n\n⚠️ Este equipo TIENE ${registros} registro(s) de bitácora guardados — se van a quedar huérfanos (no se borran, pero ya no van a tener el nombre del equipo asociado correctamente).` : '\n\nNo tiene registros de bitácora guardados — es seguro borrarlo.';
+  const ok=confirm(`¿Eliminar definitivamente "${eq.nombre}${eq.numero?' · '+eq.numero:''}"?${avisoHist}\n\nEsta acción NO se puede deshacer.`);
+  if(!ok) return;
+  const ok2=confirm('Confirma una vez más — se borra para siempre de la nube.');
+  if(!ok2) return;
+  try{
+    await deleteDoc(doc(db,'equipos039',_eqEditandoId));
+    toast('✓ Equipo eliminado','ok');
+    document.getElementById('equipoModal').style.display='none';
+  }catch(e){ console.warn('eliminarEquipoDefinitivo:',e); toast('Error al eliminar el equipo','err'); }
 };
 window.registrarServicioEquipo=async function(){
   if(!_eqEditandoId){ toast('Guarda el equipo antes de registrar un servicio','err'); return; }
