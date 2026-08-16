@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="h-left">
       <div class="h-logo">TENDIDO 039</div>
       <div class="h-info" id="hInfo">—</div>
-      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-14 15:20</div>
+      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-15 09:30</div>
     </div>
     <div class="h-right">
       <div class="sync-dot loading" id="syncDot"></div>
@@ -4231,10 +4231,19 @@ window.guardarNuevoEquipo=async function(){
 };
 // Último horómetro conocido de un equipo: el de su bitácora con la FECHA más reciente (no el orden
 // de captura/ts, porque si alguien registra un día atrasado, el ts no refleja la fecha real del dato).
+// Último horómetro conocido de un equipo: toma el MAYOR entre (a) lo último capturado en una
+// bitácora ya oficial/aprobada, y (b) equipos039.ultimoHorometro — que se actualiza también con lo
+// que mandan los OPERADORES desde su link, aunque el admin todavía no haya revisado/aprobado ese
+// reporte. Así el horómetro que se autorellena el día siguiente ya refleja lo más reciente,
+// sea de quien sea, no solo lo que el admin ya guardó formalmente.
 function _maqUltimoHorometro(equipoId){
   const eq=_equipos.find(e=>e._id===equipoId);
   const bits=_bitacoras.filter(b=>b.equipoId===equipoId && b.horometroFin!=null).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.ts||0)-(a.ts||0));
-  if(bits.length) return bits[0].horometroFin;
+  const desdeBitacora = bits.length ? bits[0].horometroFin : null;
+  const desdeEquipo = (eq && eq.ultimoHorometro!=null) ? eq.ultimoHorometro : null;
+  if(desdeBitacora!=null && desdeEquipo!=null) return Math.max(desdeBitacora, desdeEquipo);
+  if(desdeEquipo!=null) return desdeEquipo;
+  if(desdeBitacora!=null) return desdeBitacora;
   return eq ? (eq.horometroLlegada||0) : 0;
 }
 // Se llama cada vez que se abre el apartado de Maquinaria y cada vez que se elige un equipo —
@@ -4309,9 +4318,11 @@ window._maqCargarOAutorellenar=function(){
   _maqLimpiarCamposEvaluacion();
   document.getElementById('maqHorasCalc').textContent='—'; document.getElementById('maqRendimiento').textContent='';
   _maqIncidencias=[]; _maqDiesel=[]; _maqConceptos=[]; _maqRenderIncidencias(); _maqRenderDiesel(); _maqRenderConceptos();
-  const anterior=_bitacoras.filter(b=>b.equipoId===equipoId && b.fecha<fecha && b.horometroFin!=null).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  const eq=_equipos.find(e=>e._id===equipoId);
-  const horIni = anterior.length ? anterior[0].horometroFin : (eq?eq.horometroLlegada:null);
+  // Antes esto solo miraba bitácoras YA oficiales, ignorando lo que manda el operador desde su
+  // link (que actualiza equipos039.ultimoHorometro antes de que el admin lo revise) — por eso el
+  // horómetro no se refrescaba con datos frescos del operador. Ahora usa la misma función
+  // centralizada que ya considera ambas fuentes y toma la más reciente.
+  const horIni = _maqUltimoHorometro(equipoId);
   document.getElementById('maq_hor_ini').value = horIni!=null ? horIni : '';
   _maqCalcHoras();
   _maqRenderHistorialProblemas();
@@ -4502,6 +4513,13 @@ window.guardarBitacoraMaquinaria=async function(){
   try{
     if(_maqEditandoId){ await updateDoc(doc(db,'bitacoraMaq039',_maqEditandoId), data); toast('✓ Registro actualizado','ok'); }
     else { await addDoc(collection(db,'bitacoraMaq039'), data); toast('✓ Registro guardado','ok'); }
+    // Igual que hace el link del operador: si se capturó horómetro final, actualiza el "último
+    // conocido" de la máquina — así el día siguiente (sea quien sea quien capture) ya sale
+    // autorellenado con esto, no se queda desactualizado solo porque lo guardó el admin y no el operador.
+    if(data.horometroFin!=null){
+      try{ await updateDoc(doc(db,'equipos039',equipoId), {ultimoHorometro:data.horometroFin, ultimoHorometroTs:Date.now()}); }
+      catch(e){ console.warn('no se pudo actualizar ultimoHorometro del equipo:', e); }
+    }
     _maqLimpiarForm();
   }catch(e){ console.warn('guardarBitacoraMaquinaria:',e); toast('Error al guardar (revisa conexión)','err'); }
 };
