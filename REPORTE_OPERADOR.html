@@ -186,9 +186,12 @@ async function intentarVaciarCola(){
   setEstadoBar();
 }
 
+// Este link es específico de la obra TENDIDO 039 (contrato 2026-14-CB-D-039-W-00-2026) — nunca
+// debe mostrar máquinas de otras obras que existan en el mismo proyecto de Firebase.
+const OBRA_LINK = '039';
 async function cargarEquipos(){
   try{
-    const snap=await getDocs(query(collection(db,'equipos039'), where('activo','!=', false)));
+    const snap=await getDocs(query(collection(db,'equipos039'), where('obra','==', OBRA_LINK)));
     equipos=snap.docs.map(d=>({_id:d.id, ...d.data()})).filter(e=>e.activo!==false);
   }catch(e){
     console.warn('cargarEquipos:', e);
