@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="h-left">
       <div class="h-logo">TENDIDO 039</div>
       <div class="h-info" id="hInfo">—</div>
-      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-15 09:30</div>
+      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-15 10:15</div>
     </div>
     <div class="h-right">
       <div class="sync-dot loading" id="syncDot"></div>
@@ -4520,7 +4520,19 @@ window.guardarBitacoraMaquinaria=async function(){
       try{ await updateDoc(doc(db,'equipos039',equipoId), {ultimoHorometro:data.horometroFin, ultimoHorometroTs:Date.now()}); }
       catch(e){ console.warn('no se pudo actualizar ultimoHorometro del equipo:', e); }
     }
-    _maqLimpiarForm();
+    // Si este guardado vino de "Usar este reporte", ya hasta ahora (guardado real, no solo cargado
+    // en el formulario) se marca el reporte como usado, y se regresa SOLO a la bandeja para seguir
+    // con el siguiente — sin que el admin tenga que ir a buscarla a mano cada vez.
+    if(_maqReporteOpEnUso){
+      const idUsado=_maqReporteOpEnUso; _maqReporteOpEnUso=null;
+      try{ await updateDoc(doc(db,'reportesOperador039',idUsado), {estado:'usado', usadoTs:Date.now()}); }
+      catch(e){ console.warn('marcar reporte usado:',e); }
+      _maqLimpiarForm();
+      switchMaqSub('reportesop');
+      toast('✓ Guardado — siguiente reporte pendiente','ok');
+    } else {
+      _maqLimpiarForm();
+    }
   }catch(e){ console.warn('guardarBitacoraMaquinaria:',e); toast('Error al guardar (revisa conexión)','err'); }
 };
 function _maqLimpiarForm(){
@@ -4650,6 +4662,7 @@ window._maqDescartarViejos=async function(idsCsv){
 };
 // "Usar" no guarda solo directo — pre-llena el formulario del día para que TÚ lo revises,
 // ajustes si hace falta, y guardes con el botón normal. Así nunca se sube nada sin que lo veas.
+let _maqReporteOpEnUso=null; // id del reportesOperador039 que se está usando ahorita, si aplica
 window._maqUsarReporteOp=function(id){
   const r=_reportesOp.find(x=>x._id===id); if(!r) return;
   switchMaqSub('bitacora');
@@ -4669,7 +4682,10 @@ window._maqUsarReporteOp=function(id){
     _maqRenderDiesel();
   }
   _maqCalcHoras();
-  updateDoc(doc(db,'reportesOperador039',id), {estado:'usado', usadoTs:Date.now()}).catch(e=>console.warn('marcar reporte usado:',e));
+  // Ya NO se marca "usado" aquí — se marca hasta que el admin de verdad le da Guardar (ver
+  // guardarBitacoraMaquinaria). Así, si decide no guardar este reporte, se queda pendiente
+  // en vez de desaparecer de la bandeja sin haberse aplicado a nada.
+  _maqReporteOpEnUso=id;
   toast('✓ Datos cargados en el formulario — revisa y guarda','ok');
 };
 window._maqDescartarReporteOp=async function(id){
