@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="h-left">
       <div class="h-logo">TENDIDO 039</div>
       <div class="h-info" id="hInfo">—</div>
-      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-15 12:40</div>
+      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-15 13:05</div>
     </div>
     <div class="h-right">
       <div class="sync-dot loading" id="syncDot"></div>
@@ -4660,14 +4660,16 @@ function renderMaqDetalle(){
   const rendGeneral = horasTotal>0 ? (volTotal/horasTotal) : null;
   const horAct=_maqUltimoHorometro(eq._id);
 
-  // Gráfica simple de barras (horas por día), últimos 14 días con registro
+  // Gráfica simple de barras (horas por día), últimos 14 días con registro — cada barra se puede
+  // tocar para abrir ese día directo en modo edición, por si algo se ve mal (como un horómetro
+  // que no cuadra) y lo quieres corregir ahí mismo, sin tener que buscarlo en el Historial.
   const ultimos=bits.slice(-14);
   const maxHoras=Math.max(1, ...ultimos.map(b=>b.horasTrabajadas||0));
   const barras = ultimos.length ? `<div style="display:flex;align-items:flex-end;gap:4px;height:90px;margin-bottom:6px;overflow-x:auto">
     ${ultimos.map(b=>{
       const h=b.horasTrabajadas||0;
       const alturaPx=Math.max(3, Math.round((h/maxHoras)*80));
-      return `<div style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:34px" title="${b.fecha}: ${h} hrs">
+      return `<div onclick="_maqEditarBitacoraDesdeGrafica('${b._id}')" style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:34px;cursor:pointer" title="${b.fecha}: ${h} hrs — toca para editar este día">
         <div style="font-size:9px;color:var(--muted);margin-bottom:2px">${h||''}</div>
         <div style="width:20px;height:${alturaPx}px;background:var(--gold);border-radius:3px 3px 0 0"></div>
       </div>`;
@@ -4678,7 +4680,7 @@ function renderMaqDetalle(){
   </div>` : '<div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sin días registrados todavía.</div>';
   // Fechas debajo de las barras (fila aparte para no romper alineación)
   const fechasFila = ultimos.length ? `<div style="display:flex;gap:4px;overflow-x:auto;margin-top:-10px;margin-bottom:14px">
-    ${ultimos.map(b=>`<div style="width:34px;flex-shrink:0;font-size:8px;color:var(--muted);text-align:center">${(b.fecha||'').slice(5)}</div>`).join('')}
+    ${ultimos.map(b=>`<div onclick="_maqEditarBitacoraDesdeGrafica('${b._id}')" style="width:34px;flex-shrink:0;font-size:8px;color:var(--blue);text-align:center;cursor:pointer">${(b.fecha||'').slice(5)}</div>`).join('')}
   </div>` : '';
 
   // Problemas: resueltos vs pendientes, con las últimas notas
@@ -4719,6 +4721,13 @@ window._maqIrARegistrarDesdeDetalle=function(equipoId){
   switchMaqSub('bitacora');
   const sel=document.getElementById('maq_equipo');
   if(sel){ sel.value=equipoId; renderMaqEquipoInfo(); _maqAutorellenarOperador(); _maqCargarOAutorellenar(); }
+};
+// Al tocar una barra (o su fecha) en la gráfica del detalle, abre ESE día específico directo en
+// modo edición — para corregir algo raro (ej. un horómetro mal capturado) en el momento, sin
+// tener que ir a buscarlo manualmente en el Historial.
+window._maqEditarBitacoraDesdeGrafica=function(bitacoraId){
+  switchMaqSub('bitacora');
+  _maqEditarBitacora(bitacoraId);
 };
 // Bandeja de reportes que mandan los operadores desde su link público (sin login). Cada uno trae
 // horómetro, diésel y anomalía "en crudo" — aquí se revisan uno por uno: "Usar" pre-llena el
