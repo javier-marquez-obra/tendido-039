@@ -277,7 +277,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <div class="h-left">
       <div class="h-logo">TENDIDO 039</div>
       <div class="h-info" id="hInfo">—</div>
-      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-15 13:05</div>
+      <div style="font-size:9px;color:var(--muted);opacity:.6" id="buildStamp">build 2026-08-14 10:05</div>
     </div>
     <div class="h-right">
       <div class="sync-dot loading" id="syncDot"></div>
@@ -422,7 +422,6 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
 
       <button onclick="guardarNuevoEquipo()" style="width:100%;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer" id="btnGuardarEquipo">Guardar equipo</button>
-      <button onclick="eliminarEquipoDefinitivo()" id="btnEliminarEquipoDef" style="display:none;width:100%;margin-top:8px;background:none;border:1px solid #dc2626;border-radius:8px;color:#dc2626;padding:8px;font-size:12px;font-weight:700;cursor:pointer">🗑️ Eliminar este equipo definitivamente (ej. se dio de alta duplicado)</button>
     </div>
   </div>
 
@@ -764,12 +763,12 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
   <div class="view" id="view-maquinaria">
     <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap">
       <button class="be" onclick="switchMaqSub('resumen')" id="btnMaqSubResumen" style="padding:9px 16px;font-size:14px;font-weight:700;border-color:var(--gold);color:var(--gold)">📋 Resumen</button>
+      <button class="be" onclick="switchMaqSub('bitacora')" id="btnMaqSubBitacora" style="padding:9px 16px;font-size:14px;font-weight:700">📝 Registrar día</button>
       <button class="be" onclick="switchMaqSub('historial')" id="btnMaqSubHistorial" style="padding:9px 16px;font-size:14px;font-weight:700">📚 Historial</button>
       <button class="be" onclick="toggleMaqMasMenu()" id="btnMaqMas" style="padding:9px 16px;font-size:14px;font-weight:700;position:relative">⋯ Más<span id="maqReportesOpBadgeMini" style="display:none;position:absolute;top:-6px;right:-6px;background:#dc2626;color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 6px">0</span></button>
     </div>
     <div id="maqMasMenu" style="display:none;background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:10px;margin-bottom:14px">
       <div style="display:flex;flex-direction:column;gap:8px">
-        <button class="be" onclick="switchMaqSub('bitacora')" id="btnMaqSubBitacora" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--green);color:var(--green)">📝 Registrar día</button>
         <button class="be" onclick="abrirNuevoEquipo();cerrarMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px">➕ Nuevo equipo</button>
         <button class="be" onclick="abrirCodigoOperadores();cerrarMaqMasMenu()" style="text-align:left;padding:11px 14px;font-size:14px;border-color:var(--gold);color:var(--gold)">🔑 Código de operadores</button>
         <button class="be" onclick="switchMaqSub('cerrados')" id="btnMaqSubCerrados" style="text-align:left;padding:11px 14px;font-size:14px">🚚 Equipos cerrados</button>
@@ -915,14 +914,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
 
     <div id="maqSubResumen">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:12px;color:var(--muted)">Toca cualquier tarjeta para ver el detalle completo de esa máquina.</div>
+        <div style="font-size:12px;color:var(--muted)">Solo para consultar de un vistazo — no abre nada al tocar una tarjeta.</div>
         <button class="be" onclick="reportePendientesEquipos()" style="padding:8px 14px;font-size:13px;border-color:#dc2626;color:#dc2626">📄 PDF de reparaciones de esta obra</button>
       </div>
       <div id="maqResumenBody"></div>
-    </div>
-
-    <div id="maqSubDetalle" style="display:none">
-      <div id="maqDetalleBody"></div>
     </div>
   </div>
 
@@ -4026,7 +4021,6 @@ function _rebuildExtras(){
 // 'bitacoraMaq039' (un registro por máquina por día). Capturar aquí es SIEMPRE opcional — si un
 // día no se anota nada, no rompe nada del resto de la app (igual que el resto de los módulos).
 let _equipos=[], _bitacoras=[], _equiposListenerStarted=false, _bitacoraListenerStarted=false;
-let _maqDetalleEquipoId=null;
 let _reportesOp=[], _reportesOpListenerStarted=false;
 let _maqIncidencias=[], _maqDiesel=[], _maqConceptos=[], _maqEditandoId=null, _ceFoto=null;
 
@@ -4105,7 +4099,6 @@ window.abrirNuevoEquipo=function(){
   document.getElementById('eq_costo_renta').value='';
   document.getElementById('eq_operador_asignado').value='';
   document.getElementById('eqNumeroAviso').style.display='none';
-  document.getElementById('btnEliminarEquipoDef').style.display='none';
   document.getElementById('equipoModal').style.display='flex';
 };
 // Al escribir el № económico de un equipo NUEVO, busca si esa MISMA máquina ya existe registrada
@@ -4137,7 +4130,6 @@ window.abrirEditarEquipo=function(equipoIdForzado){
   document.getElementById('equipoModalTitulo').textContent='🔧 Editar equipo — '+eq.nombre;
   document.getElementById('btnGuardarEquipo').textContent='Guardar cambios';
   document.getElementById('eqServicioBlock').style.display='';
-  document.getElementById('btnEliminarEquipoDef').style.display='';
   document.getElementById('eq_lbl_fecha_llega').textContent='Día que llegó a esta obra (estancia actual)';
   document.getElementById('eq_lbl_hor_llega').textContent='Horómetro con el que llegó';
   document.getElementById('eq_nombre').value=eq.nombre||'';
@@ -4162,23 +4154,6 @@ window.abrirEditarEquipo=function(equipoIdForzado){
     ? servs.slice().reverse().map(s=>`<div>• ${s.fecha||'?'} — ${({aceite:'Cambio de aceite',filtros:'Cambio de filtros',otro:'Otro'})[s.tipo]||s.tipo} @ horómetro ${s.horometro!=null?s.horometro:'—'} ${s.notas?'· '+s.notas:''}</div>`).join('')
     : 'Sin servicios registrados.';
   document.getElementById('equipoModal').style.display='flex';
-};
-// Borra un equipo POR COMPLETO (ej. se dio de alta duplicado por error). Avisa si tiene historial
-// de bitácora guardado, para no borrar algo con datos reales sin darse cuenta.
-window.eliminarEquipoDefinitivo=async function(){
-  if(!_eqEditandoId){ toast('No hay equipo seleccionado para eliminar','err'); return; }
-  const eq=_equipos.find(e=>e._id===_eqEditandoId); if(!eq) return;
-  const registros=_bitacoras.filter(b=>b.equipoId===_eqEditandoId).length;
-  const avisoHist = registros ? `\n\n⚠️ Este equipo TIENE ${registros} registro(s) de bitácora guardados — se van a quedar huérfanos (no se borran, pero ya no van a tener el nombre del equipo asociado correctamente).` : '\n\nNo tiene registros de bitácora guardados — es seguro borrarlo.';
-  const ok=confirm(`¿Eliminar definitivamente "${eq.nombre}${eq.numero?' · '+eq.numero:''}"?${avisoHist}\n\nEsta acción NO se puede deshacer.`);
-  if(!ok) return;
-  const ok2=confirm('Confirma una vez más — se borra para siempre de la nube.');
-  if(!ok2) return;
-  try{
-    await deleteDoc(doc(db,'equipos039',_eqEditandoId));
-    toast('✓ Equipo eliminado','ok');
-    document.getElementById('equipoModal').style.display='none';
-  }catch(e){ console.warn('eliminarEquipoDefinitivo:',e); toast('Error al eliminar el equipo','err'); }
 };
 window.registrarServicioEquipo=async function(){
   if(!_eqEditandoId){ toast('Guarda el equipo antes de registrar un servicio','err'); return; }
@@ -4236,19 +4211,10 @@ window.guardarNuevoEquipo=async function(){
 };
 // Último horómetro conocido de un equipo: el de su bitácora con la FECHA más reciente (no el orden
 // de captura/ts, porque si alguien registra un día atrasado, el ts no refleja la fecha real del dato).
-// Último horómetro conocido de un equipo: toma el MAYOR entre (a) lo último capturado en una
-// bitácora ya oficial/aprobada, y (b) equipos039.ultimoHorometro — que se actualiza también con lo
-// que mandan los OPERADORES desde su link, aunque el admin todavía no haya revisado/aprobado ese
-// reporte. Así el horómetro que se autorellena el día siguiente ya refleja lo más reciente,
-// sea de quien sea, no solo lo que el admin ya guardó formalmente.
 function _maqUltimoHorometro(equipoId){
   const eq=_equipos.find(e=>e._id===equipoId);
   const bits=_bitacoras.filter(b=>b.equipoId===equipoId && b.horometroFin!=null).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||(b.ts||0)-(a.ts||0));
-  const desdeBitacora = bits.length ? bits[0].horometroFin : null;
-  const desdeEquipo = (eq && eq.ultimoHorometro!=null) ? eq.ultimoHorometro : null;
-  if(desdeBitacora!=null && desdeEquipo!=null) return Math.max(desdeBitacora, desdeEquipo);
-  if(desdeEquipo!=null) return desdeEquipo;
-  if(desdeBitacora!=null) return desdeBitacora;
+  if(bits.length) return bits[0].horometroFin;
   return eq ? (eq.horometroLlegada||0) : 0;
 }
 // Se llama cada vez que se abre el apartado de Maquinaria y cada vez que se elige un equipo —
@@ -4323,11 +4289,9 @@ window._maqCargarOAutorellenar=function(){
   _maqLimpiarCamposEvaluacion();
   document.getElementById('maqHorasCalc').textContent='—'; document.getElementById('maqRendimiento').textContent='';
   _maqIncidencias=[]; _maqDiesel=[]; _maqConceptos=[]; _maqRenderIncidencias(); _maqRenderDiesel(); _maqRenderConceptos();
-  // Antes esto solo miraba bitácoras YA oficiales, ignorando lo que manda el operador desde su
-  // link (que actualiza equipos039.ultimoHorometro antes de que el admin lo revise) — por eso el
-  // horómetro no se refrescaba con datos frescos del operador. Ahora usa la misma función
-  // centralizada que ya considera ambas fuentes y toma la más reciente.
-  const horIni = _maqUltimoHorometro(equipoId);
+  const anterior=_bitacoras.filter(b=>b.equipoId===equipoId && b.fecha<fecha && b.horometroFin!=null).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
+  const eq=_equipos.find(e=>e._id===equipoId);
+  const horIni = anterior.length ? anterior[0].horometroFin : (eq?eq.horometroLlegada:null);
   document.getElementById('maq_hor_ini').value = horIni!=null ? horIni : '';
   _maqCalcHoras();
   _maqRenderHistorialProblemas();
@@ -4518,26 +4482,7 @@ window.guardarBitacoraMaquinaria=async function(){
   try{
     if(_maqEditandoId){ await updateDoc(doc(db,'bitacoraMaq039',_maqEditandoId), data); toast('✓ Registro actualizado','ok'); }
     else { await addDoc(collection(db,'bitacoraMaq039'), data); toast('✓ Registro guardado','ok'); }
-    // Igual que hace el link del operador: si se capturó horómetro final, actualiza el "último
-    // conocido" de la máquina — así el día siguiente (sea quien sea quien capture) ya sale
-    // autorellenado con esto, no se queda desactualizado solo porque lo guardó el admin y no el operador.
-    if(data.horometroFin!=null){
-      try{ await updateDoc(doc(db,'equipos039',equipoId), {ultimoHorometro:data.horometroFin, ultimoHorometroTs:Date.now()}); }
-      catch(e){ console.warn('no se pudo actualizar ultimoHorometro del equipo:', e); }
-    }
-    // Si este guardado vino de "Usar este reporte", ya hasta ahora (guardado real, no solo cargado
-    // en el formulario) se marca el reporte como usado, y se regresa SOLO a la bandeja para seguir
-    // con el siguiente — sin que el admin tenga que ir a buscarla a mano cada vez.
-    if(_maqReporteOpEnUso){
-      const idUsado=_maqReporteOpEnUso; _maqReporteOpEnUso=null;
-      try{ await updateDoc(doc(db,'reportesOperador039',idUsado), {estado:'usado', usadoTs:Date.now()}); }
-      catch(e){ console.warn('marcar reporte usado:',e); }
-      _maqLimpiarForm();
-      switchMaqSub('reportesop');
-      toast('✓ Guardado — siguiente reporte pendiente','ok');
-    } else {
-      _maqLimpiarForm();
-    }
+    _maqLimpiarForm();
   }catch(e){ console.warn('guardarBitacoraMaquinaria:',e); toast('Error al guardar (revisa conexión)','err'); }
 };
 function _maqLimpiarForm(){
@@ -4557,27 +4502,9 @@ function _maqLimpiarCamposEvaluacion(){
   const cont=document.getElementById('maqEvalOperadorContent'); const arrow=document.getElementById('maqEvalOperadorArrow');
   if(cont) cont.style.display='none'; if(arrow) arrow.textContent='▾';
 }
-let _maqSubsOcultosPorMenu=[];
 window.toggleMaqMasMenu=function(){
   const m=document.getElementById('maqMasMenu'); if(!m) return;
-  const abriendo = m.style.display==='none';
-  const subviews=['maqSubBitacora','maqSubHistorial','maqSubCerrados','maqSubReportesOp','maqSubResumen','maqSubDetalle'];
-  if(abriendo){
-    // Oculta temporalmente lo que esté visible (Registrar día, Historial, etc.) mientras el menú
-    // está abierto, para que no se quede encimado debajo — antes se veían las dos cosas juntas.
-    _maqSubsOcultosPorMenu=[];
-    subviews.forEach(id=>{
-      const el=document.getElementById(id);
-      if(el && el.style.display!=='none'){ _maqSubsOcultosPorMenu.push(id); el.style.display='none'; }
-    });
-    m.style.display='';
-  } else {
-    m.style.display='none';
-    // Si cierras el menú sin elegir nada nuevo (le diste otra vez a "Más"), regresa lo que
-    // tenías visible antes de abrirlo.
-    _maqSubsOcultosPorMenu.forEach(id=>{ const el=document.getElementById(id); if(el) el.style.display=''; });
-    _maqSubsOcultosPorMenu=[];
-  }
+  m.style.display = m.style.display==='none' ? '' : 'none';
 };
 // Se usa en TODOS los botones del menú "Más" (los que cambian de pestaña Y los que no) para
 // garantizar que el menú se cierre siempre, sin importar desde dónde se le dio clic — antes solo
@@ -4585,9 +4512,6 @@ window.toggleMaqMasMenu=function(){
 // todo el contenido de abajo (Registrar día / Historial aparecían mucho más abajo de lo normal).
 window.cerrarMaqMasMenu=function(){
   const m=document.getElementById('maqMasMenu'); if(m) m.style.display='none';
-  // No se restaura nada aquí — si esto se llamó desde switchMaqSub, esa función ya va a fijar
-  // la visibilidad correcta de la vista nueva justo después.
-  _maqSubsOcultosPorMenu=[];
 };
 window.switchMaqSub=function(cual){
   cerrarMaqMasMenu();
@@ -4596,7 +4520,6 @@ window.switchMaqSub=function(cual){
   document.getElementById('maqSubCerrados').style.display = cual==='cerrados' ? '' : 'none';
   document.getElementById('maqSubReportesOp').style.display = cual==='reportesop' ? '' : 'none';
   document.getElementById('maqSubResumen').style.display = cual==='resumen' ? '' : 'none';
-  document.getElementById('maqSubDetalle').style.display = cual==='detalle' ? '' : 'none';
   document.getElementById('btnMaqSubBitacora').style.borderColor = cual==='bitacora' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubHistorial').style.borderColor = cual==='historial' ? 'var(--gold)' : 'var(--bord)';
   document.getElementById('btnMaqSubCerrados').style.borderColor = cual==='cerrados' ? 'var(--gold)' : 'var(--bord)';
@@ -4606,7 +4529,6 @@ window.switchMaqSub=function(cual){
   if(cual==='cerrados') renderMaqCerrados();
   if(cual==='reportesop') renderMaqReportesOp();
   if(cual==='resumen') renderMaqResumen();
-  if(cual==='detalle') renderMaqDetalle();
 };
 // Vista SOLO INFORMATIVA de todos los equipos de la obra — nada se abre ni se edita al tocar,
 // es para ver de un vistazo horómetro inicial/actual, horas y diésel acumulados EN ESTA OBRA,
@@ -4622,11 +4544,8 @@ function renderMaqResumen(){
     const horAct=_maqUltimoHorometro(eq._id);
     const problemas=[];
     bitsObra.forEach(b=>(b.incidencias||[]).forEach(i=>{ if(!i.resuelto) problemas.push(i); }));
-    return `<div onclick="abrirDetalleMaquina('${eq._id}')" style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:14px;margin-bottom:10px;cursor:pointer" title="Toca para ver el detalle completo de esta máquina">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <div style="font-size:16px;font-weight:800;color:var(--gold)">🚜 ${eq.nombre}${eq.numero?' · '+eq.numero:''}</div>
-        <div style="font-size:11px;color:var(--blue)">Ver detalle ▸</div>
-      </div>
+    return `<div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:14px;margin-bottom:10px">
+      <div style="font-size:16px;font-weight:800;color:var(--gold);margin-bottom:8px">🚜 ${eq.nombre}${eq.numero?' · '+eq.numero:''}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <div style="font-size:13px;color:var(--txt)">Horómetro inicial (obra)<br><b style="font-size:15px">${eq.horometroLlegada!=null?eq.horometroLlegada:'—'}</b></div>
         <div style="font-size:13px;color:var(--txt)">Horómetro actual<br><b style="font-size:15px">${horAct!=null?horAct:'—'}</b></div>
@@ -4640,95 +4559,6 @@ function renderMaqResumen(){
     </div>`;
   }).join('');
 }
-// ═══ DETALLE POR MÁQUINA (drill-down desde Resumen) ═══
-// Vista "ejecutiva" de una sola máquina: horas por día (gráfica de barras simple), rendimiento
-// (volumen/hora), y lista de problemas resueltos/pendientes — para ver de un vistazo cómo va
-// esa máquina, sin tener que ir registro por registro en el Historial.
-window.abrirDetalleMaquina=function(equipoId){
-  const eq=_equipos.find(e=>e._id===equipoId); if(!eq) return;
-  _maqDetalleEquipoId=equipoId;
-  switchMaqSub('detalle');
-};
-function renderMaqDetalle(){
-  const body=document.getElementById('maqDetalleBody'); if(!body) return;
-  const eq=_equipos.find(e=>e._id===_maqDetalleEquipoId);
-  if(!eq){ body.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">Selecciona una máquina desde Resumen.</div>'; return; }
-  const bits=_bitacoras.filter(b=>b.equipoId===eq._id && (b.obra||'039')===obraActiva).sort((a,b)=>(a.fecha||'').localeCompare(b.fecha||''));
-  const horasTotal=bits.reduce((s,b)=>s+(b.horasTrabajadas||0),0);
-  const volTotal=bits.reduce((s,b)=>s+(b.volumenAtendido||0),0);
-  const dieselTotal=bits.reduce((s,b)=>s+(b.litrosDieselTotal||0),0);
-  const rendGeneral = horasTotal>0 ? (volTotal/horasTotal) : null;
-  const horAct=_maqUltimoHorometro(eq._id);
-
-  // Gráfica simple de barras (horas por día), últimos 14 días con registro — cada barra se puede
-  // tocar para abrir ese día directo en modo edición, por si algo se ve mal (como un horómetro
-  // que no cuadra) y lo quieres corregir ahí mismo, sin tener que buscarlo en el Historial.
-  const ultimos=bits.slice(-14);
-  const maxHoras=Math.max(1, ...ultimos.map(b=>b.horasTrabajadas||0));
-  const barras = ultimos.length ? `<div style="display:flex;align-items:flex-end;gap:4px;height:90px;margin-bottom:6px;overflow-x:auto">
-    ${ultimos.map(b=>{
-      const h=b.horasTrabajadas||0;
-      const alturaPx=Math.max(3, Math.round((h/maxHoras)*80));
-      return `<div onclick="_maqEditarBitacoraDesdeGrafica('${b._id}')" style="display:flex;flex-direction:column;align-items:center;flex-shrink:0;width:34px;cursor:pointer" title="${b.fecha}: ${h} hrs — toca para editar este día">
-        <div style="font-size:9px;color:var(--muted);margin-bottom:2px">${h||''}</div>
-        <div style="width:20px;height:${alturaPx}px;background:var(--gold);border-radius:3px 3px 0 0"></div>
-      </div>`;
-    }).join('')}
-  </div>
-  <div style="display:flex;gap:4px;overflow-x:auto;margin-bottom:14px">
-    ${ultimos.map(()=>`<div style="width:34px;flex-shrink:0"></div>`).join('')}
-  </div>` : '<div style="font-size:12px;color:var(--muted);margin-bottom:14px">Sin días registrados todavía.</div>';
-  // Fechas debajo de las barras (fila aparte para no romper alineación)
-  const fechasFila = ultimos.length ? `<div style="display:flex;gap:4px;overflow-x:auto;margin-top:-10px;margin-bottom:14px">
-    ${ultimos.map(b=>`<div onclick="_maqEditarBitacoraDesdeGrafica('${b._id}')" style="width:34px;flex-shrink:0;font-size:8px;color:var(--blue);text-align:center;cursor:pointer">${(b.fecha||'').slice(5)}</div>`).join('')}
-  </div>` : '';
-
-  // Problemas: resueltos vs pendientes, con las últimas notas
-  const problemas=[];
-  bits.forEach(b=>(b.incidencias||[]).forEach(i=>problemas.push({...i, fecha:b.fecha})));
-  problemas.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||''));
-  const pendientes=problemas.filter(p=>!p.resuelto);
-  const resueltos=problemas.filter(p=>p.resuelto);
-
-  body.innerHTML = `
-    <button onclick="switchMaqSub('resumen')" style="background:none;border:none;color:var(--blue);font-size:13px;font-weight:700;cursor:pointer;padding:0;margin-bottom:12px">◂ Volver a Resumen</button>
-    <div style="font-size:19px;font-weight:800;color:var(--gold);margin-bottom:4px">🚜 ${eq.nombre}${eq.numero?' · '+eq.numero:''}</div>
-    <div style="font-size:12px;color:var(--muted);margin-bottom:16px">Llegó: ${eq.fechaLlegada||'—'} · Horómetro llegada: ${eq.horometroLlegada!=null?eq.horometroLlegada:'—'} · Renta diaria: $${(eq.costoRentaDiario||0).toLocaleString('es-MX')}</div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px">
-      <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px"><div style="font-size:11px;color:var(--muted)">Horómetro actual</div><div style="font-size:20px;font-weight:800;color:var(--txt)">${horAct!=null?horAct:'—'}</div></div>
-      <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px"><div style="font-size:11px;color:var(--muted)">Horas totales</div><div style="font-size:20px;font-weight:800;color:var(--txt)">${horasTotal.toFixed(1)} hrs</div></div>
-      <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px"><div style="font-size:11px;color:var(--muted)">Rendimiento general</div><div style="font-size:20px;font-weight:800;color:var(--gold)">${rendGeneral!=null?rendGeneral.toFixed(2)+' m³/hr':'—'}</div></div>
-      <div style="background:var(--surf);border:1px solid var(--bord);border-radius:10px;padding:12px"><div style="font-size:11px;color:var(--muted)">Diésel acumulado</div><div style="font-size:20px;font-weight:800;color:var(--txt)">${dieselTotal.toFixed(0)} L</div></div>
-    </div>
-
-    <div style="font-size:14px;font-weight:800;color:var(--txt);margin-bottom:6px">📊 Horas trabajadas por día (últimos ${ultimos.length})</div>
-    ${barras}${fechasFila}
-
-    <div style="font-size:14px;font-weight:800;color:var(--txt);margin-bottom:6px">🔧 Estado general</div>
-    <div style="background:${pendientes.length?'rgba(220,38,38,.1)':'rgba(34,197,94,.1)'};border:1px solid ${pendientes.length?'#dc2626':'#22c55e'};border-radius:10px;padding:12px;margin-bottom:16px">
-      <div style="font-size:14px;font-weight:700;color:${pendientes.length?'#dc2626':'#22c55e'}">${pendientes.length?`⚠️ ${pendientes.length} problema(s) pendiente(s)`:'✓ Sin problemas pendientes'} · ${resueltos.length} resuelto(s) en total</div>
-      ${pendientes.length?`<div style="font-size:12px;color:var(--txt);margin-top:6px">${pendientes.slice(0,5).map(p=>'• '+p.fecha+' — '+p.descripcion).join('<br>')}${pendientes.length>5?'<br>… y '+(pendientes.length-5)+' más':''}</div>`:''}
-    </div>
-
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button onclick="_maqIrARegistrarDesdeDetalle('${eq._id}')" style="flex:1;min-width:140px;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:700;cursor:pointer">📝 Registrar día de esta máquina</button>
-      <button onclick="_maqDetalleEquipoId='${eq._id}';reportePdfEquipo()" style="flex:1;min-width:140px;background:none;border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:10px;font-size:13px;font-weight:700;cursor:pointer">🖨️ Reporte PDF completo</button>
-    </div>
-  `;
-}
-window._maqIrARegistrarDesdeDetalle=function(equipoId){
-  switchMaqSub('bitacora');
-  const sel=document.getElementById('maq_equipo');
-  if(sel){ sel.value=equipoId; renderMaqEquipoInfo(); _maqAutorellenarOperador(); _maqCargarOAutorellenar(); }
-};
-// Al tocar una barra (o su fecha) en la gráfica del detalle, abre ESE día específico directo en
-// modo edición — para corregir algo raro (ej. un horómetro mal capturado) en el momento, sin
-// tener que ir a buscarlo manualmente en el Historial.
-window._maqEditarBitacoraDesdeGrafica=function(bitacoraId){
-  switchMaqSub('bitacora');
-  _maqEditarBitacora(bitacoraId);
-};
 // Bandeja de reportes que mandan los operadores desde su link público (sin login). Cada uno trae
 // horómetro, diésel y anomalía "en crudo" — aquí se revisan uno por uno: "Usar" pre-llena el
 // formulario del día para ESE equipo con esos datos (tú confirmas/ajustas y guardas normal), o
@@ -4741,48 +4571,21 @@ function renderMaqReportesOp(){
   if(badgeMini){ badgeMini.style.display=pendientes.length?'block':'none'; badgeMini.textContent=pendientes.length; }
   const body=document.getElementById('maqReportesOpBody'); if(!body) return;
   if(!pendientes.length){ body.innerHTML='<div style="font-size:12px;color:var(--muted);text-align:center;padding:20px">Sin reportes pendientes de operadores.</div>'; return; }
-  // Agrupa por equipo+fecha: si hay varios reportes pendientes de la MISMA máquina el MISMO día
-  // (típicamente por pruebas repetidas, o porque un operador entró desde 2 dispositivos distintos),
-  // solo se muestra el más reciente arriba, y los viejos quedan colapsados con un botón para
-  // descartarlos todos de un jalón — así la bandeja no se ve saturada de "duplicados".
-  const grupos={};
-  pendientes.forEach(r=>{ const k=(r.equipoId||r.equipoNombre)+'|'+r.fecha; if(!grupos[k]) grupos[k]=[]; grupos[k].push(r); });
-  const clavesOrdenadas=Object.keys(grupos).sort((a,b)=>{
-    const ma=Math.max(...grupos[a].map(r=>r.ts||0)), mb=Math.max(...grupos[b].map(r=>r.ts||0));
-    return mb-ma;
-  });
-  body.innerHTML = clavesOrdenadas.map(k=>{
-    const grupo=grupos[k].slice().sort((a,b)=>(b.ts||0)-(a.ts||0));
-    const r=grupo[0]; // el más reciente de ese equipo+día
-    const viejos=grupo.slice(1);
-    return `
+  body.innerHTML = pendientes.slice().sort((a,b)=>(b.ts||0)-(a.ts||0)).map(r=>`
     <div style="background:var(--surf);border:1px solid var(--gold);border-radius:10px;padding:10px 12px;margin-bottom:8px">
       <div style="font-weight:800;color:var(--gold);font-size:13px">${r.equipoNombre||'—'} · ${r.fecha||'—'}</div>
       <div style="font-size:11px;color:var(--muted);margin-top:4px">
         Operador (auto-reportado): ${r.operador||'—'} · Horómetro: ${r.horometroInicio!=null?r.horometroInicio:'—'} → ${r.horometroFin!=null?r.horometroFin:'—'} · Diésel: ${r.litrosDiesel!=null?r.litrosDiesel+' L':'—'}
       </div>
       ${r.anomalia?`<div style="font-size:11px;color:#f87171;margin-top:4px">⚠️ ${r.anomalia}</div>`:''}
-      ${viejos.length?`<div style="font-size:10px;color:var(--muted);margin-top:6px">🗂️ ${viejos.length} reporte(s) anterior(es) de esta misma máquina y día — probablemente pruebas repetidas. <button onclick="_maqDescartarViejos('${viejos.map(v=>v._id).join(',')}')" style="background:none;border:none;color:var(--blue);text-decoration:underline;cursor:pointer;font-size:10px;padding:0">descartar los ${viejos.length} de una vez</button></div>`:''}
       <div style="display:flex;gap:6px;margin-top:8px">
         <button onclick="_maqUsarReporteOp('${r._id}')" style="flex:1;background:var(--green);border:none;border-radius:6px;color:#0a0a0a;padding:6px;font-size:11px;font-weight:700;cursor:pointer">✓ Usar este reporte</button>
         <button onclick="_maqDescartarReporteOp('${r._id}')" style="flex:1;background:none;border:1px solid var(--bord);border-radius:6px;color:var(--muted);padding:6px;font-size:11px;cursor:pointer">✕ Descartar</button>
       </div>
-    </div>`;
-  }).join('');
+    </div>`).join('');
 }
-window._maqDescartarViejos=async function(idsCsv){
-  const ids=idsCsv.split(',').filter(Boolean);
-  const ok=confirm(`¿Descartar estos ${ids.length} reporte(s) repetido(s)?`);
-  if(!ok) return;
-  for(const id of ids){
-    try{ await updateDoc(doc(db,'reportesOperador039',id), {estado:'descartado', descartadoTs:Date.now(), motivo:'duplicado'}); }
-    catch(e){ console.warn('descartar duplicado:',id,e); }
-  }
-  toast(`✓ ${ids.length} reporte(s) repetido(s) descartado(s)`,'ok');
-};
 // "Usar" no guarda solo directo — pre-llena el formulario del día para que TÚ lo revises,
 // ajustes si hace falta, y guardes con el botón normal. Así nunca se sube nada sin que lo veas.
-let _maqReporteOpEnUso=null; // id del reportesOperador039 que se está usando ahorita, si aplica
 window._maqUsarReporteOp=function(id){
   const r=_reportesOp.find(x=>x._id===id); if(!r) return;
   switchMaqSub('bitacora');
@@ -4802,10 +4605,7 @@ window._maqUsarReporteOp=function(id){
     _maqRenderDiesel();
   }
   _maqCalcHoras();
-  // Ya NO se marca "usado" aquí — se marca hasta que el admin de verdad le da Guardar (ver
-  // guardarBitacoraMaquinaria). Así, si decide no guardar este reporte, se queda pendiente
-  // en vez de desaparecer de la bandeja sin haberse aplicado a nada.
-  _maqReporteOpEnUso=id;
+  updateDoc(doc(db,'reportesOperador039',id), {estado:'usado', usadoTs:Date.now()}).catch(e=>console.warn('marcar reporte usado:',e));
   toast('✓ Datos cargados en el formulario — revisa y guarda','ok');
 };
 window._maqDescartarReporteOp=async function(id){
