@@ -338,10 +338,17 @@ body.ppt-mode .ppt-watermark{display:block}
 <!-- PANEL DE FECHAS -->
 <div id="fechaPanel" style="display:none;background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-    <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">Selecciona uno o varios días para filtrar:</span>
-    <span id="fechaResumen" style="font-size:11px;color:var(--txt3)"></span>
+    <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">1. Elige el mes</span>
+    <button class="f-chip" onclick="toggleFechaPanel()" style="border-color:#94a3b8;color:#475569">✓ Listo, cerrar</button>
   </div>
-  <div id="filtFechas" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+  <div id="filtMeses" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
+  <div id="filtDiasWrap" style="display:none">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+      <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">2. O elige un día específico de ese mes</span>
+      <span id="fechaResumen" style="font-size:11px;color:var(--txt3)"></span>
+    </div>
+    <div id="filtFechas" style="display:flex;flex-wrap:wrap;gap:6px"></div>
+  </div>
 </div>
 
 <!-- PANEL DE SECCIONES -->
@@ -695,13 +702,16 @@ function setSyncErr(){
   document.getElementById('syncChip').className='sync-chip err';
 }
 
+let _mesExpandido=null; // qué mes tiene sus días desplegados abajo (null = ninguno, solo meses visibles)
 function buildFechaFilter(){
   const fechas=[...new Set(allRecs.map(r=>r.fecha))].sort((a,b)=>b.localeCompare(a));
-  const cont=document.getElementById('filtFechas'); if(!cont) return;
+  const contM=document.getElementById('filtMeses'); if(!contM) return;
+  const contD=document.getElementById('filtFechas');
   const sel=filtros.fecha, todas=(sel==='all');
   const chip=(active,onclick,txt)=>`<button class="f-chip${active?' active':''}" onclick="${onclick}">${txt}</button>`;
-  let html=chip(todas,'setFechasTodas()','📋 Todas');
-  // Botones rápidos por MES (junio, julio, agosto...) — seleccionan de un jalón todos los días de ese mes
+
+  // Nivel 1: "Todas" + un botón por MES — nunca se mezclan los días de todos los meses juntos.
+  let htmlM=chip(todas,'setFechasTodas()','📋 Todas');
   const NOMBRES_MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const meses=[...new Set(fechas.map(f=>f.slice(0,7)))].sort();
   meses.forEach(m=>{
@@ -709,15 +719,27 @@ function buildFechaFilter(){
     const label=NOMBRES_MES[mm-1].toUpperCase();
     const fechasMes=fechas.filter(f=>f.startsWith(m));
     const activo=Array.isArray(sel) && sel.length===fechasMes.length && fechasMes.every(f=>sel.includes(f));
-    html+=chip(activo, `setFechasMes('${m}')`, '🗓️ '+label);
+    htmlM+=chip(_mesExpandido===m, `_verDiasDeMes('${m}')`, '🗓️ '+label+(activo?' ✓':''));
   });
-  fechas.forEach(f=>{
-    const d=new Date(f+'T12:00:00');
-    const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric',month:'short'}).toUpperCase();
-    const on=Array.isArray(sel)&&sel.includes(f);
-    html+=chip(on,`toggleFechaFiltro('${f}')`,lb);
-  });
-  cont.innerHTML=html;
+  contM.innerHTML=htmlM;
+
+  // Nivel 2: días — SOLO del mes que se abrió, no los de toda la obra a la vez.
+  const wrapD=document.getElementById('filtDiasWrap');
+  if(_mesExpandido){
+    if(wrapD) wrapD.style.display='';
+    const fechasMes=fechas.filter(f=>f.startsWith(_mesExpandido));
+    let htmlD=chip(Array.isArray(sel)&&sel.length===fechasMes.length&&fechasMes.every(f=>sel.includes(f)), `setFechasMes('${_mesExpandido}')`, '✓ Todo el mes');
+    fechasMes.forEach(f=>{
+      const d=new Date(f+'T12:00:00');
+      const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric'}).toUpperCase();
+      const on=Array.isArray(sel)&&sel.includes(f);
+      htmlD+=chip(on,`toggleFechaFiltro('${f}')`,lb);
+    });
+    if(contD) contD.innerHTML=htmlD;
+  } else {
+    if(wrapD) wrapD.style.display='none';
+  }
+
   // Etiqueta del botón + resumen según selección
   const nSel=Array.isArray(sel)?sel.length:0;
   const btn=document.getElementById('btnFechas');
@@ -735,6 +757,11 @@ function buildFechaFilter(){
     }
   }
 }
+// Abre/cierra la lista de días de un mes específico — clic otra vez en el mismo mes la cierra.
+window._verDiasDeMes=function(m){
+  _mesExpandido = (_mesExpandido===m) ? null : m;
+  buildFechaFilter();
+};
 window.toggleFechaPanel=function(){
   const p=document.getElementById('fechaPanel');
   if(p) p.style.display = p.style.display==='none' ? 'block' : 'none';
@@ -1131,7 +1158,7 @@ function buildTendencia(recs){
     <div class="kpi ${diasFalt>0?'gold':'green'}"><span class="kpi-icon">⏳</span><div class="kpi-label">Días faltantes</div><div class="kpi-value">${diasFalt>0?diasFalt:'✓'}</div><div class="kpi-sub">al ritmo actual</div></div>
     <div class="kpi"><span class="kpi-icon">🏁</span><div class="kpi-label">Término estimado</div><div class="kpi-value" style="font-size:18px">${fechaFin}</div><div class="kpi-sub">${faltVol.toFixed(0)} m³ · ${faltTon.toFixed(0)} ton faltan</div></div>
   </div>
-  <div style="font-size:10px;color:var(--txt3);margin:-4px 0 4px;padding-left:2px">La curva de proyección al ritmo actual está integrada en la <b>Curva S</b> de abajo (programado vs real vs proyección).${extraTot>0?` · Faltante y término estimado ya descuentan <b style="color:#a78bfa">+${extraTot.toFixed(1)} m³ extra</b> ya ejecutado.`:''}</div>`;
+  <div style="font-size:10px;color:var(--txt3);margin:10px 0 18px;padding-left:2px;line-height:1.5">La curva de proyección al ritmo actual está integrada en la <b>Curva S</b> de abajo (programado vs real vs proyección).${extraTot>0?` · Faltante y término estimado ya descuentan <b style="color:#a78bfa">+${extraTot.toFixed(1)} m³ extra</b> ya ejecutado.`:''}</div>`;
 }
 
 function buildHorarios(recs){
@@ -2197,13 +2224,28 @@ function buildCharts(fechas,labels,acums,byDate){
     </svg>`;
   }
 
-  // ── GRÁFICA 2: Línea de volumen acumulado vs catálogo (SVG puro) ──
+  // ── GRÁFICA 2: Línea de volumen acumulado vs catálogo (SVG puro) — POR SEMANA, no por día.
+  // Con 40+ días las etiquetas se amontonaban unas sobre otras y no se alcanzaba a leer nada.
+  // Agrupar por semana (toma el acumulado al final de cada semana) da el mismo panorama de
+  // tendencia con una cantidad de puntos que sí cabe legible en pantalla.
   const acumEl = document.getElementById('chartAcum');
   if(acumEl && fechas.length > 0){
+    const semanas={};
+    fechas.forEach((f,i)=>{
+      const d=new Date(f+'T12:00:00');
+      const dow=d.getDay();
+      const lunes=new Date(d); lunes.setDate(d.getDate()-((dow+6)%7));
+      const key=lunes.toISOString().slice(0,10);
+      semanas[key]=acums[i]; // fechas viene ascendente, así que el último valor por semana es el correcto
+    });
+    const semKeys=Object.keys(semanas).sort();
+    const semLabels=semKeys.map(k=>{ const d=new Date(k+'T12:00:00'); return d.toLocaleDateString('es-MX',{day:'numeric',month:'short'}); });
+    const semVals=semKeys.map(k=>semanas[k]);
+
     const W=acumEl.offsetWidth||400, H=180, PAD=40;
     const maxVal = TOT_VOL * 1.1;
-    const pts = acums.map((v,i)=>{
-      const x = PAD + (i/(Math.max(fechas.length-1,1))) * (W-PAD*1.5);
+    const pts = semVals.map((v,i)=>{
+      const x = PAD + (i/(Math.max(semVals.length-1,1))) * (W-PAD*1.5);
       const y = H-PAD - (v/maxVal)*(H-PAD*1.5);
       return {x,y,v};
     });
@@ -2235,8 +2277,8 @@ function buildCharts(fechas,labels,acums,byDate){
     let circles='', xlbls='';
     pts.forEach((p,i)=>{
       circles += `<circle cx="${p.x}" cy="${p.y}" r="4" fill="#1d4ed8" stroke="#fff" stroke-width="1.5"/>`;
-      circles += `<text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="9" fill="#334155" font-weight="600">${p.v.toFixed(1)}</text>`;
-      xlbls += `<text x="${p.x}" y="${H-4}" text-anchor="middle" font-size="9" fill="#64748b">${labels[i]}</text>`;
+      circles += `<text x="${p.x}" y="${p.y-8}" text-anchor="middle" font-size="9" fill="#334155" font-weight="600">${p.v.toFixed(0)}</text>`;
+      xlbls += `<text x="${p.x}" y="${H-4}" text-anchor="middle" font-size="9" fill="#64748b" transform="rotate(-35 ${p.x} ${H-4})">${semLabels[i]}</text>`;
     });
 
     acumEl.innerHTML = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
