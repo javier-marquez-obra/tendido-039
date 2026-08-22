@@ -361,6 +361,8 @@ body.ppt-mode .ppt-watermark{display:block}
     <button id="sec-rutas"    onclick="toggleSec('rutas')"    class="sec-btn">🗺️ Distancias planta</button>
     <button id="sec-tabla"    onclick="toggleSec('tabla')"    class="sec-btn">📋 Detalle de viajes</button>
     <button id="sec-gastos"   onclick="toggleSec('gastos')"   class="sec-btn">💵 Gastos ARMAQOP</button>
+    <button id="sec-espesor" onclick="toggleSec('espesor')" class="sec-btn">📏 Espesor de carpeta</button>
+    <button id="sec-balanceDias" onclick="toggleSec('balanceDias')" class="sec-btn">📅 Balance de días</button>
   </div>
 </div>
 
@@ -583,7 +585,9 @@ let secciones={
   faltante:false,
   rutas:true,
   tabla:true,
-  gastos:false
+  gastos:false,
+  espesor:false,
+  balanceDias:false
 };
 
 // ── FIREBASE ──
@@ -787,7 +791,7 @@ window.setTheme=function(t){
 // crudo de trabajo (tablas). Reutiliza el mismo sistema de secciones que ya existía (⚙️ Secciones),
 // nomás con un preset por modo — si algo no te gusta cómo quedó, lo sigues pudiendo ajustar fino
 // con ese botón de siempre.
-const SECCIONES_PRESENTACION=['kpis','avance','graficas','financiero','programa','faltante','gastos'];
+const SECCIONES_PRESENTACION=['kpis','avance','graficas','financiero','programa','faltante','gastos','espesor','balanceDias'];
 const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','cadenamiento','rutas'];
 window.setMode=function(m,el){
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
@@ -870,6 +874,71 @@ const _fmtMXNc = v => { // compacto: $23.6M / $263K / $850
   if(a>=1e3) return '$'+(v/1e3).toFixed(0)+'K';
   return '$'+Math.round(v);
 };
+// ── ESPESOR PROMEDIO DE CARPETA ──
+// Espesor real por viaje (ton/(área×densidad)×100, misma fórmula que ya usa el Excel exportado),
+// promediado solo entre los viajes clasificados como carpeta (3cm de O1, 5cm de O2). Los viajes con
+// varios conceptos mezclados se dejan fuera de este promedio (el área ahí es del viaje completo, no
+// por concepto, así que no se puede sacar un espesor confiable de esa fila).
+function buildEspesor(recs){
+  const solo=(r)=>!(r.conceptos&&r.conceptos.length>1);
+  const clas=(r)=> (r.conceptos&&r.conceptos.length===1) ? _keyDeConcepto(r.conceptos[0]) : (_keyFromLabel(r.concepto)||_keyHeur(r));
+  const grupos={carp3:[],carp5:[]};
+  recs.filter(solo).forEach(r=>{
+    const k=clas(r); if(k!=='carp3'&&k!=='carp5') return;
+    if(!(r.area>0)) return;
+    const esp=+(r.ton_recibidas/(r.area*DEN)*100).toFixed(2);
+    if(esp>0 && esp<15) grupos[k].push(esp); // filtro de sanidad: fuera de 0–15cm es dato mal capturado
+  });
+  const prom=(arr)=> arr.length ? +(arr.reduce((s,v)=>s+v,0)/arr.length).toFixed(2) : null;
+  const e3=prom(grupos.carp3), e5=prom(grupos.carp5);
+  const todos=[...grupos.carp3,...grupos.carp5];
+  const eTot=prom(todos);
+  return `
+  <div class="section-hdr">📏 Espesor real de carpeta</div>
+  <div class="kpi-grid">
+    <div class="kpi ${eTot==null?'':(Math.abs(eTot-3)<=0.5||Math.abs(eTot-5)<=0.5?'green':'gold')}"><span class="kpi-icon">📏</span><div class="kpi-label">Espesor promedio general</div><div class="kpi-value">${eTot!=null?eTot:'—'}</div><div class="kpi-sub">cm · ${todos.length} viaje(s) de carpeta</div></div>
+    <div class="kpi ${e3==null?'':(Math.abs(e3-3)<=0.5?'green':'gold')}"><span class="kpi-icon">🛣️</span><div class="kpi-label">Carpeta 3cm · O1</div><div class="kpi-value">${e3!=null?e3:'—'}</div><div class="kpi-sub">cm · meta 3.0 · ${grupos.carp3.length} viaje(s)</div></div>
+    <div class="kpi ${e5==null?'':(Math.abs(e5-5)<=0.5?'green':'gold')}"><span class="kpi-icon">🛣️</span><div class="kpi-label">Carpeta 5cm · O2</div><div class="kpi-value">${e5!=null?e5:'—'}</div><div class="kpi-sub">cm · meta 5.0 · ${grupos.carp5.length} viaje(s)</div></div>
+  </div>`;
+}
+
+// ── BALANCE DE DÍAS TRABAJADOS ──
+// Del inicio de obra (PROG_INICIO) a hoy, cuenta cuántos días naturales pasaron, cuántos tuvieron
+// al menos un viaje registrado, y lista las fechas SIN actividad — para poder revisarlas (puede ser
+// domingo/descanso, lluvia, espera de material, etc., mezclado todo junto; aquí solo se detecta el
+// hueco, la razón la juzga el superintendente).
+function buildBalanceDias(recs){
+  const diasConDatos=new Set(recs.map(r=>r.fecha).filter(Boolean));
+  const inicio=new Date(PROG_INICIO+'T12:00:00');
+  const hoy=new Date(); hoy.setHours(12,0,0,0);
+  const todasFechas=[], sinActividad=[];
+  for(let d=new Date(inicio); d<=hoy; d.setDate(d.getDate()+1)){
+    const f=d.toISOString().slice(0,10);
+    todasFechas.push(f);
+    if(!diasConDatos.has(f)) sinActividad.push({fecha:f, dow:d.getDay()});
+  }
+  const totalDias=todasFechas.length;
+  const trabajados=totalDias-sinActividad.length;
+  const pct=totalDias>0?(trabajados/totalDias*100).toFixed(1):'0';
+  const DOW=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+  const filasSin=sinActividad.slice().reverse().map(x=>{
+    const d=new Date(x.fecha+'T12:00:00');
+    return `<tr><td>${d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}</td><td>${DOW[x.dow]}</td></tr>`;
+  }).join('');
+  return `
+  <div class="section-hdr">📅 Balance de días trabajados</div>
+  <div class="kpi-grid">
+    <div class="kpi"><span class="kpi-icon">📆</span><div class="kpi-label">Días transcurridos</div><div class="kpi-value">${totalDias}</div><div class="kpi-sub">desde ${new Date(PROG_INICIO+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'})}</div></div>
+    <div class="kpi green"><span class="kpi-icon">✅</span><div class="kpi-label">Días trabajados</div><div class="kpi-value">${trabajados}</div><div class="kpi-sub">con al menos 1 viaje</div></div>
+    <div class="kpi ${sinActividad.length>0?'red':'green'}"><span class="kpi-icon">⛔</span><div class="kpi-label">Días sin actividad</div><div class="kpi-value">${sinActividad.length}</div><div class="kpi-sub">revisar abajo cuáles</div></div>
+    <div class="kpi ${parseFloat(pct)>=70?'green':'gold'}"><span class="kpi-icon">📊</span><div class="kpi-label">% de aprovechamiento</div><div class="kpi-value">${pct}%</div><div class="kpi-sub">días trabajados / transcurridos</div></div>
+  </div>
+  ${sinActividad.length ? `
+  <div class="card"><div class="card-hdr"><h4>📋 Fechas sin actividad registrada</h4><div class="meta">${sinActividad.length} día(s)</div></div>
+    <div class="tbl-wrap" style="max-height:260px;overflow-y:auto"><table><thead><tr><th>Fecha</th><th>Día</th></tr></thead><tbody>${filasSin}</tbody></table></div>
+  </div>` : `<div class="card"><div class="card-body" style="padding:18px;text-align:center;color:var(--txt3);font-size:13px">✓ No hay días sin actividad — se trabajó todos los días desde el inicio.</div></div>`}`;
+}
+
 // ── GASTOS ARMAQOP: lo que cobra por producir/colocar la mezcla, contra el volumen REAL (ton÷densidad) ──
 // Además compara contra lo que NOSOTROS le cobramos a SICT (catálogo E-7: geométrico + volumen extra),
 // para ver la utilidad por concepto.
@@ -1985,6 +2054,8 @@ function render(){
 
   <!-- GASTOS ARMAQOP -->
   ${secciones.gastos ? buildGastos(filtered) : ''}
+  ${secciones.espesor ? buildEspesor(filtered) : ''}
+  ${secciones.balanceDias ? buildBalanceDias(allRecs) : ''}
 
   <!-- ANÁLISIS DE TENDENCIA -->
   ${secciones.tendencia ? buildTendencia(filtered) : ''}
