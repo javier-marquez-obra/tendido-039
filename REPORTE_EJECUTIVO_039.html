@@ -567,21 +567,23 @@ function _favDe(r){
 let allRecs=[], filtered=[], records=[], charts={}, rutaActual=1, filtros={obra:'all',fecha:'all'};
 
 // Secciones visibles — todas activadas por defecto
+// Arranca en modo CAMPO (el botón activo por default en el HTML) — antes esto empezaba con TODO
+// en true, mezclando gráficas y tablas desde el primer render.
 let secciones={
-  kpis:true,
+  kpis:false,
   emulsion:true,
   tendencia:true,
   horarios:true,
-  avance:true,
-  financiero:true,
-  programa:true,
+  avance:false,
+  financiero:false,
+  programa:false,
   cadenamiento:true,
   camiones:true,
-  graficas:true,
-  faltante:true,
+  graficas:false,
+  faltante:false,
   rutas:true,
   tabla:true,
-  gastos:true
+  gastos:false
 };
 
 // ── FIREBASE ──
@@ -652,6 +654,12 @@ onAuthStateChanged(auth, user=>{
     const lb=document.getElementById('repLogoutBtn'); if(lb) lb.style.display='';
     startReportListener();
     startExtrasListener();
+    // Sincroniza los botones del panel "⚙️ Secciones" con el estado inicial (modo Campo) — si no,
+    // se ven todos "prendidos" aunque varias secciones ya arrancan apagadas.
+    Object.keys(secciones).forEach(k=>{
+      const btn=document.getElementById('sec-'+k);
+      if(btn) btn.classList.toggle('off', !secciones[k]);
+    });
   } else {
     if(lg) lg.style.display='flex';
   }
@@ -773,11 +781,26 @@ window.setTheme=function(t){
   let t='light'; try{ t=localStorage.getItem('rep039_theme')||'light'; }catch(e){}
   window.setTheme(t);
 })();
+// Qué secciones se ven en cada modo — antes CAMPO y PRESENTACIÓN mostraban EXACTAMENTE lo mismo,
+// solo cambiaba el estilo (más grande, sin filtros) — por eso se sentía repetido. Ahora sí son
+// contenidos distintos: Presentación = solo gráficas/resúmenes para proyectar; Campo = el detalle
+// crudo de trabajo (tablas). Reutiliza el mismo sistema de secciones que ya existía (⚙️ Secciones),
+// nomás con un preset por modo — si algo no te gusta cómo quedó, lo sigues pudiendo ajustar fino
+// con ese botón de siempre.
+const SECCIONES_PRESENTACION=['kpis','avance','graficas','financiero','programa','faltante','gastos'];
+const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','cadenamiento','rutas'];
 window.setMode=function(m,el){
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   if(m==='ppt') document.body.classList.add('ppt-mode');
   else document.body.classList.remove('ppt-mode');
+  const activas = m==='ppt' ? SECCIONES_PRESENTACION : SECCIONES_CAMPO;
+  Object.keys(secciones).forEach(k=>{
+    secciones[k] = activas.includes(k);
+    const btn=document.getElementById('sec-'+k);
+    if(btn) btn.classList.toggle('off', !secciones[k]);
+  });
+  applyFilters();
 };
 
 // ── VOLUMEN EXTRA (importado desde Excel en la app de campo: extras039) ──
