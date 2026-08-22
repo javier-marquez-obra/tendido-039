@@ -889,13 +889,14 @@ function startExtrasListener(){
   }catch(e){ console.warn('extras039 listener', e); }
 }
 // Reparte el volumen extra por clave de catálogo, respetando el filtro de obra.
-// El extra NO tiene fecha propia (import global sin día concreto), así que — igual que en la app de
-// campo — SOLO se suma cuando el filtro de fecha está en "Todas". Si filtras a uno o varios días
-// específicos, el extra no debe mezclarse ahí (aparecería RENIV/BACHEO en un día donde en realidad
-// solo se avanzó, por ejemplo, carpeta), para que el reporte coincida con lo que muestra la app.
-function calcExtras(){
+// El extra NO tiene fecha propia (import global sin día concreto). Por default, si filtras a días
+// específicos, no se mezcla en vistas que desglosan POR DÍA (para no atribuirlo a un día donde en
+// realidad no se ejecutó eso). Pero en vistas de TOTAL/acumulado (KPIs, Gastos, Financiero,
+// Tendencia) sí debe siempre contar — es dinero/volumen real que se cobra, filtres lo que filtres —
+// para eso existe el parámetro `siempre`.
+function calcExtras(siempre){
   const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
-  if(filtros.fecha!=='all') return e;
+  if(!siempre && filtros.fecha!=='all') return e;
   (_extras||[]).forEach(x=>{
     if(filtros.obra==='obra1' && +x.obra!==1) return;
     if(filtros.obra==='obra2' && +x.obra!==2) return;
@@ -1028,10 +1029,11 @@ function buildGastos(recs){
     return {k,label:c.label,obra:c.obra,vol:v,pu,gasto};
   });
 
-  // Cobro nuestro: catálogo E-7 = volumen GEOMÉTRICO de viajes + volumen EXTRA (mismo criterio que el
-  // resto del reporte: el extra solo cuenta si el filtro de fecha está en "Todas").
+  // Cobro nuestro: catálogo E-7 = volumen GEOMÉTRICO de viajes + volumen EXTRA — aquí SIEMPRE se
+  // incluye el extra sin importar el filtro de fecha, porque esta tabla es un TOTAL comparativo,
+  // no un desglose por día (así se ve el cobro/utilidad real completos, filtres lo que filtres).
   const execGeo=calcExec(recs);
-  const extrasExec=calcExtras();
+  const extrasExec=calcExtras(true);
   let totalCobro=0, totalVolCobro=0, totalUtil=0;
   const filasCmp=keys.map(k=>{
     const c=CAT[k];
@@ -1099,7 +1101,7 @@ function buildGastos(recs){
           <td style="padding:6px;text-align:right;font-weight:800;color:${totalUtil>=0?'#10b981':'#dc2626'}">${(totalUtil>=0?'$':'-$')+Math.abs(totalUtil).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
         </tr>
       </table>
-      ${filtros.fecha!=='all'?`<div style="font-size:10px;color:var(--gray);margin-top:8px">Nota: filtraste fechas específicas — el volumen extra no se incluye aquí (solo cuenta en la vista "Todas las fechas"), así que "Cobro" en este momento es solo geométrico de viajes de esos días.</div>`:''}
+      ${filtros.fecha!=='all'?`<div style="font-size:10px;color:var(--gray);margin-top:8px">Nota: el "Cobro" aquí siempre incluye el volumen extra completo (importado desde Excel/generadores), sin importar qué días tengas filtrados — es un total, no un desglose por día.</div>`:''}
     </div>
   </div>`;
 }
@@ -1156,8 +1158,9 @@ function buildTendencia(recs){
   if(nReal===0||volAcum<=0) return '';
   const volProm=volAcum/nReal, tonProm=tonAcum/nReal;
   // El volumen extra (Excel/generadores) ya está ejecutado: resta del faltante y de la fecha estimada,
-  // pero NO se mete al ritmo diario (volProm) para no inflar artificialmente el pace real.
-  const extraTot=Object.values(calcExtras()).reduce((s,v)=>s+v,0);
+  // pero NO se mete al ritmo diario (volProm) para no inflar artificialmente el pace real. Siempre
+  // cuenta aquí (total/proyección), sin importar el filtro de fecha.
+  const extraTot=Object.values(calcExtras(true)).reduce((s,v)=>s+v,0);
   const volAcumTotal=volAcum+extraTot;
   const metaVol=TOT_VOL, metaTon=+(TOT_VOL*DEN).toFixed(0);
   const faltVol=Math.max(0,metaVol-volAcumTotal), faltTon=Math.max(0,metaTon-tonAcum);
@@ -2048,7 +2051,7 @@ function render(){
   const longAcum=filtered.reduce((s,r)=>s+r.longitud,0);
   const emulAcum=filtered.reduce((s,r)=>s+(r.emulsion_lts||0),0);
   const exec=calcExec(filtered);
-  const extrasExec=calcExtras();
+  const extrasExec=calcExtras(true);
   const extraTotal=Object.values(extrasExec).reduce((s,v)=>s+v,0);
   Object.keys(exec).forEach(k=>{ exec[k]=+(exec[k]+(extrasExec[k]||0)).toFixed(3); });
   // m³ ganancia: ahora es el TOTAL de los 5 conceptos (geométrico+extra − real), no solo carpeta.
