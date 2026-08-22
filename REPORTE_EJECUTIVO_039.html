@@ -85,6 +85,8 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 /* ── KPI GRID ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 .kpi{background:var(--white);border-radius:var(--rad);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;border:1px solid transparent}
+body.ppt-mode .kpi{cursor:pointer;transition:box-shadow .15s,transform .15s}
+body.ppt-mode .kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-2px)}
 .kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
 .kpi.blue::after{background:linear-gradient(90deg,var(--blue),var(--blue2))}
 .kpi.green::after{background:linear-gradient(90deg,var(--green),#34d399)}
@@ -353,7 +355,10 @@ body.ppt-mode .ppt-watermark{display:block}
 
 <!-- PANEL DE SECCIONES -->
 <div id="secPanel" style="display:none;background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px">
-  <div style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px">Selecciona qué mostrar en el reporte:</div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+    <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">Selecciona qué mostrar en el reporte:</span>
+    <button class="f-chip" onclick="toggleSecciones()" style="border-color:#94a3b8;color:#475569">✓ Listo, cerrar</button>
+  </div>
   <div style="display:flex;flex-wrap:wrap;gap:8px">
     <button id="sec-kpis"     onclick="toggleSec('kpis')"     class="sec-btn">📈 Producción del día</button>
     <button id="sec-emulsion" onclick="toggleSec('emulsion')" class="sec-btn">🛢️ Análisis de emulsión</button>
@@ -710,7 +715,10 @@ function buildFechaFilter(){
   const sel=filtros.fecha, todas=(sel==='all');
   const chip=(active,onclick,txt)=>`<button class="f-chip${active?' active':''}" onclick="${onclick}">${txt}</button>`;
 
-  // Nivel 1: "Todas" + un botón por MES — nunca se mezclan los días de todos los meses juntos.
+  // Nivel 1: "Todas" + un botón por MES. Cada mes son en realidad 2 botones pegados: uno para
+  // marcar/quitar TODOS los días de ese mes de la selección (se pueden combinar varios meses a la
+  // vez, no se borran entre sí), y una flechita aparte solo para desplegar/ocultar sus días — así
+  // las dos acciones (elegir y ver detalle) no dependen una de la otra.
   let htmlM=chip(todas,'setFechasTodas()','📋 Todas');
   const NOMBRES_MES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
   const meses=[...new Set(fechas.map(f=>f.slice(0,7)))].sort();
@@ -718,17 +726,21 @@ function buildFechaFilter(){
     const mm=+m.slice(5,7);
     const label=NOMBRES_MES[mm-1].toUpperCase();
     const fechasMes=fechas.filter(f=>f.startsWith(m));
-    const activo=Array.isArray(sel) && sel.length===fechasMes.length && fechasMes.every(f=>sel.includes(f));
-    htmlM+=chip(_mesExpandido===m, `_verDiasDeMes('${m}')`, '🗓️ '+label+(activo?' ✓':''));
+    const activo=Array.isArray(sel) && fechasMes.length>0 && fechasMes.every(f=>sel.includes(f));
+    htmlM+=`<div style="display:inline-flex;border:1px solid ${activo?'var(--blue)':'var(--gray2)'};border-radius:99px;overflow:hidden">
+      <button onclick="toggleMesCompleto('${m}')" style="border:none;padding:5px 10px 5px 14px;font-size:11px;font-weight:600;cursor:pointer;background:${activo?'var(--blue)':'var(--white)'};color:${activo?'#fff':'var(--txt3)'}">🗓️ ${label}${activo?' ✓':''}</button>
+      <button onclick="_verDiasDeMes('${m}')" title="Ver días de ${label.toLowerCase()}" style="border:none;border-left:1px solid ${activo?'rgba(255,255,255,.3)':'var(--gray2)'};padding:5px 9px;font-size:11px;cursor:pointer;background:${activo?'var(--blue)':'var(--white)'};color:${activo?'#fff':'var(--txt3)'}">${_mesExpandido===m?'▴':'▾'}</button>
+    </div>`;
   });
   contM.innerHTML=htmlM;
 
-  // Nivel 2: días — SOLO del mes que se abrió, no los de toda la obra a la vez.
+  // Nivel 2: días — SOLO del mes que se abrió, no los de toda la obra a la vez. El botón "Todo el
+  // mes" también es ahora un toggle (marca/quita), no un reemplazo que borra otros meses elegidos.
   const wrapD=document.getElementById('filtDiasWrap');
   if(_mesExpandido){
     if(wrapD) wrapD.style.display='';
     const fechasMes=fechas.filter(f=>f.startsWith(_mesExpandido));
-    let htmlD=chip(Array.isArray(sel)&&sel.length===fechasMes.length&&fechasMes.every(f=>sel.includes(f)), `setFechasMes('${_mesExpandido}')`, '✓ Todo el mes');
+    let htmlD=chip(Array.isArray(sel)&&fechasMes.length>0&&fechasMes.every(f=>sel.includes(f)), `toggleMesCompleto('${_mesExpandido}')`, '✓ Todo el mes');
     fechasMes.forEach(f=>{
       const d=new Date(f+'T12:00:00');
       const lb=d.toLocaleDateString('es-MX',{weekday:'short',day:'numeric'}).toUpperCase();
@@ -761,6 +773,23 @@ function buildFechaFilter(){
 window._verDiasDeMes=function(m){
   _mesExpandido = (_mesExpandido===m) ? null : m;
   buildFechaFilter();
+};
+// Marca/quita TODOS los días de un mes en la selección — se puede combinar con otros meses ya
+// elegidos (no los borra), y desmarca limpio si ya estaban todos marcados. Si venía de "Todas",
+// arranca una selección nueva desde cero con ese mes.
+window.toggleMesCompleto=function(m){
+  const fechas=[...new Set(allRecs.map(r=>r.fecha))];
+  const fechasMes=fechas.filter(f=>f.startsWith(m));
+  let sel = Array.isArray(filtros.fecha) ? filtros.fecha.slice() : [];
+  const todosDentro = fechasMes.length>0 && fechasMes.every(f=>sel.includes(f));
+  if(todosDentro){
+    sel = sel.filter(f=>!f.startsWith(m));
+  } else {
+    fechasMes.forEach(f=>{ if(!sel.includes(f)) sel.push(f); });
+    _mesExpandido=m; // para que veas de inmediato qué días quedaron marcados
+  }
+  filtros.fecha = sel;
+  buildFechaFilter(); applyFilters();
 };
 window.toggleFechaPanel=function(){
   const p=document.getElementById('fechaPanel');
@@ -833,6 +862,16 @@ window.setMode=function(m,el){
   });
   applyFilters();
 };
+// En modo Presentación, tocar cualquier tarjeta de número (KPI) te manda a Campo para ver el
+// detalle real detrás de ese número — un solo listener delegado, funciona con CUALQUIER tarjeta
+// KPI de cualquier sección, sin tener que engancharlo una por una en cada función que las genera.
+document.addEventListener('click', function(e){
+  if(!document.body.classList.contains('ppt-mode')) return;
+  const kpi=e.target.closest && e.target.closest('.kpi');
+  if(!kpi) return;
+  const btnCampo=document.querySelectorAll('.mode-btn')[0];
+  if(btnCampo) setMode('field', btnCampo);
+});
 
 // ── VOLUMEN EXTRA (importado desde Excel en la app de campo: extras039) ──
 // Mismo criterio que la app de campo: geométrico puro, se suma al total contra catálogo E-7,
@@ -930,16 +969,24 @@ function buildEspesor(recs){
 }
 
 // ── BALANCE DE DÍAS TRABAJADOS ──
-// Del inicio de obra (PROG_INICIO) a hoy, cuenta cuántos días naturales pasaron, cuántos tuvieron
-// al menos un viaje registrado, y lista las fechas SIN actividad — para poder revisarlas (puede ser
-// domingo/descanso, lluvia, espera de material, etc., mezclado todo junto; aquí solo se detecta el
-// hueco, la razón la juzga el superintendente).
-function buildBalanceDias(recs){
-  const diasConDatos=new Set(recs.map(r=>r.fecha).filter(Boolean));
-  const inicio=new Date(PROG_INICIO+'T12:00:00');
-  const hoy=new Date(); hoy.setHours(12,0,0,0);
+// Por default (sin filtro, "Todas") es del inicio de obra a hoy. Si eliges un mes o días
+// específicos, el rango se ajusta a lo seleccionado — así puedes ver el balance de agosto solo,
+// por ejemplo, en vez de siempre el acumulado completo del proyecto.
+function _rangoBalanceDias(){
+  const hoyStr=new Date().toISOString().slice(0,10);
+  if(filtros.fecha==='all') return [PROG_INICIO, hoyStr];
+  const sel=Array.isArray(filtros.fecha)?filtros.fecha:[];
+  if(!sel.length) return [PROG_INICIO, hoyStr];
+  const ordenado=sel.slice().sort();
+  return [ordenado[0], ordenado[ordenado.length-1] > hoyStr ? hoyStr : ordenado[ordenado.length-1]];
+}
+function buildBalanceDias(recsAll){
+  const [inicioStr, finStr] = _rangoBalanceDias();
+  const diasConDatos=new Set(recsAll.map(r=>r.fecha).filter(Boolean));
+  const inicio=new Date(inicioStr+'T12:00:00');
+  const fin=new Date(finStr+'T12:00:00');
   const todasFechas=[], sinActividad=[];
-  for(let d=new Date(inicio); d<=hoy; d.setDate(d.getDate()+1)){
+  for(let d=new Date(inicio); d<=fin; d.setDate(d.getDate()+1)){
     const f=d.toISOString().slice(0,10);
     todasFechas.push(f);
     if(!diasConDatos.has(f)) sinActividad.push({fecha:f, dow:d.getDay()});
@@ -952,13 +999,14 @@ function buildBalanceDias(recs){
     const d=new Date(x.fecha+'T12:00:00');
     return `<tr><td>${d.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'})}</td><td>${DOW[x.dow]}</td></tr>`;
   }).join('');
+  const rangoTxt = filtros.fecha==='all' ? `desde ${new Date(inicioStr+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'})}` : `${new Date(inicioStr+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'})} – ${new Date(finStr+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'})}`;
   return `
-  <div class="section-hdr">📅 Balance de días trabajados</div>
+  <div class="section-hdr">📅 Balance de días trabajados${filtros.fecha!=='all'?' — periodo filtrado':''}</div>
   <div class="kpi-grid">
-    <div class="kpi"><span class="kpi-icon">📆</span><div class="kpi-label">Días transcurridos</div><div class="kpi-value">${totalDias}</div><div class="kpi-sub">desde ${new Date(PROG_INICIO+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short'})}</div></div>
+    <div class="kpi"><span class="kpi-icon">📆</span><div class="kpi-label">Días del periodo</div><div class="kpi-value">${totalDias}</div><div class="kpi-sub">${rangoTxt}</div></div>
     <div class="kpi green"><span class="kpi-icon">✅</span><div class="kpi-label">Días trabajados</div><div class="kpi-value">${trabajados}</div><div class="kpi-sub">con al menos 1 viaje</div></div>
     <div class="kpi ${sinActividad.length>0?'red':'green'}"><span class="kpi-icon">⛔</span><div class="kpi-label">Días sin actividad</div><div class="kpi-value">${sinActividad.length}</div><div class="kpi-sub">revisar abajo cuáles</div></div>
-    <div class="kpi ${parseFloat(pct)>=70?'green':'gold'}"><span class="kpi-icon">📊</span><div class="kpi-label">% de aprovechamiento</div><div class="kpi-value">${pct}%</div><div class="kpi-sub">días trabajados / transcurridos</div></div>
+    <div class="kpi ${parseFloat(pct)>=70?'green':'gold'}"><span class="kpi-icon">📊</span><div class="kpi-label">% de aprovechamiento</div><div class="kpi-value">${pct}%</div><div class="kpi-sub">días trabajados / periodo</div></div>
   </div>
   ${sinActividad.length ? `
   <div class="card"><div class="card-hdr"><h4>📋 Fechas sin actividad registrada</h4><div class="meta">${sinActividad.length} día(s)</div></div>
