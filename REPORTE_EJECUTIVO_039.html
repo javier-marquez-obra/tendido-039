@@ -334,6 +334,9 @@ body.ppt-mode .ppt-watermark{display:block}
   <button class="f-chip active" id="fr-1" onclick="setRuta(1,this)">Provisional</button>
   <button class="f-chip" id="fr-2" onclick="setRuta(2,this)">Libramiento</button>
   <button class="f-chip" onclick="toggleSecciones()" style="margin-left:8px;border-color:#a78bfa;color:#7c3aed">⚙️ Secciones</button>
+  <span class="f-label" style="margin-left:8px">Volumen:</span>
+  <button class="f-chip" id="btnSoloReal" onclick="setVistaExtra(false)" style="border-color:#16a34a;color:#16a34a" title="Solo lo capturado viaje por viaje, sin el Excel de extras">🚚 Solo real</button>
+  <button class="f-chip active" id="btnConExtra" onclick="setVistaExtra(true)" style="border-color:#7c3aed;color:#7c3aed" title="Incluye el volumen extra importado por Excel — lo que se cobra a SICT">📋 Con extra (cobro)</button>
   <span class="f-time" id="lastTime">—</span>
 </div>
 
@@ -367,7 +370,6 @@ body.ppt-mode .ppt-watermark{display:block}
     <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
     <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
     <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
-    <button id="sec-cadenamiento" onclick="toggleSec('cadenamiento')" class="sec-btn">🛣️ Cadenamiento obra</button>
     <button id="sec-graficas" onclick="toggleSec('graficas')" class="sec-btn">📊 Gráficas</button>
     <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
     <button id="sec-rutas"    onclick="toggleSec('rutas')"    class="sec-btn">🗺️ Distancias planta</button>
@@ -570,7 +572,10 @@ function _buildLarguilloSegs(recs){
       if(!(b>a)) return;
       const side=ladoDeCarril(c.carril||v.carril);
       if(!side){ sinCarril.push(`vj#${v.num_viaje_dia} (${(v.fecha||'').split('-').reverse().join('/').slice(0,5)}) carril "${c.carril||v.carril||'—'}"`); return; }
-      const key=_keyDeConcepto(c)||_keyFromLabel(c.label)||_keyHeur(v);
+      // Antes usaba _keyHeur(v) con el VIAJE completo — si un viaje traía varios conceptos con
+      // cadenamientos/espesores distintos, todos se clasificaban con el dato del primero. Ahora usa
+      // el concepto específico (c), correcto para viajes multi-concepto.
+      const key=_keyDeConcepto(c)||_keyFromLabel(c.label)||_keyHeur(c);
       const tipo=_tipoDeKey(key);
       const area=+(c.area||0)||((b-a)*(+(c.ancho||0)));
       const espTeo=+(c.esp_teorico||0);
@@ -581,6 +586,20 @@ function _buildLarguilloSegs(recs){
       segs.push({a,b,side,carril:(c.carril||v.carril||''),num:v.num_viaje_dia,placas:v.placas||'',fecha:v.fecha||'',tipo,area,espTeo,espReal,volGeo,volReal});
     });
   });
+  // Volumen EXTRA (Excel/generadores) — solo se dibuja si el selector está en "Con extra (cobro)".
+  // Son bloques sin viaje/placas asociados (el superintendente los cargó directo por Excel para
+  // completar lo que sí se cobra a SICT aunque no siempre haya pasado por un viaje individual).
+  if(_verConExtra){
+    (_extras||[]).forEach(x=>{
+      if(x.kde==null||x.ka==null) return;
+      const a=Math.min(x.kde,x.ka), b=Math.max(x.kde,x.ka); if(!(b>a)) return;
+      const side=ladoDe(x.lado||x.carril); if(!side) return;
+      const area=+(x.area||0);
+      segs.push({a,b,side,carril:(x.carril||x.lado||''),num:null,placas:'',fecha:'',
+        tipo:(x.tipo==='reniv'?'reniv':'bacheo'),area,espTeo:(area>0?(+(x.vol||0)/area*100):0),
+        espReal:0,volGeo:+(x.vol||0),volReal:0,extra:true});
+    });
+  }
   return {segs, sinCarril};
 }
 // Dibuja UN tramo (O1 o O2) — un track SVG por carril configurado, con los segmentos de carpeta
@@ -630,18 +649,23 @@ function _larguilloVista(segs,titulo,tramo){
     <span style="font-size:10px;color:var(--txt3)"><span style="display:inline-block;width:9px;height:9px;background:${RENIV_COL};border-radius:2px;margin-right:3px"></span>reniv (arriba) · <span style="display:inline-block;width:9px;height:9px;background:${BACHEO_COL};border-radius:2px;margin:0 3px 0 6px"></span>bacheo (abajo)</span>
     </div><div class="card-body" style="padding:10px 8px;overflow-x:auto">${svg}</div></div>`;
 }
-// Sección completa: agrupa por tramo (O1/O2) y dibuja cada uno.
+// Sección completa: agrupa por tramo (O1/O2) y dibuja cada uno. Si a alguno (bacheo, o toda la
+// OBRA 2) no le tocó nada en los días filtrados, se avisa explícito — para diferenciar "no hay
+// datos en este periodo" (normal) de que algo esté fallando.
 function buildLarguillo(recs){
   if(!recs.length) return '';
   const {segs,sinCarril}=_buildLarguilloSegs(recs);
   if(!segs.length) return `<div class="section-hdr">🛣️ Larguillo de obra</div><div class="card"><div class="card-body" style="padding:18px;text-align:center;color:var(--txt3);font-size:13px">Sin cadenamientos para graficar en los días filtrados.</div></div>`;
   const esO2=s=>s.a>=247000&&s.a<=252000;
   const o1=segs.filter(s=>!esO2(s)), o2=segs.filter(esO2);
+  const bachTotal=segs.filter(s=>s.tipo==='bacheo').length;
   const avisoCarril = sinCarril.length
     ? `<div style="font-size:10.5px;color:#dc2626;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:7px 9px;margin-top:6px">⚠️ ${sinCarril.length} viaje(s) no se grafican por carril no reconocido: ${sinCarril.slice(0,6).join(' · ')}${sinCarril.length>6?' …':''}</div>` : '';
-  return `<div class="section-hdr">🛣️ Larguillo de obra</div>
-    ${o1.length?_larguilloVista(o1,'OBRA 1 · MEX-200 · '+fmtCad(RANGO_TRAMO.O1.min)+' → '+fmtCad(RANGO_TRAMO.O1.max),'O1'):''}
-    ${o2.length?_larguilloVista(o2,'OBRA 2 · MEX-80 · '+fmtCad(RANGO_TRAMO.O2.min)+' → '+fmtCad(RANGO_TRAMO.O2.max),'O2'):''}
+  const avisoVacio=(txt)=>`<div class="card" style="margin-bottom:10px"><div class="card-body" style="padding:14px;text-align:center;color:var(--txt3);font-size:12px">${txt}</div></div>`;
+  return `<div class="section-hdr">🛣️ Larguillo de obra <span style="font-size:11px;font-weight:700;color:${_verConExtra?'#7c3aed':'#16a34a'};background:${_verConExtra?'rgba(124,58,237,.1)':'rgba(22,163,74,.1)'};border-radius:99px;padding:2px 10px;margin-left:6px">${_verConExtra?'📋 con extra (cobro)':'🚚 solo real'}</span></div>
+    ${o1.length?_larguilloVista(o1,'OBRA 1 · MEX-200 · '+fmtCad(RANGO_TRAMO.O1.min)+' → '+fmtCad(RANGO_TRAMO.O1.max),'O1'):avisoVacio('Sin datos de OBRA 1 en los días filtrados.')}
+    ${o2.length?_larguilloVista(o2,'OBRA 2 · MEX-80 · '+fmtCad(RANGO_TRAMO.O2.min)+' → '+fmtCad(RANGO_TRAMO.O2.max),'O2'):avisoVacio('Sin datos de OBRA 2 en los días filtrados — si esperabas ver algo aquí, prueba con "📋 Todas" en Fechas para confirmar si es del filtro o de la captura.')}
+    ${bachTotal===0?avisoVacio('Sin bacheo capturado en los días filtrados (ni en OBRA 1 ni en OBRA 2) — si esperabas ver bacheo, prueba con "📋 Todas" en Fechas.'):''}
     ${avisoCarril}`;
 }
 // ── VOLUMEN OFICIAL DEL REPORTE = GEOMÉTRICO (largo×ancho×espesor, campo c.volumen de cada concepto) ──
@@ -983,7 +1007,7 @@ window.setTheme=function(t){
 // nomás con un preset por modo — si algo no te gusta cómo quedó, lo sigues pudiendo ajustar fino
 // con ese botón de siempre.
 const SECCIONES_PRESENTACION=['kpis','avance','graficas','financiero','programa','faltante','gastos','espesor','balanceDias'];
-const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','cadenamiento','rutas','larguillo'];
+const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','rutas','larguillo'];
 let _modoActual='field';
 let _seccionesGuardadas={field:null, ppt:null}; // recuerda TUS ajustes manuales de cada modo por separado
 window.setMode=function(m,el){
@@ -1051,14 +1075,27 @@ function startEmulsionListener(){
     });
   }catch(e){ console.warn('emulsion039 listener', e); }
 }
+// Selector global: "Solo real" (lo que de verdad se ha tirado, viaje por viaje) vs "Con extra"
+// (incluye el volumen que subiste por Excel — renivelación/bacheo que no siempre pasa por viaje,
+// pero sí se cobra a SICT). Cambia esto y TODO el reporte (KPIs, larguillo, gastos, tendencia)
+// se recalcula bajo ese criterio, sin tener que tocar cada sección por separado.
+let _verConExtra=true;
+window.setVistaExtra=function(v){
+  _verConExtra=v;
+  document.getElementById('btnSoloReal').classList.toggle('active', !v);
+  document.getElementById('btnConExtra').classList.toggle('active', v);
+  applyFilters();
+};
 // Reparte el volumen extra por clave de catálogo, respetando el filtro de obra.
 // El extra NO tiene fecha propia (import global sin día concreto). Por default, si filtras a días
 // específicos, no se mezcla en vistas que desglosan POR DÍA (para no atribuirlo a un día donde en
 // realidad no se ejecutó eso). Pero en vistas de TOTAL/acumulado (KPIs, Gastos, Financiero,
 // Tendencia) sí debe siempre contar — es dinero/volumen real que se cobra, filtres lo que filtres —
-// para eso existe el parámetro `siempre`.
+// para eso existe el parámetro `siempre`. Y si el usuario eligió "Solo real" arriba, el extra no
+// cuenta en NADA, sin importar lo demás — para eso es el chequeo de _verConExtra al inicio.
 function calcExtras(siempre){
   const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
+  if(!_verConExtra) return e;
   if(!siempre && filtros.fecha!=='all') return e;
   (_extras||[]).forEach(x=>{
     if(filtros.obra==='obra1' && +x.obra!==1) return;
@@ -2330,7 +2367,6 @@ function render(){
   <!-- AVANCE vs PROGRAMA -->
   <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
 
-  ${secciones.cadenamiento ? buildSeccionCad() : ''}
   ${secciones.larguillo ? buildLarguillo(filtered) : ''}
 
   <!-- FALTANTE -->
