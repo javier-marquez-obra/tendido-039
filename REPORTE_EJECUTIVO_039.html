@@ -670,6 +670,7 @@ onAuthStateChanged(auth, user=>{
     const lb=document.getElementById('repLogoutBtn'); if(lb) lb.style.display='';
     startReportListener();
     startExtrasListener();
+    startEmulsionListener();
     // Sincroniza los botones del panel "⚙️ Secciones" con el estado inicial (modo Campo) — si no,
     // se ven todos "prendidos" aunque varias secciones ya arrancan apagadas.
     Object.keys(secciones).forEach(k=>{
@@ -849,14 +850,28 @@ window.setTheme=function(t){
 // con ese botón de siempre.
 const SECCIONES_PRESENTACION=['kpis','avance','graficas','financiero','programa','faltante','gastos','espesor','balanceDias'];
 const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','cadenamiento','rutas'];
+let _modoActual='field';
+let _seccionesGuardadas={field:null, ppt:null}; // recuerda TUS ajustes manuales de cada modo por separado
 window.setMode=function(m,el){
   document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
   if(m==='ppt') document.body.classList.add('ppt-mode');
   else document.body.classList.remove('ppt-mode');
-  const activas = m==='ppt' ? SECCIONES_PRESENTACION : SECCIONES_CAMPO;
+
+  // Antes de cambiar, guarda cómo dejaste las secciones en el modo que estás saliendo — así no se
+  // pierden tus ajustes manuales cuando regreses a él más tarde.
+  _seccionesGuardadas[_modoActual]={...secciones};
+  _modoActual=m;
+
+  if(_seccionesGuardadas[m]){
+    // Ya habías estado en este modo antes — recupera exactamente cómo lo dejaste tú.
+    secciones={..._seccionesGuardadas[m]};
+  } else {
+    // Primera vez en este modo en esta sesión — aplica el preset por default.
+    const activas = m==='ppt' ? SECCIONES_PRESENTACION : SECCIONES_CAMPO;
+    Object.keys(secciones).forEach(k=>{ secciones[k]=activas.includes(k); });
+  }
   Object.keys(secciones).forEach(k=>{
-    secciones[k] = activas.includes(k);
     const btn=document.getElementById('sec-'+k);
     if(btn) btn.classList.toggle('off', !secciones[k]);
   });
@@ -887,6 +902,20 @@ function startExtrasListener(){
       if(typeof render==='function' && allRecs.length) render();
     });
   }catch(e){ console.warn('extras039 listener', e); }
+}
+// Emulsión real, tal como la guarda la app de campo: un documento por fecha en emulsion039 (el ID
+// del documento ES la fecha), con lts_usados/m2_dia/lts_m2 — nada que ver con un campo por viaje.
+let _emulsionDias={};
+let _emulsionListenerStarted=false;
+function startEmulsionListener(){
+  if(_emulsionListenerStarted) return; _emulsionListenerStarted=true;
+  try{
+    onSnapshot(collection(db,'emulsion039'), snap=>{
+      _emulsionDias={};
+      snap.forEach(d=>{ _emulsionDias[d.id]=d.data(); });
+      if(typeof render==='function' && allRecs.length) render();
+    });
+  }catch(e){ console.warn('emulsion039 listener', e); }
 }
 // Reparte el volumen extra por clave de catálogo, respetando el filtro de obra.
 // El extra NO tiene fecha propia (import global sin día concreto). Por default, si filtras a días
@@ -1107,10 +1136,15 @@ function buildGastos(recs){
 }
 function buildEmulsion(recs){
   if(!recs.length) return '';
+  // Antes esto sumaba un campo "emulsion_lts" que nunca existió en los viajes — por eso salían
+  // ceros. La app de campo guarda la emulsión APARTE, un documento por fecha en emulsion039, con
+  // los litros REALMENTE usados en lts_usados. Aquí se conecta a esa fuente real; el área se sigue
+  // sumando de los viajes del día (para que quede siempre actualizada con lo más reciente).
   const bd={};
-  recs.forEach(r=>{ if(!r.fecha) return; if(!bd[r.fecha]) bd[r.fecha]={lts:0,area:0}; bd[r.fecha].lts+=(r.emulsion_lts||0); bd[r.fecha].area+=(r.area||0); });
+  recs.forEach(r=>{ if(!r.fecha) return; if(!bd[r.fecha]) bd[r.fecha]={lts:0,area:0}; bd[r.fecha].area+=(r.area||0); });
+  Object.keys(bd).forEach(f=>{ const e=_emulsionDias[f]; bd[f].lts = e ? +(e.lts_usados||0) : 0; });
   const dias=Object.keys(bd).sort();
-  const totalLts=recs.reduce((s,r)=>s+(r.emulsion_lts||0),0);
+  const totalLts=Object.values(bd).reduce((s,d)=>s+d.lts,0);
   const totalArea=recs.reduce((s,r)=>s+(r.area||0),0);
   if(totalLts<=0) return `<div class="section-hdr">🛢️ Análisis de emulsión ECR-65</div>
     <div class="card"><div class="card-body" style="padding:18px;text-align:center;color:var(--txt3);font-size:13px">Aún no hay litros de emulsión registrados en los días filtrados.</div></div>`;
@@ -2049,7 +2083,10 @@ function render(){
   const volAcum=filtered.reduce((s,r)=>s+_volR(r),0);
   const areaAcum=filtered.reduce((s,r)=>s+r.area,0);
   const longAcum=filtered.reduce((s,r)=>s+r.longitud,0);
-  const emulAcum=filtered.reduce((s,r)=>s+(r.emulsion_lts||0),0);
+  // Emulsión: se suma UNA vez por FECHA (no por viaje, para no duplicar — el litraje es del día
+  // completo, no de cada viaje individual), tomando lts_usados de la colección real emulsion039.
+  const fechasFiltradas=[...new Set(filtered.map(r=>r.fecha).filter(Boolean))];
+  const emulAcum=fechasFiltradas.reduce((s,f)=>{ const e=_emulsionDias[f]; return s+(e?+(e.lts_usados||0):0); },0);
   const exec=calcExec(filtered);
   const extrasExec=calcExtras(true);
   const extraTotal=Object.values(extrasExec).reduce((s,v)=>s+v,0);
@@ -2123,7 +2160,13 @@ function render(){
   ${secciones.graficas ? `
   <div class="section-hdr">📊 Gráficas de producción</div>
   <div class="two-col">
-    <div class="card"><div class="card-hdr"><h4>📅 Toneladas por día</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartDia" style="width:100%;height:180px"></div></div></div>
+    <div class="card"><div class="card-hdr"><h4>📅 Toneladas por día</h4>
+      <div style="display:flex;gap:4px">
+        <button class="f-chip" id="gtd-dia" onclick="setGranTon('dia')" style="padding:3px 10px;font-size:10px">Día</button>
+        <button class="f-chip" id="gtd-semana" onclick="setGranTon('semana')" style="padding:3px 10px;font-size:10px">Semana</button>
+        <button class="f-chip" id="gtd-mes" onclick="setGranTon('mes')" style="padding:3px 10px;font-size:10px">Mes</button>
+      </div>
+    </div><div class="card-body" style="padding:12px 8px"><div id="chartDia" style="width:100%;height:200px;overflow-x:auto;overflow-y:hidden"></div></div></div>
     <div class="card"><div class="card-hdr"><h4>📈 Volumen acumulado vs catálogo</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartAcum" style="width:100%;height:180px"></div></div></div>
   </div>` : ''}
 
@@ -2242,38 +2285,82 @@ function fmtKm(n){
   return km+'+'+String(m).padStart(3,'0');
 }
 
-function buildCharts(fechas,labels,acums,byDate){
-  // ── GRÁFICA 1: Barras de toneladas por día (SVG puro) ──
-  const diaEl = document.getElementById('chartDia');
-  if(diaEl && fechas.length > 0){
-    const tons = fechas.map(f=>byDate[f].ton);
-    const maxTon = Math.max(...tons) * 1.15 || 1;
-    const W=diaEl.offsetWidth||400, H=180, PAD=36, BAR_GAP=6;
-    const barW = Math.max(8, Math.floor((W - PAD*2 - BAR_GAP*(fechas.length-1)) / fechas.length));
-    const totalBarsW = barW * fechas.length + BAR_GAP * (fechas.length-1);
-    const startX = PAD + (W - PAD*2 - totalBarsW)/2;
+// ── Toneladas por día — con selector Día/Semana/Mes y ancho FIJO por barra ──
+let _tonFechas=[], _tonValores=[], _granTon='dia';
+function dibujarChartTon(fechas, tons){
+  _tonFechas=fechas; _tonValores=tons;
+  _renderChartTon();
+}
+function _renderChartTon(){
+  const diaEl=document.getElementById('chartDia'); if(!diaEl || !_tonFechas.length) return;
+  ['dia','semana','mes'].forEach(g=>{ const b=document.getElementById('gtd-'+g); if(b) b.classList.toggle('active', g===_granTon); });
 
-    let bars='', xlabels='', ylabels='';
-    // Y axis labels
-    for(let i=0;i<=4;i++){
-      const val = Math.round(maxTon * i/4);
-      const y = H - PAD - (H-PAD*1.5)*i/4;
-      ylabels += `<text x="${PAD-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#94a3b8">${val}</text>`;
-      ylabels += `<line x1="${PAD}" y1="${y}" x2="${W-8}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
-    }
-    tons.forEach((t,i)=>{
-      const bH = Math.max(2, (t/maxTon)*(H-PAD*1.5));
-      const x = startX + i*(barW+BAR_GAP);
-      const y = H - PAD - bH;
-      bars += `<rect x="${x}" y="${y}" width="${barW}" height="${bH}" rx="3" fill="#1d4ed8" opacity="0.8"/>`;
-      bars += `<text x="${x+barW/2}" y="${y-3}" text-anchor="middle" font-size="9" fill="#334155" font-weight="600">${t.toFixed(0)}</text>`;
-      xlabels += `<text x="${x+barW/2}" y="${H-4}" text-anchor="middle" font-size="9" fill="#64748b">${labels[i]}</text>`;
+  let etiquetas=[], valores=[], tips=[];
+  if(_granTon==='dia'){
+    etiquetas = _tonFechas.map(f=>{ const d=new Date(f+'T12:00:00'); return d.toLocaleDateString('es-MX',{day:'2-digit',month:'short'}); });
+    valores = _tonValores.slice();
+    tips = _tonFechas.map((f,i)=>{ const d=new Date(f+'T12:00:00'); return d.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})+': '+valores[i].toFixed(1)+' ton'; });
+  } else if(_granTon==='semana'){
+    const buckets={};
+    _tonFechas.forEach((f,i)=>{
+      const d=new Date(f+'T12:00:00'); const dow=d.getDay();
+      const lunes=new Date(d); lunes.setDate(d.getDate()-((dow+6)%7));
+      const key=lunes.toISOString().slice(0,10);
+      buckets[key]=(buckets[key]||0)+_tonValores[i];
     });
-    diaEl.innerHTML = `<svg width="100%" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
-      ${ylabels}${bars}${xlabels}
-      <line x1="${PAD}" y1="${PAD/2}" x2="${PAD}" y2="${H-PAD}" stroke="#e2e8f0" stroke-width="1"/>
-    </svg>`;
+    const keys=Object.keys(buckets).sort();
+    etiquetas=keys.map(k=>{ const d=new Date(k+'T12:00:00'); return 'Sem '+d.toLocaleDateString('es-MX',{day:'numeric',month:'short'}); });
+    valores=keys.map(k=>buckets[k]);
+    tips=keys.map((k,i)=>etiquetas[i]+': '+valores[i].toFixed(1)+' ton');
+  } else {
+    const buckets={};
+    _tonFechas.forEach((f,i)=>{ const key=f.slice(0,7); buckets[key]=(buckets[key]||0)+_tonValores[i]; });
+    const NOMBRES=['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    const keys=Object.keys(buckets).sort();
+    etiquetas=keys.map(k=>NOMBRES[+k.slice(5,7)-1]+' '+k.slice(0,4));
+    valores=keys.map(k=>buckets[k]);
+    tips=keys.map((k,i)=>etiquetas[i]+': '+valores[i].toFixed(1)+' ton');
   }
+
+  const n=valores.length;
+  const maxTon = Math.max(...valores)*1.15 || 1;
+  const H=200, PAD_L=38, PAD_B=28, PAD_T=14;
+  const BAR_W = _granTon==='dia' ? 22 : (_granTon==='semana' ? 46 : 70);
+  const BAR_GAP = _granTon==='dia' ? 4 : 10;
+  const chartW = Math.max(diaEl.clientWidth||400, PAD_L + n*(BAR_W+BAR_GAP) + 20);
+  // en vista Día, con muchos puntos, solo se rotula 1 de cada N fechas para no encimarlas — el
+  // dato exacto de cualquier barra siempre está disponible al tocarla (tooltip).
+  const saltoLabel = _granTon==='dia' ? Math.max(1, Math.ceil(n/25)) : 1;
+
+  let bars='', xlabels='', ylabels='';
+  for(let i=0;i<=4;i++){
+    const val = Math.round(maxTon*i/4);
+    const y = H-PAD_B-(H-PAD_B-PAD_T)*i/4;
+    ylabels += `<text x="${PAD_L-6}" y="${y+4}" text-anchor="end" font-size="9" fill="#94a3b8">${val}</text>`;
+    ylabels += `<line x1="${PAD_L}" y1="${y}" x2="${chartW-10}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
+  }
+  valores.forEach((t,i)=>{
+    const bH=Math.max(2,(t/maxTon)*(H-PAD_B-PAD_T));
+    const x=PAD_L+i*(BAR_W+BAR_GAP);
+    const y=H-PAD_B-bH;
+    bars += `<rect x="${x}" y="${y}" width="${BAR_W}" height="${bH}" rx="3" fill="#1d4ed8" opacity="0.8"><title>${tips[i]}</title></rect>`;
+    if(_granTon!=='dia') bars += `<text x="${x+BAR_W/2}" y="${y-3}" text-anchor="middle" font-size="9" fill="#334155" font-weight="600">${t.toFixed(0)}</text>`;
+    if(i%saltoLabel===0) xlabels += `<text x="${x+BAR_W/2}" y="${H-8}" text-anchor="middle" font-size="9" fill="#64748b">${etiquetas[i]}</text>`;
+  });
+
+  diaEl.innerHTML = `<svg width="${chartW}" height="${H}" viewBox="0 0 ${chartW} ${H}" xmlns="http://www.w3.org/2000/svg">
+    ${ylabels}${bars}${xlabels}
+    <line x1="${PAD_L}" y1="${PAD_T}" x2="${PAD_L}" y2="${H-PAD_B}" stroke="#e2e8f0" stroke-width="1"/>
+  </svg>`;
+}
+window.setGranTon=function(g){ _granTon=g; _renderChartTon(); };
+
+function buildCharts(fechas,labels,acums,byDate){
+  // ── GRÁFICA 1: Barras de toneladas — Día / Semana / Mes, con ancho FIJO por barra (no se
+  // encoge para caber todas — el contenedor se desplaza horizontalmente en vez de amontonarlas).
+  // Las fechas ya no van pegadas abajo (con 40+ días se encimaban y no se leía nada); ahora cada
+  // barra tiene un tooltip nativo (mantén el dedo/mouse sobre la barra) con la fecha exacta y el total.
+  dibujarChartTon(fechas, fechas.map(f=>byDate[f].ton));
 
   // ── GRÁFICA 2: Línea de volumen acumulado vs catálogo (SVG puro) — POR SEMANA, no por día.
   // Con 40+ días las etiquetas se amontonaban unas sobre otras y no se alcanzaba a leer nada.
