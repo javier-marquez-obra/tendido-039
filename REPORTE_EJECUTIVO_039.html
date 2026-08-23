@@ -64,9 +64,6 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 .sync-chip{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);padding:6px 14px;border-radius:99px;font-size:12px;font-weight:500;cursor:pointer;transition:all .2s}
 .sync-chip:hover{background:rgba(255,255,255,.15)}
 .sync-chip.err{border-color:rgba(239,68,68,.5);background:rgba(239,68,68,.1)}
-.mode-toggle{display:flex;background:rgba(255,255,255,.08);border-radius:99px;padding:3px}
-.mode-btn{padding:5px 14px;border-radius:99px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:transparent;color:rgba(255,255,255,.6);letter-spacing:.04em;transition:all .2s}
-.mode-btn.active{background:var(--white);color:var(--navy)}
 
 /* ── FILTERS ── */
 .filters{background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;max-width:100%}
@@ -85,8 +82,6 @@ html,body{background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;f
 /* ── KPI GRID ── */
 .kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
 .kpi{background:var(--white);border-radius:var(--rad);padding:18px 20px;box-shadow:var(--shadow);position:relative;overflow:hidden;border:1px solid transparent}
-body.ppt-mode .kpi{cursor:pointer;transition:box-shadow .15s,transform .15s}
-body.ppt-mode .kpi:hover{box-shadow:0 4px 16px rgba(0,0,0,.12);transform:translateY(-2px)}
 .kpi::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
 .kpi.blue::after{background:linear-gradient(90deg,var(--blue),var(--blue2))}
 .kpi.green::after{background:linear-gradient(90deg,var(--green),#34d399)}
@@ -233,16 +228,6 @@ tbody tr:hover td{background:var(--blue4)}
 .btn-exp.primary:hover{background:#1e40af}
 .btn-exp.ppt{background:var(--navy);color:#fff;border-color:var(--navy)}
 
-/* ── PRESENTATION MODE ── */
-body.ppt-mode .header{background:linear-gradient(135deg,#0f2744,#1e3a5f)}
-body.ppt-mode .main{padding:24px 32px}
-body.ppt-mode .kpi-value{font-size:32px}
-body.ppt-mode .card{box-shadow:var(--shadow3);border:none}
-body.ppt-mode .filters{display:none}
-body.ppt-mode .export-bar{display:none}
-.ppt-watermark{display:none;position:fixed;bottom:16px;right:20px;font-size:10px;color:var(--gray);font-weight:500;letter-spacing:.06em}
-body.ppt-mode .ppt-watermark{display:block}
-
 /* ── RESPONSIVE ── */
 @media(max-width:900px){
   .two-col,.three-col{grid-template-columns:1fr}
@@ -305,10 +290,6 @@ body.ppt-mode .ppt-watermark{display:block}
       <div class="header-sub">Contrato 2026-14-CB-D-039-W-00-2026 · Costa Jalisco · N-27 · 2026</div>
     </div>
     <div class="header-right">
-      <div class="mode-toggle">
-        <button class="mode-btn active" onclick="setMode('field',this)">CAMPO</button>
-        <button class="mode-btn" onclick="setMode('ppt',this)">PRESENTACIÓN</button>
-      </div>
       <div class="sync-chip" id="syncChip" onclick="loadData()">
         <span id="syncDot" style="width:8px;height:8px;border-radius:50%;background:#10b981;display:inline-block"></span>
         <span id="syncLabel">Conectando...</span>
@@ -388,7 +369,7 @@ body.ppt-mode .ppt-watermark{display:block}
   </div>
 </div>
 
-<div class="ppt-watermark">GRUPO YENTER · SÍSTOLE · CONFIDENCIAL</div>
+<div class="ppt-watermark" style="position:fixed;bottom:16px;right:20px;font-size:10px;color:var(--gray);font-weight:500;letter-spacing:.06em;z-index:5">GRUPO YENTER · SÍSTOLE · CONFIDENCIAL</div>
 
 <!-- MODAL ZOOM GRÁFICAS -->
 <div id="zoomModal" class="zoom-modal" onclick="if(event.target===this)cerrarZoom()">
@@ -736,26 +717,25 @@ function _favDe(r){
 }
 let allRecs=[], filtered=[], records=[], charts={}, rutaActual=1, filtros={obra:'all',fecha:'all'};
 
-// Secciones visibles — todas activadas por defecto
-// Arranca en modo CAMPO (el botón activo por default en el HTML) — antes esto empezaba con TODO
-// en true, mezclando gráficas y tablas desde el primer render.
+// Secciones visibles — ahora es una sola vista (ya no hay modos Campo/Presentación separados),
+// así que el default es un solo conjunto sensato con lo más útil activado; ajusta con "⚙️ Secciones".
 let secciones={
-  kpis:false,
+  kpis:true,
   emulsion:true,
   tendencia:true,
   horarios:true,
-  avance:false,
-  financiero:false,
+  avance:true,
+  financiero:true,
   programa:false,
   cadenamiento:true,
-  camiones:true,
-  graficas:false,
+  camiones:false,
+  graficas:true,
   faltante:false,
   rutas:true,
   tabla:true,
   gastos:false,
-  espesor:false,
-  balanceDias:false,
+  espesor:true,
+  balanceDias:true,
   larguillo:true
 };
 
@@ -1006,46 +986,9 @@ window.setTheme=function(t){
 // crudo de trabajo (tablas). Reutiliza el mismo sistema de secciones que ya existía (⚙️ Secciones),
 // nomás con un preset por modo — si algo no te gusta cómo quedó, lo sigues pudiendo ajustar fino
 // con ese botón de siempre.
-const SECCIONES_PRESENTACION=['kpis','avance','graficas','financiero','programa','faltante','gastos','espesor','balanceDias'];
-const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','rutas','larguillo'];
-let _modoActual='field';
-let _seccionesGuardadas={field:null, ppt:null}; // recuerda TUS ajustes manuales de cada modo por separado
-window.setMode=function(m,el){
-  document.querySelectorAll('.mode-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  if(m==='ppt') document.body.classList.add('ppt-mode');
-  else document.body.classList.remove('ppt-mode');
-
-  // Antes de cambiar, guarda cómo dejaste las secciones en el modo que estás saliendo — así no se
-  // pierden tus ajustes manuales cuando regreses a él más tarde.
-  _seccionesGuardadas[_modoActual]={...secciones};
-  _modoActual=m;
-
-  if(_seccionesGuardadas[m]){
-    // Ya habías estado en este modo antes — recupera exactamente cómo lo dejaste tú.
-    secciones={..._seccionesGuardadas[m]};
-  } else {
-    // Primera vez en este modo en esta sesión — aplica el preset por default.
-    const activas = m==='ppt' ? SECCIONES_PRESENTACION : SECCIONES_CAMPO;
-    Object.keys(secciones).forEach(k=>{ secciones[k]=activas.includes(k); });
-  }
-  Object.keys(secciones).forEach(k=>{
-    const btn=document.getElementById('sec-'+k);
-    if(btn) btn.classList.toggle('off', !secciones[k]);
-  });
-  applyFilters();
-};
-// En modo Presentación, tocar cualquier tarjeta de número (KPI) te manda a Campo para ver el
-// detalle real detrás de ese número — un solo listener delegado, funciona con CUALQUIER tarjeta
-// KPI de cualquier sección, sin tener que engancharlo una por una en cada función que las genera.
-document.addEventListener('click', function(e){
-  if(!document.body.classList.contains('ppt-mode')) return;
-  const kpi=e.target.closest && e.target.closest('.kpi');
-  if(!kpi) return;
-  const btnCampo=document.querySelectorAll('.mode-btn')[0];
-  if(btnCampo) setMode('field', btnCampo);
-});
-
+// Antes había 2 modos (Campo/Presentación) con presets distintos de qué secciones mostrar — con
+// todo lo que se le fue agregando, se volvió repetitivo tener las dos. Ahora es una sola vista;
+// "⚙️ Secciones" (arriba) es el único control de qué se muestra, sin presets que compitan entre sí.
 // ── VOLUMEN EXTRA (importado desde Excel en la app de campo: extras039) ──
 // Mismo criterio que la app de campo: geométrico puro, se suma al total contra catálogo E-7,
 // sin importar el filtro de fecha (representa avance ya ejecutado, no un viaje de un día concreto).
@@ -2411,7 +2354,6 @@ function render(){
     <button class="btn-exp primary" onclick="exportPago()">📥 Excel pago camiones</button>
     <button class="btn-exp" onclick="exportSICT()">📊 Generador SICT (Excel)</button>
     <button class="btn-exp" onclick="exportCompleto()">📊 Reporte completo (Excel)</button>
-    <button class="btn-exp ppt" onclick="setMode('ppt',document.querySelectorAll('.mode-btn')[1])">📽️ Modo presentación</button>
     <button class="btn-exp" onclick="window.print()">🖨️ Imprimir / PDF</button>
   </div>`;
 
