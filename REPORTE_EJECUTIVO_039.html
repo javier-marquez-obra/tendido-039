@@ -375,6 +375,7 @@ body.ppt-mode .ppt-watermark{display:block}
     <button id="sec-gastos"   onclick="toggleSec('gastos')"   class="sec-btn">💵 Gastos ARMAQOP</button>
     <button id="sec-espesor" onclick="toggleSec('espesor')" class="sec-btn">📏 Espesor de carpeta</button>
     <button id="sec-balanceDias" onclick="toggleSec('balanceDias')" class="sec-btn">📅 Balance de días</button>
+    <button id="sec-larguillo" onclick="toggleSec('larguillo')" class="sec-btn">🛣️ Larguillo de obra</button>
   </div>
 </div>
 
@@ -512,6 +513,137 @@ const RUTAS = {
 };
 
 const DEN=2.20, CONTRATO='2026-14-CB-D-039-W-00-2026', EMPRESA='Grupo Urbanizador Inmobiliario Yenter S.A. de C.V. y Sístole Consultoría y Obras S.A. de C.V.';
+
+// ═══ LARGUILLO — mismo motor visual que usa la app de Tendido, para que este reporte SIEMPRE se
+// vea igual/actualizado (mismos carriles, incluidos los que se agreguen después, como acotamientos) ═══
+const CARRILES_DEFAULT={
+  O1:[{label:'L. DER.',ancho:4.0,lado:'DER'},{label:'CENT.',ancho:4.0,lado:'CEN'},{label:'L. IZQ.',ancho:4.0,lado:'IZQ'}],
+  O2:[{label:'L. DER.',ancho:3.5,lado:'DER'},{label:'L. IZQ.',ancho:3.5,lado:'IZQ'}]
+};
+const RANGO_TRAMO={ O1:{min:46200,max:58700}, O2:{min:247600,max:251600} };
+const LADO_COL={IZQ:'#3ecf8e',CEN:'#f0b429',DER:'#60a5fa'};
+const RENIV_COL='#a78bfa', BACHEO_COL='#ec4899';
+function ladoDe(carril){
+  const k=(carril||'').toUpperCase();
+  if(k.includes('IZQ')) return 'IZQ';
+  if(k.includes('CENT')) return 'CEN';
+  if(k.includes('DER')) return 'DER';
+  return null;
+}
+function fmtCad(n){
+  n=+n; if(isNaN(n)) return '—';
+  const km=Math.floor(n/1000), m=n-km*1000;
+  return km+'+'+m.toFixed(2).padStart(6,'0');
+}
+// Config de carriles: se lee EN VIVO de config039 (la misma colección/documento que edita el
+// superintendente desde Tendido) — así, si agrega o quita carriles ahí, aquí se refleja solo.
+let _carrilesConfig={};
+let _carrilesListenerStarted=false;
+function startCarrilesListener(){
+  if(_carrilesListenerStarted) return; _carrilesListenerStarted=true;
+  try{
+    onSnapshot(collection(db,'config039'), snap=>{
+      snap.forEach(d=>{ const x=d.data(); if(x && x.carriles) _carrilesConfig=x.carriles; });
+      if(typeof render==='function' && allRecs.length) render();
+    }, e=>console.warn('config039 listener:', e?.code||e));
+  }catch(e){ console.warn('config039 listener', e); }
+}
+function carrilesDeObra(tramo){ const c=_carrilesConfig&&_carrilesConfig[tramo]; return (c&&c.length)?c:(CARRILES_DEFAULT[tramo]||CARRILES_DEFAULT.O1); }
+function ladoDeCarril(carril){
+  const key=(carril||'').trim().toUpperCase();
+  for(const t of ['O1','O2']){ const f=(carrilesDeObra(t)||[]).find(x=>(x.label||'').trim().toUpperCase()===key); if(f&&f.lado) return f.lado; }
+  return ladoDe(carril);
+}
+// Tramo del concepto (O1/O2), a partir de su clave o del cadenamiento como respaldo
+function _tramoDeKey(key,r){ if(key==='carp5'||key==='bach2') return 'O2'; if(key==='carp3'||key==='bach1') return 'O1'; return (r&&r.kde>=247000&&r.kde<=252000)?'O2':'O1'; }
+function _tipoDeKey(key){ return key==='reniv'?'reniv':(key&&key.startsWith('carp')?'carpeta':'bacheo'); }
+// Construye los segmentos (uno por concepto capturado en cada viaje) para dibujar el larguillo —
+// mismo criterio que usa Tendido: si el viaje trae varios conceptos, uno por concepto; si no, uno
+// por el concepto único/heurístico del viaje.
+function _buildLarguilloSegs(recs){
+  const segs=[], sinCarril=[];
+  recs.forEach(v=>{
+    const cs=(v.conceptos&&v.conceptos.length)?v.conceptos:[{kde:v.kde,ka:v.ka,carril:v.carril,label:v.concepto,id:v.concepto,ton:v.ton_recibidas,volumen:v.volumen,area:v.area,esp_teorico:v.esp_teorico,ancho:v.ancho}];
+    cs.forEach(c=>{
+      if(c.kde==null||c.ka==null) return;
+      const a=Math.min(c.kde,c.ka), b=Math.max(c.kde,c.ka);
+      if(!(b>a)) return;
+      const side=ladoDeCarril(c.carril||v.carril);
+      if(!side){ sinCarril.push(`vj#${v.num_viaje_dia} (${(v.fecha||'').split('-').reverse().join('/').slice(0,5)}) carril "${c.carril||v.carril||'—'}"`); return; }
+      const key=_keyDeConcepto(c)||_keyFromLabel(c.label)||_keyHeur(v);
+      const tipo=_tipoDeKey(key);
+      const area=+(c.area||0)||((b-a)*(+(c.ancho||0)));
+      const espTeo=+(c.esp_teorico||0);
+      const ton=+(c.ton||0);
+      const volGeo=+(c.volumen||0);
+      const espReal=(ton&&area)?(ton/(area*DEN)):0;
+      const volReal=ton/DEN;
+      segs.push({a,b,side,carril:(c.carril||v.carril||''),num:v.num_viaje_dia,placas:v.placas||'',fecha:v.fecha||'',tipo,area,espTeo,espReal,volGeo,volReal});
+    });
+  });
+  return {segs, sinCarril};
+}
+// Dibuja UN tramo (O1 o O2) — un track SVG por carril configurado, con los segmentos de carpeta
+// (barra ancha), reniv (línea arriba) y bacheo (línea abajo) sobre su cadenamiento real.
+function _larguilloVista(segs,titulo,tramo){
+  const rango=RANGO_TRAMO[tramo]||{min:Math.min(...segs.map(s=>s.a)),max:Math.max(...segs.map(s=>s.b))};
+  const minK=rango.min, maxK=rango.max;
+  const span=Math.max(1,maxK-minK);
+  const W=740,PADL=90,PADR=136,PADT=38,trackH=20,renH=6,gapT=38;
+  const ord={IZQ:0,CEN:1,DER:2};
+  const nombreLado={IZQ:'Lat. izquierda',CEN:'Central',DER:'Lat. derecha'};
+  const carr=carrilesDeObra(tramo);
+  const _ladoC=c=>c.lado||ladoDe(c.label)||'DER';
+  const _norm=s=>(s||'').trim().toUpperCase();
+  let tracks=carr.map(c=>{const s=_ladoC(c); return {side:s,label:c.label||nombreLado[s],color:LADO_COL[s]||'#60a5fa',carril:_norm(c.label)};})
+                 .sort((a,b)=>(ord[a.side]??9)-(ord[b.side]??9));
+  if(!tracks.length) tracks=[{side:'DER',label:'Lat. derecha',color:LADO_COL.DER,carril:''}];
+  segs.forEach(sg=>{ let ti=tracks.findIndex(t=>t.carril && _norm(sg.carril)===t.carril);
+    if(ti<0) ti=tracks.findIndex(t=>t.side===sg.side); sg._ti=ti; });
+  const H=PADT+tracks.length*(trackH+gapT)+24;
+  const X=k=>PADL+((Math.max(minK,Math.min(maxK,k))-minK)/span)*(W-PADL-PADR);
+  const NT=6; let ticks='';
+  for(let i=0;i<=NT;i++){ const k=minK+span*i/NT, x=X(k);
+    ticks+=`<line x1="${x}" y1="${PADT-6}" x2="${x}" y2="${H-22}" stroke="#e2e8f0" stroke-width="1"/>`
+         +`<text x="${x}" y="${H-7}" text-anchor="middle" font-size="9" fill="#64748b">${fmtCad(Math.round(k))}</text>`;
+  }
+  let rows='';
+  tracks.forEach((t,ti)=>{
+    const y=PADT+ti*(trackH+gapT), cy=y+trackH/2;
+    const ss=segs.filter(s=>s._ti===ti);
+    const carp=ss.filter(s=>s.tipo==='carpeta'), ren=ss.filter(s=>s.tipo==='reniv'), bach=ss.filter(s=>s.tipo==='bacheo');
+    rows+=`<line x1="${PADL}" y1="${cy}" x2="${W-PADR}" y2="${cy}" stroke="#e2e8f0" stroke-width="${trackH}" stroke-linecap="round"/>`;
+    rows+=`<text x="${PADL}" y="${y-9}" font-size="9.5" font-weight="700" fill="${t.color}">${t.label}</text>`;
+    carp.forEach(s=>{ const x1=X(s.a), x2=X(s.b); const w=Math.max(2,x2-x1); const cx=(x1+x2)/2;
+      rows+=`<rect x="${x1}" y="${y+3}" width="${w}" height="${trackH-6}" rx="2" fill="${t.color}" opacity="0.92" stroke="#334155" stroke-width="0.6"><title>Camión ${s.num}${s.placas?' · '+s.placas:''}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+      if(w>=11) rows+=`<text x="${cx}" y="${cy+3}" text-anchor="middle" font-size="7.5" font-weight="700" fill="#0d1017">${s.num}</text>`;
+    });
+    ren.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
+      rows+=`<rect x="${x1}" y="${y-renH-2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${RENIV_COL}"${s.extra?' stroke="#334155" stroke-width="0.7" stroke-dasharray="2 1.5"':''}><title>Renivelación${s.extra?' EXTRA (geométrico)':' · viaje '+s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+    });
+    bach.forEach(s=>{ const x1=X(s.a), x2=X(s.b);
+      rows+=`<rect x="${x1}" y="${y+trackH+2}" width="${Math.max(2,x2-x1)}" height="${renH}" rx="2" fill="${BACHEO_COL}"${s.extra?' stroke="#334155" stroke-width="0.7" stroke-dasharray="2 1.5"':''}><title>Bacheo${s.extra?' EXTRA (geométrico)':' · viaje '+s.num}: ${fmtCad(s.a)} → ${fmtCad(s.b)}</title></rect>`;
+    });
+  });
+  const svg=`<svg width="100%" viewBox="0 0 ${W} ${H}" style="display:block;font-family:'Inter',sans-serif">${ticks}${rows}</svg>`;
+  return `<div class="card" style="margin-bottom:10px"><div class="card-hdr"><h4>🛣️ ${titulo}</h4>
+    <span style="font-size:10px;color:var(--txt3)"><span style="display:inline-block;width:9px;height:9px;background:${RENIV_COL};border-radius:2px;margin-right:3px"></span>reniv (arriba) · <span style="display:inline-block;width:9px;height:9px;background:${BACHEO_COL};border-radius:2px;margin:0 3px 0 6px"></span>bacheo (abajo)</span>
+    </div><div class="card-body" style="padding:10px 8px;overflow-x:auto">${svg}</div></div>`;
+}
+// Sección completa: agrupa por tramo (O1/O2) y dibuja cada uno.
+function buildLarguillo(recs){
+  if(!recs.length) return '';
+  const {segs,sinCarril}=_buildLarguilloSegs(recs);
+  if(!segs.length) return `<div class="section-hdr">🛣️ Larguillo de obra</div><div class="card"><div class="card-body" style="padding:18px;text-align:center;color:var(--txt3);font-size:13px">Sin cadenamientos para graficar en los días filtrados.</div></div>`;
+  const esO2=s=>s.a>=247000&&s.a<=252000;
+  const o1=segs.filter(s=>!esO2(s)), o2=segs.filter(esO2);
+  const avisoCarril = sinCarril.length
+    ? `<div style="font-size:10.5px;color:#dc2626;background:rgba(220,38,38,.08);border:1px solid rgba(220,38,38,.3);border-radius:8px;padding:7px 9px;margin-top:6px">⚠️ ${sinCarril.length} viaje(s) no se grafican por carril no reconocido: ${sinCarril.slice(0,6).join(' · ')}${sinCarril.length>6?' …':''}</div>` : '';
+  return `<div class="section-hdr">🛣️ Larguillo de obra</div>
+    ${o1.length?_larguilloVista(o1,'OBRA 1 · MEX-200 · '+fmtCad(RANGO_TRAMO.O1.min)+' → '+fmtCad(RANGO_TRAMO.O1.max),'O1'):''}
+    ${o2.length?_larguilloVista(o2,'OBRA 2 · MEX-80 · '+fmtCad(RANGO_TRAMO.O2.min)+' → '+fmtCad(RANGO_TRAMO.O2.max),'O2'):''}
+    ${avisoCarril}`;
+}
 // ── VOLUMEN OFICIAL DEL REPORTE = GEOMÉTRICO (largo×ancho×espesor, campo c.volumen de cada concepto) ──
 // Coincide con la metodología de la estimación/Generador SICT. Se usa en TODO el reporte:
 // KPIs, % catálogo, curvas S (financiera y volumen), avance por periodo, volumen faltante, catálogo E-7, tendencia.
@@ -599,7 +731,8 @@ let secciones={
   tabla:true,
   gastos:false,
   espesor:false,
-  balanceDias:false
+  balanceDias:false,
+  larguillo:true
 };
 
 // ── FIREBASE ──
@@ -671,6 +804,7 @@ onAuthStateChanged(auth, user=>{
     startReportListener();
     startExtrasListener();
     startEmulsionListener();
+    startCarrilesListener();
     // Sincroniza los botones del panel "⚙️ Secciones" con el estado inicial (modo Campo) — si no,
     // se ven todos "prendidos" aunque varias secciones ya arrancan apagadas.
     Object.keys(secciones).forEach(k=>{
@@ -849,7 +983,7 @@ window.setTheme=function(t){
 // nomás con un preset por modo — si algo no te gusta cómo quedó, lo sigues pudiendo ajustar fino
 // con ese botón de siempre.
 const SECCIONES_PRESENTACION=['kpis','avance','graficas','financiero','programa','faltante','gastos','espesor','balanceDias'];
-const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','cadenamiento','rutas'];
+const SECCIONES_CAMPO=['tabla','emulsion','tendencia','horarios','cadenamiento','rutas','larguillo'];
 let _modoActual='field';
 let _seccionesGuardadas={field:null, ppt:null}; // recuerda TUS ajustes manuales de cada modo por separado
 window.setMode=function(m,el){
@@ -1700,8 +1834,14 @@ function _sProyecciones(){
   const d=_sdata; if(!d) return null;
   const cur=d.cur, diaHoy=Math.max(d.diaHoy,1), perDias=d.perDias;
   const realV=d.realVol[cur]||0, realF=d.realFin[cur]||0;
-  const paceVol=realV/diaHoy;                       // m³/día al ritmo actual
-  const paceFin=realF/diaHoy;                        // $/día al ritmo actual
+  // Antes esto usaba realV/diaHoy (litros ÷ TODOS los días de calendario, incluyendo domingos y
+  // días sin actividad) — un ritmo mucho más lento y diluido que el "90.3 m³/día promedio" que se
+  // muestra junto a esta misma proyección (ese sí cuenta solo días TRABAJADOS). Con dos ritmos
+  // distintos, "terminas tal fecha" no cuadraba con el promedio mostrado al lado. Ahora usa el
+  // mismo ritmo por días trabajados en los dos lugares, para que sean consistentes entre sí.
+  const diasTrabPace=Math.max(d.diasTrab||1,1);
+  const paceVol=(d.volTot!=null?d.volTot:realV)/diasTrabPace;   // m³/día trabajado
+  const paceFin=(d.ratioFV>0?paceVol*d.ratioFV:realF/diasTrabPace); // $/día trabajado
   const faltVol=Math.max(0,d.TOT_VOL-realV);
   // Volumen diario objetivo del reprogramado (auto = lo necesario para terminar dentro del plazo)
   const diasRest=Math.max(PLAZO_DIAS-diaHoy,1);
@@ -2191,6 +2331,7 @@ function render(){
   <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
 
   ${secciones.cadenamiento ? buildSeccionCad() : ''}
+  ${secciones.larguillo ? buildLarguillo(filtered) : ''}
 
   <!-- FALTANTE -->
   ${secciones.faltante ? `
