@@ -343,22 +343,32 @@ tbody tr:hover td{background:var(--blue4)}
     <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">Selecciona qué mostrar en el reporte:</span>
     <button class="f-chip" onclick="toggleSecciones()" style="border-color:#94a3b8;color:#475569">✓ Listo, cerrar</button>
   </div>
-  <div style="display:flex;flex-wrap:wrap;gap:8px">
+
+  <div style="font-size:10px;font-weight:800;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">💰 Financiera</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+    <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
+    <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
+    <button id="sec-gastos"   onclick="toggleSec('gastos')"   class="sec-btn">💵 Gastos ARMAQOP</button>
+  </div>
+
+  <div style="font-size:10px;font-weight:800;color:#16a34a;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">📈 Avances</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
     <button id="sec-kpis"     onclick="toggleSec('kpis')"     class="sec-btn">📈 Producción del día</button>
+    <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
+    <button id="sec-graficas" onclick="toggleSec('graficas')" class="sec-btn">📊 Gráficas</button>
+    <button id="sec-espesor" onclick="toggleSec('espesor')" class="sec-btn">📏 Espesor de carpeta</button>
+    <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
+    <button id="sec-balanceDias" onclick="toggleSec('balanceDias')" class="sec-btn">📅 Balance de días</button>
+    <button id="sec-larguillo" onclick="toggleSec('larguillo')" class="sec-btn">🛣️ Larguillo de obra</button>
+  </div>
+
+  <div style="font-size:10px;font-weight:800;color:#2563eb;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">🔍 Análisis de producción y tendencias</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px">
     <button id="sec-emulsion" onclick="toggleSec('emulsion')" class="sec-btn">🛢️ Análisis de emulsión</button>
     <button id="sec-tendencia" onclick="toggleSec('tendencia')" class="sec-btn">📈 Tendencia de volúmenes</button>
     <button id="sec-horarios" onclick="toggleSec('horarios')" class="sec-btn">⏱️ Horarios de tendido</button>
-    <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
-    <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
-    <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
-    <button id="sec-graficas" onclick="toggleSec('graficas')" class="sec-btn">📊 Gráficas</button>
-    <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
     <button id="sec-rutas"    onclick="toggleSec('rutas')"    class="sec-btn">🗺️ Distancias planta</button>
     <button id="sec-tabla"    onclick="toggleSec('tabla')"    class="sec-btn">📋 Detalle de viajes</button>
-    <button id="sec-gastos"   onclick="toggleSec('gastos')"   class="sec-btn">💵 Gastos ARMAQOP</button>
-    <button id="sec-espesor" onclick="toggleSec('espesor')" class="sec-btn">📏 Espesor de carpeta</button>
-    <button id="sec-balanceDias" onclick="toggleSec('balanceDias')" class="sec-btn">📅 Balance de días</button>
-    <button id="sec-larguillo" onclick="toggleSec('larguillo')" class="sec-btn">🛣️ Larguillo de obra</button>
   </div>
 </div>
 
@@ -2241,6 +2251,21 @@ function render(){
 
   document.getElementById('mainContent').innerHTML = `
 
+  <!-- ═══ GRUPO: FINANCIERA ═══ -->
+  ${(secciones.financiero||secciones.programa||secciones.gastos) ? `<div style="font-size:13px;font-weight:800;color:#7c3aed;margin:22px 0 4px;padding-bottom:6px;border-bottom:2px solid #7c3aed">💰 FINANCIERA</div>` : ''}
+
+  <!-- FÍSICO-FINANCIERO -->
+  ${secciones.financiero ? buildFinanciero(exec) : ''}
+
+  <!-- AVANCE vs PROGRAMA -->
+  <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
+
+  <!-- GASTOS ARMAQOP -->
+  ${secciones.gastos ? buildGastos(filtered) : ''}
+
+  <!-- ═══ GRUPO: AVANCES ═══ -->
+  ${(secciones.kpis||secciones.avance||secciones.graficas||secciones.espesor||secciones.faltante||secciones.balanceDias||secciones.larguillo) ? `<div style="font-size:13px;font-weight:800;color:#16a34a;margin:22px 0 4px;padding-bottom:6px;border-bottom:2px solid #16a34a">📈 AVANCES</div>` : ''}
+
   <!-- KPIs -->
   ${secciones.kpis ? `
   <div class="section-hdr">📈 Producción — día y acumulado</div>
@@ -2253,7 +2278,7 @@ function render(){
     <div class="kpi purple"><span class="kpi-icon">🛢️</span><div class="kpi-label">Emulsión ECR-65</div><div class="kpi-value">${emulAcum>0?emulAcum.toFixed(0):'—'}</div><div class="kpi-sub">${emulAcum>0&&areaAcum>0?(emulAcum/areaAcum).toFixed(3)+' lts/m²':'Sin registro'}</div></div>
   </div>` : ''}
 
-  <!-- AVANCE FÍSICO -->
+  <!-- AVANCE POR CONCEPTO -->
   ${secciones.avance ? `
   <div class="section-hdr">🏗️ Avance físico vs catálogo E-7</div>
   <div class="card">
@@ -2290,29 +2315,10 @@ function render(){
     <div class="card"><div class="card-hdr"><h4>📈 Volumen acumulado vs catálogo</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartAcum" style="width:100%;height:180px"></div></div></div>
   </div>` : ''}
 
-  <!-- ANÁLISIS DE EMULSIÓN -->
-  ${secciones.emulsion ? buildEmulsion(filtered) : ''}
-
-  <!-- GASTOS ARMAQOP -->
-  ${secciones.gastos ? buildGastos(filtered) : ''}
+  <!-- ESPESOR DE CARPETA -->
   ${secciones.espesor ? buildEspesor(filtered) : ''}
-  ${secciones.balanceDias ? buildBalanceDias(allRecs) : ''}
 
-  <!-- ANÁLISIS DE TENDENCIA -->
-  ${secciones.tendencia ? buildTendencia(filtered) : ''}
-
-  <!-- ANÁLISIS DE HORARIOS DE TENDIDO -->
-  ${secciones.horarios ? buildHorarios(filtered) : ''}
-
-  <!-- FÍSICO-FINANCIERO -->
-  ${secciones.financiero ? buildFinanciero(exec) : ''}
-
-  <!-- AVANCE vs PROGRAMA -->
-  <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
-
-  ${secciones.larguillo ? buildLarguillo(filtered) : ''}
-
-  <!-- FALTANTE -->
+  <!-- VOLUMEN FALTANTE -->
   ${secciones.faltante ? `
   <div class="section-hdr">⏳ Volumen faltante — cuánto queda por colocar</div>
   <div class="falt-grid">
@@ -2321,6 +2327,24 @@ function render(){
       return `<div class="falt-card ${done?'done':'pending'}"><div class="falt-status">${done?'✅ COMPLETADO':'⏳ PENDIENTE'}</div><div class="falt-name">${cat.label} · ${cat.obra}</div><div class="falt-rows"><div class="falt-row"><span class="falt-key">Catálogo</span><span class="falt-val">${cat.vol} m³</span></div><div class="falt-row"><span class="falt-key">Ejecutado</span><span class="falt-val">${c.ex.toFixed(2)} m³</span></div><div class="falt-row"><span class="falt-key">Faltante m³</span><span class="falt-val">${done?'0':fM3.toFixed(2)}</span></div><div class="falt-row"><span class="falt-key">Faltante ton</span><span class="falt-val">${done?'0':fTon.toFixed(1)}</span></div><div class="falt-row"><span class="falt-key">Viajes faltantes</span><span class="falt-val">${done?'✓':fVj+' viajes'}</span></div></div></div>`;
     }).join('')}
   </div>` : ''}
+
+  <!-- BALANCE DE DÍAS -->
+  ${secciones.balanceDias ? buildBalanceDias(allRecs) : ''}
+
+  <!-- LARGUILLO -->
+  ${secciones.larguillo ? buildLarguillo(filtered) : ''}
+
+  <!-- ═══ GRUPO: ANÁLISIS DE PRODUCCIÓN Y TENDENCIAS ═══ -->
+  ${(secciones.emulsion||secciones.tendencia||secciones.horarios||secciones.rutas||secciones.tabla) ? `<div style="font-size:13px;font-weight:800;color:#2563eb;margin:22px 0 4px;padding-bottom:6px;border-bottom:2px solid #2563eb">🔍 ANÁLISIS DE PRODUCCIÓN Y TENDENCIAS</div>` : ''}
+
+  <!-- ANÁLISIS DE EMULSIÓN -->
+  ${secciones.emulsion ? buildEmulsion(filtered) : ''}
+
+  <!-- ANÁLISIS DE TENDENCIA -->
+  ${secciones.tendencia ? buildTendencia(filtered) : ''}
+
+  <!-- ANÁLISIS DE HORARIOS DE TENDIDO -->
+  ${secciones.horarios ? buildHorarios(filtered) : ''}
 
   <!-- RUTAS -->
   ${secciones.rutas ? `
