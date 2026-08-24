@@ -314,12 +314,17 @@ tbody tr:hover td{background:var(--blue4)}
   <span class="f-label" style="margin-left:8px">Ruta:</span>
   <button class="f-chip active" id="fr-1" onclick="setRuta(1,this)">Provisional</button>
   <button class="f-chip" id="fr-2" onclick="setRuta(2,this)">Libramiento</button>
-  <button class="f-chip" onclick="toggleSecciones()" style="margin-left:8px;border-color:#a78bfa;color:#7c3aed">⚙️ Secciones</button>
+  <span class="f-label" style="margin-left:8px">Grupo:</span>
+  <button class="f-chip grupo-btn active" id="grupo-financiera" onclick="setGrupo('financiera')" style="border-color:#7c3aed;color:#7c3aed">💰 Financiera</button>
+  <button class="f-chip grupo-btn" id="grupo-avances" onclick="setGrupo('avances')" style="border-color:#16a34a;color:#16a34a">📈 Avances</button>
+  <button class="f-chip grupo-btn" id="grupo-analisis" onclick="setGrupo('analisis')" style="border-color:#2563eb;color:#2563eb">🔍 Análisis</button>
+  <button class="f-chip" onclick="toggleSecciones()" style="margin-left:8px;border-color:#a78bfa;color:#7c3aed">↕️ Orden</button>
   <span class="f-label" style="margin-left:8px">Volumen:</span>
   <button class="f-chip" id="btnSoloReal" onclick="setVistaExtra(false)" style="border-color:#16a34a;color:#16a34a" title="Solo lo capturado viaje por viaje, sin el Excel de extras">🚚 Solo real</button>
   <button class="f-chip active" id="btnConExtra" onclick="setVistaExtra(true)" style="border-color:#7c3aed;color:#7c3aed" title="Incluye el volumen extra importado por Excel — lo que se cobra a SICT">📋 Con extra (cobro)</button>
   <span class="f-time" id="lastTime">—</span>
 </div>
+
 
 <!-- PANEL DE FECHAS -->
 <div id="fechaPanel" style="display:none;background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px">
@@ -337,39 +342,13 @@ tbody tr:hover td{background:var(--blue4)}
   </div>
 </div>
 
-<!-- PANEL DE SECCIONES -->
+<!-- PANEL DE ORDEN (reemplaza el viejo de prender/apagar una por una) -->
 <div id="secPanel" style="display:none;background:var(--white);border-bottom:1px solid var(--gray2);padding:10px 24px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-    <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">Selecciona qué mostrar en el reporte:</span>
+    <span style="font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.08em">Orden de <span id="grupoActivoLabel">💰 Financiera</span> — usa ▲▼ para decidir qué va primero</span>
     <button class="f-chip" onclick="toggleSecciones()" style="border-color:#94a3b8;color:#475569">✓ Listo, cerrar</button>
   </div>
-
-  <div style="font-size:10px;font-weight:800;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">💰 Financiera</div>
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-    <button id="sec-financiero" onclick="toggleSec('financiero')" class="sec-btn">💰 Físico-financiero</button>
-    <button id="sec-programa" onclick="toggleSec('programa')" class="sec-btn">📅 Avance vs programa</button>
-    <button id="sec-gastos"   onclick="toggleSec('gastos')"   class="sec-btn">💵 Gastos ARMAQOP</button>
-  </div>
-
-  <div style="font-size:10px;font-weight:800;color:#16a34a;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">📈 Avances</div>
-  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px">
-    <button id="sec-kpis"     onclick="toggleSec('kpis')"     class="sec-btn">📈 Producción del día</button>
-    <button id="sec-avance"   onclick="toggleSec('avance')"   class="sec-btn">📐 Avance por concepto</button>
-    <button id="sec-graficas" onclick="toggleSec('graficas')" class="sec-btn">📊 Gráficas</button>
-    <button id="sec-espesor" onclick="toggleSec('espesor')" class="sec-btn">📏 Espesor de carpeta</button>
-    <button id="sec-faltante" onclick="toggleSec('faltante')" class="sec-btn">⏳ Volumen faltante</button>
-    <button id="sec-balanceDias" onclick="toggleSec('balanceDias')" class="sec-btn">📅 Balance de días</button>
-    <button id="sec-larguillo" onclick="toggleSec('larguillo')" class="sec-btn">🛣️ Larguillo de obra</button>
-  </div>
-
-  <div style="font-size:10px;font-weight:800;color:#2563eb;text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">🔍 Análisis de producción y tendencias</div>
-  <div style="display:flex;flex-wrap:wrap;gap:8px">
-    <button id="sec-emulsion" onclick="toggleSec('emulsion')" class="sec-btn">🛢️ Análisis de emulsión</button>
-    <button id="sec-tendencia" onclick="toggleSec('tendencia')" class="sec-btn">📈 Tendencia de volúmenes</button>
-    <button id="sec-horarios" onclick="toggleSec('horarios')" class="sec-btn">⏱️ Horarios de tendido</button>
-    <button id="sec-rutas"    onclick="toggleSec('rutas')"    class="sec-btn">🗺️ Distancias planta</button>
-    <button id="sec-tabla"    onclick="toggleSec('tabla')"    class="sec-btn">📋 Detalle de viajes</button>
-  </div>
+  <div id="ordenPanelBody"></div>
 </div>
 
 <div class="main" id="mainContent">
@@ -749,6 +728,68 @@ let secciones={
   larguillo:true
 };
 
+// ═══ GRUPOS (uno se ve a la vez, como pestañas) — dentro de cada grupo TODAS sus secciones van
+// prendidas siempre; lo único que se ajusta es el ORDEN en que aparecen (con las flechas ▲▼).
+const GRUPOS={
+  financiera:['financiero','programa','gastos'],
+  avances:['kpis','avance','graficas','espesor','faltante','balanceDias','larguillo'],
+  analisis:['emulsion','tendencia','horarios','rutas','tabla']
+};
+const GRUPO_LABEL={financiera:'💰 Financiera', avances:'📈 Avances', analisis:'🔍 Análisis de producción y tendencias'};
+const GRUPO_COLOR={financiera:'#7c3aed', avances:'#16a34a', analisis:'#2563eb'};
+const SECCION_LABEL={
+  financiero:'💰 Físico-financiero', programa:'📅 Avance vs programa', gastos:'💵 Gastos ARMAQOP',
+  kpis:'📈 Producción del día', avance:'📐 Avance por concepto', graficas:'📊 Gráficas',
+  espesor:'📏 Espesor de carpeta', faltante:'⏳ Volumen faltante', balanceDias:'📅 Balance de días',
+  larguillo:'🛣️ Larguillo de obra', emulsion:'🛢️ Análisis de emulsión', tendencia:'📈 Tendencia de volúmenes',
+  horarios:'⏱️ Horarios de tendido', rutas:'🗺️ Distancias planta', tabla:'📋 Detalle de viajes'
+};
+let _grupoActivo = localStorage.getItem('rep039_grupo')||'financiera';
+if(!GRUPOS[_grupoActivo]) _grupoActivo='financiera';
+let _ordenGrupo={};
+try{ _ordenGrupo=JSON.parse(localStorage.getItem('rep039_orden')||'{}')||{}; }catch(e){ _ordenGrupo={}; }
+Object.keys(GRUPOS).forEach(g=>{
+  if(!Array.isArray(_ordenGrupo[g])) _ordenGrupo[g]=[...GRUPOS[g]];
+  else { GRUPOS[g].forEach(k=>{ if(!_ordenGrupo[g].includes(k)) _ordenGrupo[g].push(k); }); _ordenGrupo[g]=_ordenGrupo[g].filter(k=>GRUPOS[g].includes(k)); }
+});
+function _guardarOrden(){ try{ localStorage.setItem('rep039_orden', JSON.stringify(_ordenGrupo)); }catch(e){} }
+// Cambia de grupo: prende TODAS las secciones del grupo elegido, apaga las de los demás.
+window.setGrupo=function(g){
+  if(!GRUPOS[g]) return;
+  _grupoActivo=g;
+  try{ localStorage.setItem('rep039_grupo', g); }catch(e){}
+  Object.keys(GRUPOS).forEach(gg=>{ GRUPOS[gg].forEach(k=>{ secciones[k]=(gg===g); }); });
+  document.querySelectorAll('.grupo-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('grupo-'+g); if(btn) btn.classList.add('active');
+  const lbl=document.getElementById('grupoActivoLabel'); if(lbl) lbl.textContent=GRUPO_LABEL[g];
+  renderOrdenPanel();
+  applyFilters();
+};
+// Mueve una sección arriba/abajo DENTRO del grupo activo — así decides qué se presenta primero.
+window.moverSeccion=function(key,dir){
+  const arr=_ordenGrupo[_grupoActivo];
+  const i=arr.indexOf(key); if(i<0) return;
+  const j=i+dir; if(j<0||j>=arr.length) return;
+  [arr[i],arr[j]]=[arr[j],arr[i]];
+  _guardarOrden();
+  renderOrdenPanel();
+  applyFilters();
+};
+function renderOrdenPanel(){
+  const cont=document.getElementById('ordenPanelBody'); if(!cont) return;
+  const arr=_ordenGrupo[_grupoActivo]||[];
+  cont.innerHTML=arr.map((k,i)=>`
+    <div style="display:flex;align-items:center;justify-content:space-between;background:var(--gray6,#f8fafc);border:1px solid var(--gray2);border-radius:8px;padding:8px 12px;margin-bottom:6px">
+      <span style="font-size:13px;font-weight:600">${SECCION_LABEL[k]||k}</span>
+      <div style="display:flex;gap:4px">
+        <button onclick="moverSeccion('${k}',-1)" ${i===0?'disabled':''} style="border:1px solid var(--gray2);background:var(--white);border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:13px;${i===0?'opacity:.3':''}">▲</button>
+        <button onclick="moverSeccion('${k}',1)" ${i===arr.length-1?'disabled':''} style="border:1px solid var(--gray2);background:var(--white);border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:13px;${i===arr.length-1?'opacity:.3':''}">▼</button>
+      </div>
+    </div>`).join('');
+}
+// Aplica el grupo inicial (el que quedó guardado, o "financiera" la primera vez) desde el arranque.
+Object.keys(GRUPOS).forEach(gg=>{ GRUPOS[gg].forEach(k=>{ secciones[k]=(gg===_grupoActivo); }); });
+
 // ── FIREBASE ──
 const fb=initializeApp(FB);
 let db;
@@ -819,12 +860,12 @@ onAuthStateChanged(auth, user=>{
     startExtrasListener();
     startEmulsionListener();
     startCarrilesListener();
-    // Sincroniza los botones del panel "⚙️ Secciones" con el estado inicial (modo Campo) — si no,
-    // se ven todos "prendidos" aunque varias secciones ya arrancan apagadas.
-    Object.keys(secciones).forEach(k=>{
-      const btn=document.getElementById('sec-'+k);
-      if(btn) btn.classList.toggle('off', !secciones[k]);
-    });
+    // Sincroniza el botón del grupo activo (el que quedó guardado, o Financiera la primera vez) y
+    // el panel de orden — antes de esto solo se sincronizaban botones sueltos de encender/apagar.
+    document.querySelectorAll('.grupo-btn').forEach(b=>b.classList.remove('active'));
+    const gbtn=document.getElementById('grupo-'+_grupoActivo); if(gbtn) gbtn.classList.add('active');
+    const lbl=document.getElementById('grupoActivoLabel'); if(lbl) lbl.textContent=GRUPO_LABEL[_grupoActivo];
+    renderOrdenPanel();
   } else {
     if(lg) lg.style.display='flex';
   }
@@ -2249,130 +2290,101 @@ function render(){
 
   const ruta=RUTAS[rutaActual];
 
+  // Un "builder" (función) por cada sección — arma su HTML usando las variables ya calculadas
+  // arriba. El orden en que se pintan ya NO está fijo aquí: lo decide _ordenGrupo[_grupoActivo]
+  // (ajustable con las flechas ▲▼ del panel "↕️ Orden"), y solo se pintan las del grupo activo.
+  const builders={
+    financiero: ()=> buildFinanciero(exec),
+    programa: ()=> `<div id="avanceProgWrap">${buildAvanceProgramado(filtered)}</div>`,
+    gastos: ()=> buildGastos(filtered),
+    kpis: ()=> `
+      <div class="section-hdr">📈 Producción — día y acumulado</div>
+      <div class="kpi-grid" id="kpiGrid">
+        <div class="kpi blue"><span class="kpi-icon">🏗️</span><div class="kpi-label">Toneladas hoy</div><div class="kpi-value">${tonHoy.toFixed(1)}</div><div class="kpi-sub">${hoyR.length} viajes · ${(hoyR.reduce((s,r)=>s+r.area,0)).toFixed(0)} m²</div>${cambio?`<div class="kpi-delta ${parseFloat(cambio)>=0?'up':'down'}">${parseFloat(cambio)>=0?'▲':'▼'} ${Math.abs(cambio)}% vs ayer</div>`:'<div class="kpi-delta neutral">Primer día</div>'}</div>
+        <div class="kpi green"><span class="kpi-icon">📐</span><div class="kpi-label">Volumen hoy m³</div><div class="kpi-value">${volHoy.toFixed(2)}</div><div class="kpi-sub">geométrico · ${tonHoy.toFixed(1)} ton báscula</div></div>
+        <div class="kpi gold"><span class="kpi-icon">📦</span><div class="kpi-label">Ton acumuladas</div><div class="kpi-value">${tonAcum.toFixed(0)}</div><div class="kpi-sub">${filtered.length} viajes · ${Object.keys(byCam).length} camiones</div></div>
+        <div class="kpi blue"><span class="kpi-icon">🧱</span><div class="kpi-label">Vol. acum m³</div><div class="kpi-value">${volAcumConExtra.toFixed(1)}</div><div class="kpi-sub">${pctAvance}% del catálogo total${extraTotal>0?` · <span style="color:#a78bfa">incluye +${extraTotal.toFixed(1)} m³ extra</span>`:''}</div></div>
+        <div class="kpi green"><span class="kpi-icon">💰</span><div class="kpi-label">m³ ganancia</div><div class="kpi-value">${m3FavAcum>=0?'+':''}${m3FavAcum.toFixed(2)}</div><div class="kpi-sub">${(m3FavAcum>=0?'+':'')}${favTon.toFixed(1)} ton a favor · todos los conceptos</div></div>
+        <div class="kpi purple"><span class="kpi-icon">🛢️</span><div class="kpi-label">Emulsión ECR-65</div><div class="kpi-value">${emulAcum>0?emulAcum.toFixed(0):'—'}</div><div class="kpi-sub">${emulAcum>0&&areaAcum>0?(emulAcum/areaAcum).toFixed(3)+' lts/m²':'Sin registro'}</div></div>
+      </div>`,
+    avance: ()=> `
+      <div class="section-hdr">🏗️ Avance físico vs catálogo E-7</div>
+      <div class="card">
+        <div class="card-hdr"><h4>📊 Progreso vs catálogo E-7</h4><div class="meta">${volAcumConExtra.toFixed(1)} / ${TOT_VOL} m³${extraTotal>0?` <span style="color:#a78bfa">(+${extraTotal.toFixed(1)} extra)</span>`:''}</div></div>
+        <div class="card-body">
+          ${[{key:'reniv',ex:exec.reniv},{key:'carp3',ex:exec.carp3},{key:'bach1',ex:exec.bach1},{key:'carp5',ex:exec.carp5},{key:'bach2',ex:exec.bach2}].map(c=>{
+            const cat=CAT[c.key]; const pct=Math.min(c.ex/cat.vol*100,100); const falt=Math.max(cat.vol-c.ex,0);
+            return `<div class="prog-row"><div class="prog-label">${cat.label}<br><span style="font-size:10px;color:var(--gray)">${cat.obra}</span></div><div class="prog-track"><div class="prog-fill ${cat.color}" style="width:${pct.toFixed(1)}%"></div></div><div class="prog-pct" style="color:${pct>=100?'var(--green)':pct>=50?'var(--blue)':'var(--gray)'}">${pct.toFixed(1)}%</div><div class="prog-vol">${c.ex.toFixed(1)}/${cat.vol}<br>falt: ${falt.toFixed(1)}</div></div>`;
+          }).join('')}
+        </div>
+        ${extraTotal>0?`<div class="card-body" style="border-top:1px solid var(--border);padding-top:10px">
+          <div style="font-size:11px;font-weight:800;color:#a78bfa;margin-bottom:6px">📥 Volumen extra importado (Excel/generadores) — para cotejar contra la app de campo</div>
+          <table style="width:100%;font-size:11px;border-collapse:collapse">
+            <tr style="color:var(--gray)"><td>Concepto</td><td style="text-align:right">m³ extra</td></tr>
+            ${[{key:'reniv',v:extrasExec.reniv},{key:'carp3',v:extrasExec.carp3},{key:'bach1',v:extrasExec.bach1},{key:'carp5',v:extrasExec.carp5},{key:'bach2',v:extrasExec.bach2}].filter(x=>x.v>0).map(x=>
+              `<tr><td style="padding:2px 0">${CAT[x.key].label} <span style="color:var(--gray);font-size:10px">${CAT[x.key].obra}</span></td><td style="text-align:right;font-weight:700">${x.v.toFixed(2)}</td></tr>`
+            ).join('')}
+            <tr style="border-top:1px solid var(--border)"><td style="padding:3px 0;font-weight:800">TOTAL extra</td><td style="text-align:right;font-weight:800;color:#a78bfa">${extraTotal.toFixed(2)} m³</td></tr>
+          </table>
+        </div>`:''}
+      </div>`,
+    graficas: ()=> `
+      <div class="section-hdr">📊 Gráficas de producción</div>
+      <div class="two-col">
+        <div class="card"><div class="card-hdr"><h4>📅 Toneladas por día</h4>
+          <div style="display:flex;gap:4px">
+            <button class="f-chip" id="gtd-dia" onclick="setGranTon('dia')" style="padding:3px 10px;font-size:10px">Día</button>
+            <button class="f-chip" id="gtd-semana" onclick="setGranTon('semana')" style="padding:3px 10px;font-size:10px">Semana</button>
+            <button class="f-chip" id="gtd-mes" onclick="setGranTon('mes')" style="padding:3px 10px;font-size:10px">Mes</button>
+          </div>
+        </div><div class="card-body" style="padding:12px 8px"><div id="chartDia" style="width:100%;height:200px;overflow-x:auto;overflow-y:hidden"></div></div></div>
+        <div class="card"><div class="card-hdr"><h4>📈 Volumen acumulado vs catálogo</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartAcum" style="width:100%;height:180px"></div></div></div>
+      </div>`,
+    espesor: ()=> buildEspesor(filtered),
+    faltante: ()=> `
+      <div class="section-hdr">⏳ Volumen faltante — cuánto queda por colocar</div>
+      <div class="falt-grid">
+        ${[{key:'reniv',ex:exec.reniv},{key:'carp3',ex:exec.carp3},{key:'bach1',ex:exec.bach1},{key:'carp5',ex:exec.carp5},{key:'bach2',ex:exec.bach2}].map(c=>{
+          const cat=CAT[c.key]; const fM3=Math.max(cat.vol-c.ex,0); const fTon=fM3*DEN, fVj=Math.ceil(fTon/22); const done=fM3<=0.1;
+          return `<div class="falt-card ${done?'done':'pending'}"><div class="falt-status">${done?'✅ COMPLETADO':'⏳ PENDIENTE'}</div><div class="falt-name">${cat.label} · ${cat.obra}</div><div class="falt-rows"><div class="falt-row"><span class="falt-key">Catálogo</span><span class="falt-val">${cat.vol} m³</span></div><div class="falt-row"><span class="falt-key">Ejecutado</span><span class="falt-val">${c.ex.toFixed(2)} m³</span></div><div class="falt-row"><span class="falt-key">Faltante m³</span><span class="falt-val">${done?'0':fM3.toFixed(2)}</span></div><div class="falt-row"><span class="falt-key">Faltante ton</span><span class="falt-val">${done?'0':fTon.toFixed(1)}</span></div><div class="falt-row"><span class="falt-key">Viajes faltantes</span><span class="falt-val">${done?'✓':fVj+' viajes'}</span></div></div></div>`;
+        }).join('')}
+      </div>`,
+    balanceDias: ()=> buildBalanceDias(allRecs),
+    larguillo: ()=> buildLarguillo(filtered),
+    emulsion: ()=> buildEmulsion(filtered),
+    tendencia: ()=> buildTendencia(filtered),
+    horarios: ()=> buildHorarios(filtered),
+    rutas: ()=> `
+      <div class="section-hdr admin-only">🗺️ Distancias planta → obra · <span style="font-weight:400;color:var(--gray)">${ruta.label}</span></div>
+      <div class="ruta-grid admin-only">
+        <div class="ruta-card"><div class="ruta-obra">Obra 1 · MEX-200 km 46+200 – 58+700</div><div class="ruta-km-big">${ruta.obra1.km_total} km</div><div class="ruta-km-label">recorrido total ida</div><div class="ruta-bascula">⚖️ ${ruta.obra1.bascula}</div><div class="ruta-stops">${ruta.obra1.stops}</div><div style="margin-top:8px;font-size:11px;color:var(--gray)">Ciclo tortón: ~${Math.round(ruta.obra1.km_total*4+30)} min · Ciclos/día: ~${Math.floor(540/(ruta.obra1.km_total*4+30))}</div></div>
+        <div class="ruta-card"><div class="ruta-obra">Obra 2 · MEX-80 km 247+600 – 251+600</div><div class="ruta-km-big">${ruta.obra2.km_total} km</div><div class="ruta-km-label">recorrido total ida</div><div class="ruta-bascula">⚖️ ${ruta.obra2.bascula}</div><div class="ruta-stops">${ruta.obra2.stops}</div><div style="margin-top:8px;font-size:11px;color:var(--gray)">Ciclo tortón: ~${Math.round(ruta.obra2.km_total*4+30)} min · Ciclos/día: ~${Math.floor(540/(ruta.obra2.km_total*4+30))}</div></div>
+      </div>`,
+    tabla: ()=> `
+      <div class="section-hdr">🚛 Detalle de viajes · reporte de pago</div>
+      <div class="card">
+        <div class="card-hdr"><h4>📋 Registro de viajes</h4><div class="meta">${filtered.length} registros</div></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr>
+              <th>FECHA</th><th>PLACAS</th><th class="r">#</th>
+              <th>VALE</th><th>REMISIÓN</th>
+              <th class="r">TON</th><th class="r">ÁREA m²</th>
+             <th class="r">KM INICIAL</th><th class="r">KM FINAL</th><th>CARRIL</th>
+              <th class="r">°PROD/°TEND</th><th>G/P</th>
+              <th>OBSERVACIONES</th>
+            </tr></thead>
+            <tbody>${renderTableRows()}</tbody>
+          </table>
+        </div>
+      </div>`
+  };
+
+  const contenidoGrupo = (_ordenGrupo[_grupoActivo]||[]).map(k=> builders[k] ? builders[k]() : '').join('\n');
+
   document.getElementById('mainContent').innerHTML = `
-
-  <!-- ═══ GRUPO: FINANCIERA ═══ -->
-  ${(secciones.financiero||secciones.programa||secciones.gastos) ? `<div style="font-size:13px;font-weight:800;color:#7c3aed;margin:22px 0 4px;padding-bottom:6px;border-bottom:2px solid #7c3aed">💰 FINANCIERA</div>` : ''}
-
-  <!-- FÍSICO-FINANCIERO -->
-  ${secciones.financiero ? buildFinanciero(exec) : ''}
-
-  <!-- AVANCE vs PROGRAMA -->
-  <div id="avanceProgWrap">${secciones.programa ? buildAvanceProgramado(filtered) : ''}</div>
-
-  <!-- GASTOS ARMAQOP -->
-  ${secciones.gastos ? buildGastos(filtered) : ''}
-
-  <!-- ═══ GRUPO: AVANCES ═══ -->
-  ${(secciones.kpis||secciones.avance||secciones.graficas||secciones.espesor||secciones.faltante||secciones.balanceDias||secciones.larguillo) ? `<div style="font-size:13px;font-weight:800;color:#16a34a;margin:22px 0 4px;padding-bottom:6px;border-bottom:2px solid #16a34a">📈 AVANCES</div>` : ''}
-
-  <!-- KPIs -->
-  ${secciones.kpis ? `
-  <div class="section-hdr">📈 Producción — día y acumulado</div>
-  <div class="kpi-grid" id="kpiGrid">
-    <div class="kpi blue"><span class="kpi-icon">🏗️</span><div class="kpi-label">Toneladas hoy</div><div class="kpi-value">${tonHoy.toFixed(1)}</div><div class="kpi-sub">${hoyR.length} viajes · ${(hoyR.reduce((s,r)=>s+r.area,0)).toFixed(0)} m²</div>${cambio?`<div class="kpi-delta ${parseFloat(cambio)>=0?'up':'down'}">${parseFloat(cambio)>=0?'▲':'▼'} ${Math.abs(cambio)}% vs ayer</div>`:'<div class="kpi-delta neutral">Primer día</div>'}</div>
-    <div class="kpi green"><span class="kpi-icon">📐</span><div class="kpi-label">Volumen hoy m³</div><div class="kpi-value">${volHoy.toFixed(2)}</div><div class="kpi-sub">geométrico · ${tonHoy.toFixed(1)} ton báscula</div></div>
-    <div class="kpi gold"><span class="kpi-icon">📦</span><div class="kpi-label">Ton acumuladas</div><div class="kpi-value">${tonAcum.toFixed(0)}</div><div class="kpi-sub">${filtered.length} viajes · ${Object.keys(byCam).length} camiones</div></div>
-    <div class="kpi blue"><span class="kpi-icon">🧱</span><div class="kpi-label">Vol. acum m³</div><div class="kpi-value">${volAcumConExtra.toFixed(1)}</div><div class="kpi-sub">${pctAvance}% del catálogo total${extraTotal>0?` · <span style="color:#a78bfa">incluye +${extraTotal.toFixed(1)} m³ extra</span>`:''}</div></div>
-    <div class="kpi green"><span class="kpi-icon">💰</span><div class="kpi-label">m³ ganancia</div><div class="kpi-value">${m3FavAcum>=0?'+':''}${m3FavAcum.toFixed(2)}</div><div class="kpi-sub">${(m3FavAcum>=0?'+':'')}${favTon.toFixed(1)} ton a favor · todos los conceptos</div></div>
-    <div class="kpi purple"><span class="kpi-icon">🛢️</span><div class="kpi-label">Emulsión ECR-65</div><div class="kpi-value">${emulAcum>0?emulAcum.toFixed(0):'—'}</div><div class="kpi-sub">${emulAcum>0&&areaAcum>0?(emulAcum/areaAcum).toFixed(3)+' lts/m²':'Sin registro'}</div></div>
-  </div>` : ''}
-
-  <!-- AVANCE POR CONCEPTO -->
-  ${secciones.avance ? `
-  <div class="section-hdr">🏗️ Avance físico vs catálogo E-7</div>
-  <div class="card">
-    <div class="card-hdr"><h4>📊 Progreso vs catálogo E-7</h4><div class="meta">${volAcumConExtra.toFixed(1)} / ${TOT_VOL} m³${extraTotal>0?` <span style="color:#a78bfa">(+${extraTotal.toFixed(1)} extra)</span>`:''}</div></div>
-    <div class="card-body">
-      ${[{key:'reniv',ex:exec.reniv},{key:'carp3',ex:exec.carp3},{key:'bach1',ex:exec.bach1},{key:'carp5',ex:exec.carp5},{key:'bach2',ex:exec.bach2}].map(c=>{
-        const cat=CAT[c.key]; const pct=Math.min(c.ex/cat.vol*100,100); const falt=Math.max(cat.vol-c.ex,0);
-        return `<div class="prog-row"><div class="prog-label">${cat.label}<br><span style="font-size:10px;color:var(--gray)">${cat.obra}</span></div><div class="prog-track"><div class="prog-fill ${cat.color}" style="width:${pct.toFixed(1)}%"></div></div><div class="prog-pct" style="color:${pct>=100?'var(--green)':pct>=50?'var(--blue)':'var(--gray)'}">${pct.toFixed(1)}%</div><div class="prog-vol">${c.ex.toFixed(1)}/${cat.vol}<br>falt: ${falt.toFixed(1)}</div></div>`;
-      }).join('')}
-    </div>
-    ${extraTotal>0?`<div class="card-body" style="border-top:1px solid var(--border);padding-top:10px">
-      <div style="font-size:11px;font-weight:800;color:#a78bfa;margin-bottom:6px">📥 Volumen extra importado (Excel/generadores) — para cotejar contra la app de campo</div>
-      <table style="width:100%;font-size:11px;border-collapse:collapse">
-        <tr style="color:var(--gray)"><td>Concepto</td><td style="text-align:right">m³ extra</td></tr>
-        ${[{key:'reniv',v:extrasExec.reniv},{key:'carp3',v:extrasExec.carp3},{key:'bach1',v:extrasExec.bach1},{key:'carp5',v:extrasExec.carp5},{key:'bach2',v:extrasExec.bach2}].filter(x=>x.v>0).map(x=>
-          `<tr><td style="padding:2px 0">${CAT[x.key].label} <span style="color:var(--gray);font-size:10px">${CAT[x.key].obra}</span></td><td style="text-align:right;font-weight:700">${x.v.toFixed(2)}</td></tr>`
-        ).join('')}
-        <tr style="border-top:1px solid var(--border)"><td style="padding:3px 0;font-weight:800">TOTAL extra</td><td style="text-align:right;font-weight:800;color:#a78bfa">${extraTotal.toFixed(2)} m³</td></tr>
-      </table>
-    </div>`:''}
-  </div>` : ''}
-
-  <!-- GRÁFICAS -->
-  ${secciones.graficas ? `
-  <div class="section-hdr">📊 Gráficas de producción</div>
-  <div class="two-col">
-    <div class="card"><div class="card-hdr"><h4>📅 Toneladas por día</h4>
-      <div style="display:flex;gap:4px">
-        <button class="f-chip" id="gtd-dia" onclick="setGranTon('dia')" style="padding:3px 10px;font-size:10px">Día</button>
-        <button class="f-chip" id="gtd-semana" onclick="setGranTon('semana')" style="padding:3px 10px;font-size:10px">Semana</button>
-        <button class="f-chip" id="gtd-mes" onclick="setGranTon('mes')" style="padding:3px 10px;font-size:10px">Mes</button>
-      </div>
-    </div><div class="card-body" style="padding:12px 8px"><div id="chartDia" style="width:100%;height:200px;overflow-x:auto;overflow-y:hidden"></div></div></div>
-    <div class="card"><div class="card-hdr"><h4>📈 Volumen acumulado vs catálogo</h4></div><div class="card-body" style="padding:12px 8px"><div id="chartAcum" style="width:100%;height:180px"></div></div></div>
-  </div>` : ''}
-
-  <!-- ESPESOR DE CARPETA -->
-  ${secciones.espesor ? buildEspesor(filtered) : ''}
-
-  <!-- VOLUMEN FALTANTE -->
-  ${secciones.faltante ? `
-  <div class="section-hdr">⏳ Volumen faltante — cuánto queda por colocar</div>
-  <div class="falt-grid">
-    ${[{key:'reniv',ex:exec.reniv},{key:'carp3',ex:exec.carp3},{key:'bach1',ex:exec.bach1},{key:'carp5',ex:exec.carp5},{key:'bach2',ex:exec.bach2}].map(c=>{
-      const cat=CAT[c.key]; const fM3=Math.max(cat.vol-c.ex,0); const fTon=fM3*DEN, fVj=Math.ceil(fTon/22); const done=fM3<=0.1;
-      return `<div class="falt-card ${done?'done':'pending'}"><div class="falt-status">${done?'✅ COMPLETADO':'⏳ PENDIENTE'}</div><div class="falt-name">${cat.label} · ${cat.obra}</div><div class="falt-rows"><div class="falt-row"><span class="falt-key">Catálogo</span><span class="falt-val">${cat.vol} m³</span></div><div class="falt-row"><span class="falt-key">Ejecutado</span><span class="falt-val">${c.ex.toFixed(2)} m³</span></div><div class="falt-row"><span class="falt-key">Faltante m³</span><span class="falt-val">${done?'0':fM3.toFixed(2)}</span></div><div class="falt-row"><span class="falt-key">Faltante ton</span><span class="falt-val">${done?'0':fTon.toFixed(1)}</span></div><div class="falt-row"><span class="falt-key">Viajes faltantes</span><span class="falt-val">${done?'✓':fVj+' viajes'}</span></div></div></div>`;
-    }).join('')}
-  </div>` : ''}
-
-  <!-- BALANCE DE DÍAS -->
-  ${secciones.balanceDias ? buildBalanceDias(allRecs) : ''}
-
-  <!-- LARGUILLO -->
-  ${secciones.larguillo ? buildLarguillo(filtered) : ''}
-
-  <!-- ═══ GRUPO: ANÁLISIS DE PRODUCCIÓN Y TENDENCIAS ═══ -->
-  ${(secciones.emulsion||secciones.tendencia||secciones.horarios||secciones.rutas||secciones.tabla) ? `<div style="font-size:13px;font-weight:800;color:#2563eb;margin:22px 0 4px;padding-bottom:6px;border-bottom:2px solid #2563eb">🔍 ANÁLISIS DE PRODUCCIÓN Y TENDENCIAS</div>` : ''}
-
-  <!-- ANÁLISIS DE EMULSIÓN -->
-  ${secciones.emulsion ? buildEmulsion(filtered) : ''}
-
-  <!-- ANÁLISIS DE TENDENCIA -->
-  ${secciones.tendencia ? buildTendencia(filtered) : ''}
-
-  <!-- ANÁLISIS DE HORARIOS DE TENDIDO -->
-  ${secciones.horarios ? buildHorarios(filtered) : ''}
-
-  <!-- RUTAS -->
-  ${secciones.rutas ? `
-  <div class="section-hdr admin-only">🗺️ Distancias planta → obra · <span style="font-weight:400;color:var(--gray)">${ruta.label}</span></div>
-  <div class="ruta-grid admin-only">
-    <div class="ruta-card"><div class="ruta-obra">Obra 1 · MEX-200 km 46+200 – 58+700</div><div class="ruta-km-big">${ruta.obra1.km_total} km</div><div class="ruta-km-label">recorrido total ida</div><div class="ruta-bascula">⚖️ ${ruta.obra1.bascula}</div><div class="ruta-stops">${ruta.obra1.stops}</div><div style="margin-top:8px;font-size:11px;color:var(--gray)">Ciclo tortón: ~${Math.round(ruta.obra1.km_total*4+30)} min · Ciclos/día: ~${Math.floor(540/(ruta.obra1.km_total*4+30))}</div></div>
-    <div class="ruta-card"><div class="ruta-obra">Obra 2 · MEX-80 km 247+600 – 251+600</div><div class="ruta-km-big">${ruta.obra2.km_total} km</div><div class="ruta-km-label">recorrido total ida</div><div class="ruta-bascula">⚖️ ${ruta.obra2.bascula}</div><div class="ruta-stops">${ruta.obra2.stops}</div><div style="margin-top:8px;font-size:11px;color:var(--gray)">Ciclo tortón: ~${Math.round(ruta.obra2.km_total*4+30)} min · Ciclos/día: ~${Math.floor(540/(ruta.obra2.km_total*4+30))}</div></div>
-  </div>` : ''}
-
-  <!-- TABLA DE PAGO -->
-  ${secciones.tabla ? `
-  <div class="section-hdr">🚛 Detalle de viajes · reporte de pago</div>
-  <div class="card">
-    <div class="card-hdr"><h4>📋 Registro de viajes</h4><div class="meta">${filtered.length} registros</div></div>
-    <div class="tbl-wrap">
-      <table>
-        <thead><tr>
-          <th>FECHA</th><th>PLACAS</th><th class="r">#</th>
-          <th>VALE</th><th>REMISIÓN</th>
-          <th class="r">TON</th><th class="r">ÁREA m²</th>
-         <th class="r">KM INICIAL</th><th class="r">KM FINAL</th><th>CARRIL</th>
-          <th class="r">°PROD/°TEND</th><th>G/P</th>
-          <th>OBSERVACIONES</th>
-        </tr></thead>
-        <tbody>${renderTableRows()}</tbody>
-      </table>
-    </div>
-  </div>` : ''}
+  <div style="font-size:15px;font-weight:800;color:${GRUPO_COLOR[_grupoActivo]};margin:6px 0 4px;padding-bottom:8px;border-bottom:3px solid ${GRUPO_COLOR[_grupoActivo]}">${GRUPO_LABEL[_grupoActivo]}</div>
+  ${contenidoGrupo}
 
   <div class="export-bar">
     <button class="btn-exp primary" onclick="exportPago()">📥 Excel pago camiones</button>
