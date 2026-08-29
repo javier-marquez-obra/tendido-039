@@ -19,7 +19,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787800066855nwm1",
@@ -40,7 +41,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878001484511t6m",
@@ -61,7 +63,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787800512737hro1",
@@ -82,7 +85,8 @@
       "moHoraExtraCantidad": "3",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787800598179wpi9",
@@ -103,7 +107,8 @@
       "moHoraExtraCantidad": "3",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878006755296s20",
@@ -124,7 +129,8 @@
       "moHoraExtraCantidad": "3",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787803669249346c",
@@ -145,7 +151,8 @@
       "moHoraExtraCantidad": "4",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787804081868yvwa",
@@ -166,7 +173,8 @@
       "moHoraExtraCantidad": "4",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787804376823i4q0",
@@ -187,7 +195,8 @@
       "moHoraExtraCantidad": "3",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "178780498288896nl",
@@ -208,7 +217,8 @@
       "moHoraExtraCantidad": "4",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787805384317vl3b",
@@ -229,7 +239,8 @@
       "moHoraExtraCantidad": "4",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787805712654wtx0",
@@ -250,7 +261,8 @@
       "moHoraExtraCantidad": "4",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787805794310wleu",
@@ -271,7 +283,8 @@
       "moHoraExtraCantidad": "4",
       "moViaticos": "238",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787806128858lh5w",
@@ -292,7 +305,8 @@
       "moHoraExtraCantidad": "3",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878062720453ata",
@@ -313,7 +327,8 @@
       "moHoraExtraCantidad": "4",
       "moViaticos": "240",
       "diasDuracion": "88",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787806847975nvf6",
@@ -334,7 +349,8 @@
       "moHoraExtraCantidad": "5",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787806921980cznl",
@@ -355,7 +371,8 @@
       "moHoraExtraCantidad": "3",
       "moViaticos": "240",
       "diasDuracion": "88",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878073835223bh5",
@@ -376,7 +393,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "80"
+      "litrosPorDia": "80",
+      "activo": false
     },
     {
       "id": "1787807455015c0b9",
@@ -397,7 +415,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "45"
+      "litrosPorDia": "45",
+      "activo": false
     },
     {
       "id": "17878075071340198",
@@ -418,7 +437,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "45"
+      "litrosPorDia": "45",
+      "activo": false
     },
     {
       "id": "1787807573797br1n",
@@ -439,7 +459,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "23"
+      "litrosPorDia": "23",
+      "activo": false
     },
     {
       "id": "17878076890681f99",
@@ -460,7 +481,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "35"
+      "litrosPorDia": "35",
+      "activo": false
     },
     {
       "id": "1787807970410neif",
@@ -468,10 +490,10 @@
       "grupo": "Cuadrilla de tendido",
       "codigo": "B-06-001",
       "descripcion": "Camion de 14 m3",
-      "unidad": "flete",
+      "unidad": "viajes",
       "puTexto": "1200",
       "pu": 1200,
-      "cantidad": "669.85",
+      "cantidad": 710.44,
       "incluyeOperador": "no",
       "incluyeViaticos": "no",
       "formaCobro": "M3",
@@ -481,7 +503,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": true
     },
     {
       "id": "1787808216411pqzj",
@@ -502,7 +525,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "35"
+      "litrosPorDia": "35",
+      "activo": false
     },
     {
       "id": "178784569314063vs",
@@ -523,7 +547,8 @@
       "moHoraExtraCantidad": "5",
       "moViaticos": "240",
       "diasDuracion": "90",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787846143673zcm2",
@@ -544,7 +569,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "17.4"
+      "litrosPorDia": "17.4",
+      "activo": false
     },
     {
       "id": "1787846234073heez",
@@ -565,7 +591,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "35"
+      "litrosPorDia": "35",
+      "activo": false
     },
     {
       "id": "1787846384287i54y",
@@ -586,7 +613,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787846464353vbew",
@@ -607,7 +635,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878467493190rdf",
@@ -628,7 +657,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878468268254s5l",
@@ -649,7 +679,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878472447161rnc",
@@ -756,7 +787,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": "25"
+      "litrosPorDia": "25",
+      "activo": false
     },
     {
       "id": "17878487089680kkn",
@@ -777,7 +809,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ".5"
+      "litrosPorDia": ".5",
+      "activo": false
     },
     {
       "id": "178784890159540ro",
@@ -886,218 +919,10 @@
       "nota": "Seguimiento diario"
     },
     {
-      "id": "17879360062901787800512737hro1vv",
-      "tipo": "renglon",
-      "renglonId": "1787800512737hro1",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787800598179wpi97h",
-      "tipo": "renglon",
-      "renglonId": "1787800598179wpi9",
-      "cantidad": 2,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "178793600629017878006755296s20d6",
-      "tipo": "renglon",
-      "renglonId": "17878006755296s20",
-      "cantidad": 3,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787803669249346c0k",
-      "tipo": "renglon",
-      "renglonId": "1787803669249346c",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787804081868yvwan4",
-      "tipo": "renglon",
-      "renglonId": "1787804081868yvwa",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787804376823i4q0yl",
-      "tipo": "renglon",
-      "renglonId": "1787804376823i4q0",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "1787936006290178780498288896nljy",
-      "tipo": "renglon",
-      "renglonId": "178780498288896nl",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787805384317vl3btu",
-      "tipo": "renglon",
-      "renglonId": "1787805384317vl3b",
-      "cantidad": 2,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787806128858lh5wan",
-      "tipo": "renglon",
-      "renglonId": "1787806128858lh5w",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "178793600629017878062720453atadk",
-      "tipo": "renglon",
-      "renglonId": "17878062720453ata",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787806847975nvf63w",
-      "tipo": "renglon",
-      "renglonId": "1787806847975nvf6",
-      "cantidad": 3,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787806921980cznltw",
-      "tipo": "renglon",
-      "renglonId": "1787806921980cznl",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787805712654wtx0fn",
-      "tipo": "renglon",
-      "renglonId": "1787805712654wtx0",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787805794310wleuuk",
-      "tipo": "renglon",
-      "renglonId": "1787805794310wleu",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "1787936006290178784569314063vsj9",
-      "tipo": "renglon",
-      "renglonId": "178784569314063vs",
-      "cantidad": 2,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "178793600629017878073835223bh5c8",
-      "tipo": "renglon",
-      "renglonId": "17878073835223bh5",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787807455015c0b9ec",
-      "tipo": "renglon",
-      "renglonId": "1787807455015c0b9",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787807507134019827",
-      "tipo": "renglon",
-      "renglonId": "17878075071340198",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787807573797br1np7",
-      "tipo": "renglon",
-      "renglonId": "1787807573797br1n",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "178793600629017878076890681f9974",
-      "tipo": "renglon",
-      "renglonId": "17878076890681f99",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787808216411pqzjt4",
-      "tipo": "renglon",
-      "renglonId": "1787808216411pqzj",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "178793600629017878486325919gd0in",
-      "tipo": "renglon",
-      "renglonId": "17878486325919gd0",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "178793600629017878487089680kkn78",
-      "tipo": "renglon",
-      "renglonId": "17878487089680kkn",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787846143673zcm2f9",
-      "tipo": "renglon",
-      "renglonId": "1787846143673zcm2",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "17879360062901787846234073heezhx",
-      "tipo": "renglon",
-      "renglonId": "1787846234073heez",
-      "cantidad": 1,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
-      "id": "178793600629017878001484511t6mld",
-      "tipo": "renglon",
-      "renglonId": "17878001484511t6m",
-      "cantidad": 1.85,
-      "fecha": "2026-06-05",
-      "nota": "Seguimiento diario"
-    },
-    {
       "id": "17879360062901787807970410neif62",
       "tipo": "renglon",
       "renglonId": "1787807970410neif",
-      "cantidad": 0.048,
+      "cantidad": 5,
       "fecha": "2026-06-05",
       "nota": "Seguimiento diario"
     },
@@ -1171,6 +996,174 @@
       "renglonId": "17878468268254s5l",
       "cantidad": 0,
       "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787800512737hro16l",
+      "tipo": "renglon",
+      "renglonId": "1787800512737hro1",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787800598179wpi9s5",
+      "tipo": "renglon",
+      "renglonId": "1787800598179wpi9",
+      "cantidad": 2,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178797659602017878006755296s20np",
+      "tipo": "renglon",
+      "renglonId": "17878006755296s20",
+      "cantidad": 3,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787803669249346c5j",
+      "tipo": "renglon",
+      "renglonId": "1787803669249346c",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787804081868yvwayi",
+      "tipo": "renglon",
+      "renglonId": "1787804081868yvwa",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787804376823i4q0ye",
+      "tipo": "renglon",
+      "renglonId": "1787804376823i4q0",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1787976596020178780498288896nle7",
+      "tipo": "renglon",
+      "renglonId": "178780498288896nl",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787805384317vl3b7z",
+      "tipo": "renglon",
+      "renglonId": "1787805384317vl3b",
+      "cantidad": 2,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787806128858lh5w7y",
+      "tipo": "renglon",
+      "renglonId": "1787806128858lh5w",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178797659602017878062720453atadu",
+      "tipo": "renglon",
+      "renglonId": "17878062720453ata",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787806847975nvf607",
+      "tipo": "renglon",
+      "renglonId": "1787806847975nvf6",
+      "cantidad": 3,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879765960201787806921980cznl95",
+      "tipo": "renglon",
+      "renglonId": "1787806921980cznl",
+      "cantidad": 1,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178797679033617879741514395mm8o1",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.03,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879768544491787939054546ul227c",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 48.53,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1787976854449178793913358369twx4",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 48.53,
+      "fecha": "2026-06-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879776547261787807970410neifqj",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-06-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879776547261787847416922fu44gf",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.03,
+      "fecha": "2026-06-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879776547261787847527348b0o3s3",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.03,
+      "fecha": "2026-06-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178797765472617879741514395mm8we",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.03,
+      "fecha": "2026-06-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17879776547261787939054546ul22do",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 50.495,
+      "fecha": "2026-06-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1787977654726178793913358369twso",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 50.495,
+      "fecha": "2026-06-06",
       "nota": "Seguimiento diario"
     }
   ],
@@ -1319,5 +1312,7 @@
   "fechaTerminoContrato": "2026-08-08",
   "fechaInicioReal": "2026-06-05",
   "fechaTerminoReal": "2026-09-10",
-  "notasDia": {}
+  "notasDia": {
+    "2026-06-07": "no se trabajo por problemas en obra de la maquinaria"
+  }
 }
