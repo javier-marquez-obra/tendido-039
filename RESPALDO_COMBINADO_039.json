@@ -670,7 +670,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787847416922fu44",
@@ -733,7 +734,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "17878486325919gd0",
@@ -796,7 +798,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": false
     },
     {
       "id": "1787939054546ul22",
@@ -804,10 +807,10 @@
       "grupo": "Cuadrilla de tendido",
       "codigo": "B-08-001",
       "descripcion": "SUBCONTRATO ARMAQOP PRODUCCION DE MEZCLA ",
-      "unidad": "TON",
+      "unidad": "m3",
       "puTexto": "3540",
       "pu": 3540,
-      "cantidad": "1250",
+      "cantidad": 4750.83,
       "incluyeOperador": "no",
       "incluyeViaticos": "no",
       "formaCobro": "Tonelada",
@@ -817,7 +820,8 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": true
     },
     {
       "id": "178793913358369tw",
@@ -828,7 +832,7 @@
       "unidad": "m3",
       "puTexto": "1100",
       "pu": 1100,
-      "cantidad": "1200",
+      "cantidad": 4750,
       "incluyeOperador": "no",
       "incluyeViaticos": "no",
       "formaCobro": "Tonelada",
@@ -838,7 +842,30 @@
       "moHoraExtraCantidad": "",
       "moViaticos": "",
       "diasDuracion": "",
-      "litrosPorDia": ""
+      "litrosPorDia": "",
+      "activo": true
+    },
+    {
+      "id": "17879741514395mm8",
+      "categoria": "indirectos",
+      "grupo": "Cuadrilla administrativa en campo",
+      "codigo": "B-07-006",
+      "descripcion": "supervisor administrativo de obra y control de calidad",
+      "unidad": "mes",
+      "puTexto": "50000",
+      "pu": 50000,
+      "cantidad": 3,
+      "incluyeOperador": "no",
+      "incluyeViaticos": "no",
+      "formaCobro": "Tonelada",
+      "moBase": "",
+      "moPctCargas": "",
+      "moHoraExtraCosto": "",
+      "moHoraExtraCantidad": "",
+      "moViaticos": "",
+      "diasDuracion": "",
+      "litrosPorDia": "",
+      "activo": true
     }
   ],
   "gastos": [
