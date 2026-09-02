@@ -1130,7 +1130,7 @@
       "id": "17879776547261787847416922fu44gf",
       "tipo": "renglon",
       "renglonId": "1787847416922fu44",
-      "cantidad": 0.03,
+      "cantidad": 0.01,
       "fecha": "2026-06-06",
       "nota": "Seguimiento diario"
     },
@@ -1138,7 +1138,7 @@
       "id": "17879776547261787847527348b0o3s3",
       "tipo": "renglon",
       "renglonId": "1787847527348b0o3",
-      "cantidad": 0.03,
+      "cantidad": 0.01,
       "fecha": "2026-06-06",
       "nota": "Seguimiento diario"
     },
@@ -1146,7 +1146,7 @@
       "id": "178797765472617879741514395mm8we",
       "tipo": "renglon",
       "renglonId": "17879741514395mm8",
-      "cantidad": 0.03,
+      "cantidad": 0.01,
       "fecha": "2026-06-06",
       "nota": "Seguimiento diario"
     },
@@ -1164,6 +1164,4182 @@
       "renglonId": "178793913358369tw",
       "cantidad": 50.495,
       "fecha": "2026-06-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883313351771787807970410neifa4",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-06-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883313351771787847416922fu443e",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883313351771787847527348b0o3ug",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833133517717879741514395mm805",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883313351771787939054546ul22oz",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 49.23,
+      "fecha": "2026-06-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788331335177178793913358369twvt",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 49.23,
+      "fecha": "2026-06-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883316284971787807970410neifng",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 6,
+      "fecha": "2026-06-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883316284971787847416922fu44vf",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883316284971787847527348b0o3sw",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833162849717879741514395mm81h",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883316284971787939054546ul228x",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 98.84,
+      "fecha": "2026-06-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788331628497178793913358369twnt",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 98.84,
+      "fecha": "2026-06-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883318249351787807970410neifd0",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 4,
+      "fecha": "2026-06-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883318249351787847416922fu44yd",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883318249351787847527348b0o3qr",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833182493517879741514395mm8ba",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883318249351787939054546ul2246",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 37.381,
+      "fecha": "2026-06-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788331824935178793913358369tw2n",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 37.381,
+      "fecha": "2026-06-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883319247421787807970410neifrc",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-06-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883319247421787847416922fu44qv",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883319247421787847527348b0o3bc",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833192474217879741514395mm8cs",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883319247421787939054546ul22yr",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 49.364,
+      "fecha": "2026-06-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788331924742178793913358369twec",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 49.364,
+      "fecha": "2026-06-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320010641787807970410neifd8",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-06-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320010641787847416922fu4424",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320010641787847527348b0o3kt",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833200106417879741514395mm8w8",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320010641787939054546ul22x5",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 96.541,
+      "fecha": "2026-06-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332001064178793913358369twsc",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 96.541,
+      "fecha": "2026-06-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320903691787807970410neifqf",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-06-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320903691787847416922fu44es",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320903691787847527348b0o31b",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833209036917879741514395mm8px",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883320903691787939054546ul22zz",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 45.277,
+      "fecha": "2026-06-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332090369178793913358369twhu",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 45.277,
+      "fecha": "2026-06-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883321768691787807970410neifui",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883321768691787847416922fu44b7",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883321768691787847527348b0o3y2",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833217686917879741514395mm80a",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883321768691787939054546ul22rq",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332176869178793913358369twfu",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883322451591787807970410neifnd",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883322451591787847416922fu44ua",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883322451591787847527348b0o35t",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833224515917879741514395mm8r7",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883322451591787939054546ul22i1",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332245159178793913358369twx0",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883323478891787807970410neif53",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-06-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883323478891787847416922fu44fe",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883323478891787847527348b0o37p",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833234788917879741514395mm8r4",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883323478891787939054546ul22af",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 99.245,
+      "fecha": "2026-06-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332347889178793913358369twxb",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 99.245,
+      "fecha": "2026-06-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883324312021787807970410neifks",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 8,
+      "fecha": "2026-06-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883324312021787847416922fu44zj",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883324312021787847527348b0o35m",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833243120217879741514395mm88q",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883324312021787939054546ul22cm",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 81.227,
+      "fecha": "2026-06-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332452636178793913358369twp7",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 81.227,
+      "fecha": "2026-06-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883325444561787807970410neifv1",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 4,
+      "fecha": "2026-06-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883325444561787847416922fu44kl",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883325444561787847527348b0o3dh",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833254445617879741514395mm8vf",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883325444561787939054546ul22kd",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 40.809,
+      "fecha": "2026-06-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332544456178793913358369tw0m",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 40.809,
+      "fecha": "2026-06-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883326182501787807970410neifqj",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-06-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883326182501787847416922fu44g7",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883326182501787847527348b0o3nj",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833261825017879741514395mm8wt",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883326182501787939054546ul22vy",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 48.869,
+      "fecha": "2026-06-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332618250178793913358369twp7",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 48.869,
+      "fecha": "2026-06-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883327157391787807970410neifs4",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-06-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883327157391787847416922fu44xy",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883327157391787847527348b0o3o0",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833271573917879741514395mm81f",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883327157391787939054546ul229a",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 117.164,
+      "fecha": "2026-06-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332715739178793913358369twm4",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 117.164,
+      "fecha": "2026-06-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883328035741787807970410neifw0",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 7,
+      "fecha": "2026-06-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883328035741787847416922fu44i0",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883328035741787847527348b0o3g2",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833280357417879741514395mm8ei",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883328035741787939054546ul221a",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 66.723,
+      "fecha": "2026-06-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332803574178793913358369tw1l",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 66.723,
+      "fecha": "2026-06-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329181561787807970410neifcd",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329181561787847416922fu44ja",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329181561787847527348b0o33q",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833291815617879741514395mm8k6",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329181561787939054546ul2278",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332918156178793913358369twg7",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329582211787807970410neifli",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329582211787847416922fu44sb",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329582211787847527348b0o3e7",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833295822117879741514395mm8st",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329582211787939054546ul220k",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332958221178793913358369tw1a",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329996601787807970410neifcd",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329996601787847416922fu44a2",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329996601787847527348b0o3p7",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833299966017879741514395mm8mk",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883329996601787939054546ul221s",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788332999660178793913358369twgr",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330401321787807970410neiflh",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330401321787847416922fu442u",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330401321787847527348b0o31s",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833304013217879741514395mm8bf",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330401321787939054546ul22ul",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788333040132178793913358369twqb",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330972981787807970410neifc8",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330972981787847416922fu4469",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330972981787847527348b0o3k3",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833309729817879741514395mm8xu",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883330972981787939054546ul22bs",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788333097298178793913358369tw9e",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331598131787807970410neifyp",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331598131787847416922fu44ko",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331598131787847527348b0o37r",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833315981317879741514395mm8qt",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331598131787939054546ul22y1",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788333159813178793913358369tw9q",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331881851787807970410neif0e",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331881851787847416922fu440i",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331881851787847527348b0o3k8",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833318818617879741514395mm8ww",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883331881861787939054546ul221a",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788333188186178793913358369twv5",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332334501787807970410neiflt",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332334501787847416922fu44sf",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332334501787847527348b0o3ja",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833323345017879741514395mm8hf",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332334501787939054546ul22oz",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788333233450178793913358369tw8d",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332679061787807970410neif7p",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-06-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332679061787847416922fu44wu",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332679061787847527348b0o31a",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833326790617879741514395mm8qj",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883332679061787939054546ul22dz",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-06-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788333267906178793913358369tw32",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-06-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883333471541787807970410neifpe",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-06-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883333471541787847416922fu4453",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-06-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883333471541787847527348b0o34u",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-06-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833334715417879741514395mm8hi",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-06-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883333471541787939054546ul22af",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 115.809,
+      "fecha": "2026-06-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788333347154178793913358369twjz",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 115.809,
+      "fecha": "2026-06-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883353696001787807970410neifvr",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-07-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883353696001787847416922fu44b3",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883353696001787847527348b0o3o7",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833536960017879741514395mm8o0",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883353696001787939054546ul22mv",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 47.528,
+      "fecha": "2026-07-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335369600178793913358369tw86",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 47.582,
+      "fecha": "2026-07-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354207001787807970410neif5p",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354207001787847416922fu44bq",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354207001787847527348b0o3ae",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833542070017879741514395mm8pk",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354207001787939054546ul22va",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335420700178793913358369twhl",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354908031787807970410neifxk",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 14,
+      "fecha": "2026-07-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354908031787847416922fu44i0",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354908031787847527348b0o3rt",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833549080317879741514395mm8wn",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883354908031787939054546ul229o",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 136.754,
+      "fecha": "2026-07-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335490803178793913358369twmd",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 136.754,
+      "fecha": "2026-07-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883355524641787807970410neifbb",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-07-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883355524641787847416922fu44vn",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883355524641787847527348b0o32f",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833555246417879741514395mm8ze",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883355524641787939054546ul22kj",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 117.714,
+      "fecha": "2026-07-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335552464178793913358369twa2",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 117.714,
+      "fecha": "2026-07-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356028131787807970410neifrq",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-07-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356028131787847416922fu44e1",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356028131787847527348b0o3sm",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833560281317879741514395mm866",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356028131787939054546ul22nf",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 49.081,
+      "fecha": "2026-07-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335602813178793913358369twb4",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 49.081,
+      "fecha": "2026-07-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356557801787807970410neifnx",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 6,
+      "fecha": "2026-07-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356557801787847416922fu4472",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356557801787847527348b0o3rb",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833565578017879741514395mm8wx",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883356557801787939054546ul22qk",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 58.478,
+      "fecha": "2026-07-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335655780178793913358369twqq",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 58.478,
+      "fecha": "2026-07-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357339461787807970410neifvi",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-07-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357339461787847416922fu44kn",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357339461787847527348b0o3me",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833573394617879741514395mm83t",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357339461787939054546ul22mg",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 49.004,
+      "fecha": "2026-07-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335733946178793913358369tw15",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 49.004,
+      "fecha": "2026-07-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357683501787807970410neifda",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357683501787847416922fu4419",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357683501787847527348b0o3w4",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833576835017879741514395mm8n0",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883357683501787939054546ul22po",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335768351178793913358369twni",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883358416051787807970410neifw3",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 6,
+      "fecha": "2026-07-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883358416051787847416922fu44w6",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883358416051787847527348b0o3ko",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833584160517879741514395mm8mv",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883358416051787939054546ul22oc",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 58.309,
+      "fecha": "2026-07-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335841605178793913358369twun",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 58.309,
+      "fecha": "2026-07-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359005061787807970410neifv9",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-07-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359005061787847416922fu44ey",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359005061787847527348b0o35q",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833590050617879741514395mm8lc",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359005061787939054546ul22ji",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 119.674,
+      "fecha": "2026-07-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335900506178793913358369twe8",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 119.674,
+      "fecha": "2026-07-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359531341787807970410neifeo",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-07-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359531341787847416922fu44kr",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359531341787847527348b0o3ns",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833595313417879741514395mm8c6",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883359531351787939054546ul22t9",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 118.915,
+      "fecha": "2026-07-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788335953135178793913358369twrw",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 118.915,
+      "fecha": "2026-07-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360156631787807970410neiffc",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 9,
+      "fecha": "2026-07-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360156631787847416922fu44ed",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360156631787847527348b0o3hd",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833601566317879741514395mm87t",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360156631787939054546ul22dc",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 91.58,
+      "fecha": "2026-07-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336015663178793913358369twp9",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 91.58,
+      "fecha": "2026-07-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360687941787807970410neifd6",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-07-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360687941787847416922fu44sd",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360687941787847527348b0o33b",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833606879417879741514395mm8hy",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883360687941787939054546ul22u6",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 96.795,
+      "fecha": "2026-07-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336068794178793913358369twg5",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 96.795,
+      "fecha": "2026-07-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361244611787807970410neif7t",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361244611787847416922fu448e",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361244611787847527348b0o3nh",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833612446117879741514395mm8jl",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361244611787939054546ul22b6",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336124461178793913358369twlq",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361813141787807970410neifnj",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-07-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361813141787847416922fu44hx",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361813141787847527348b0o3aw",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833618131417879741514395mm8kf",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883361813141787939054546ul22zi",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 119.064,
+      "fecha": "2026-07-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336181314178793913358369tw2f",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 119.064,
+      "fecha": "2026-07-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362329821787807970410neif2t",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-07-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362329821787847416922fu44fa",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362329821787847527348b0o3x2",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833623298217879741514395mm8j3",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362329821787939054546ul222l",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 98.464,
+      "fecha": "2026-07-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336232982178793913358369tw6s",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 98.464,
+      "fecha": "2026-07-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362939821787807970410neif8o",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 7,
+      "fecha": "2026-07-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362939821787847416922fu44bf",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362939821787847527348b0o31g",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833629398217879741514395mm8il",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883362939821787939054546ul2230",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 68.433,
+      "fecha": "2026-07-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336293982178793913358369tw4q",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 68.433,
+      "fecha": "2026-07-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883363475801787807970410neif2u",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 6,
+      "fecha": "2026-07-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883363475801787847416922fu44pn",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883363475801787847527348b0o3sy",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833634758017879741514395mm8rq",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883363475801787939054546ul22a7",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 57.441,
+      "fecha": "2026-07-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336347580178793913358369twpm",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 57.441,
+      "fecha": "2026-07-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883364018361787807970410neifp5",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883364018361787847416922fu44mo",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883364018361787847527348b0o34r",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833640183617879741514395mm8gi",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883364018361787939054546ul22li",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336401836178793913358369twyn",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365375371787807970410neifap",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365375371787847416922fu44el",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365375371787847527348b0o3vo",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833653753717879741514395mm82v",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365375381787939054546ul22i7",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336537538178793913358369twih",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365727211787807970410neiftj",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365727211787847416922fu44tf",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365727211787847527348b0o3qk",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833657272117879741514395mm8id",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883365727211787939054546ul22n8",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336572721178793913358369tw4a",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366007051787807970410neifw9",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366007051787847416922fu44g9",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366007051787847527348b0o31o",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833660070517879741514395mm8fy",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366007051787939054546ul22km",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336600705178793913358369tww4",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366366691787807970410neifj5",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366366691787847416922fu44uo",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366366691787847527348b0o35t",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833663666917879741514395mm8mf",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366366691787939054546ul22bb",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336636669178793913358369tw0m",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366662341787807970410neifl5",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366662341787847416922fu44mt",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366662341787847527348b0o3b6",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833666623417879741514395mm8qd",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883366662341787939054546ul227k",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336666234178793913358369tw0g",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883367451981787807970410neifw4",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883367451981787847416922fu44oi",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883367451981787847527348b0o3nj",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833674519817879741514395mm8et",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883367451981787939054546ul22pg",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336745198178793913358369twzp",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368314271787807970410neifo1",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368314271787847416922fu449u",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368314271787847527348b0o3hc",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833683142717879741514395mm8m9",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368314271787939054546ul22k9",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336831427178793913358369tw6z",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368559601787807970410neif67",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368559601787847416922fu44dr",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368559601787847527348b0o30l",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833685596017879741514395mm8ll",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368559601787939054546ul229e",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336855960178793913358369twvz",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368837561787807970410neifnp",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368837561787847416922fu44p1",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368837561787847527348b0o3j2",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833688375617879741514395mm89e",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883368837561787939054546ul22rw",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336883756178793913358369twhd",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369075091787807970410neif5g",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369075091787847416922fu447v",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369075091787847527348b0o3cl",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833690750917879741514395mm8t8",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369075091787939054546ul227q",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336907509178793913358369twtd",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369446811787807970410neifoy",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-07-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369446811787847416922fu442i",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369446811787847527348b0o30i",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833694468117879741514395mm8cd",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883369446811787939054546ul22nv",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-07-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788336944681178793913358369tw53",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-07-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883370045171787807970410neifas",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 7,
+      "fecha": "2026-07-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883370045171787847416922fu44c2",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-07-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883370045171787847527348b0o35x",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-07-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833700451717879741514395mm8nw",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-07-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883370045171787939054546ul22ac",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 64.94,
+      "fecha": "2026-07-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337004517178793913358369tw6n",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 64.94,
+      "fecha": "2026-07-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883375771071787807970410neifie",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-08-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883375771071787847416922fu44nl",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883375771071787847527348b0o3ar",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833757710717879741514395mm8s6",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883375771071787939054546ul22d0",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 48.077,
+      "fecha": "2026-08-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337577107178793913358369twhq",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 48.077,
+      "fecha": "2026-08-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376365021787807970410neifwp",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 4,
+      "fecha": "2026-08-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376365021787847416922fu4415",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376365021787847527348b0o3am",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833763650217879741514395mm8i0",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376365021787939054546ul2214",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 34.314,
+      "fecha": "2026-08-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337636502178793913358369twvk",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 34.314,
+      "fecha": "2026-08-02",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376752851787807970410neifbf",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376752851787847416922fu4458",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376752851787847527348b0o3yr",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833767528517879741514395mm8gx",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883376752851787939054546ul22gv",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337675285178793913358369twng",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-03",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377398091787807970410neifee",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-08-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377398091787847416922fu4482",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377398091787847527348b0o3bj",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833773980917879741514395mm8rf",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377398091787939054546ul22q3",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 96.637,
+      "fecha": "2026-08-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337739809178793913358369twp5",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 96.637,
+      "fecha": "2026-08-04",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377800331787807970410neif5g",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377800331787847416922fu446k",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377800331787847527348b0o35o",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833778003317879741514395mm8fk",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883377800331787939054546ul22fv",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337780033178793913358369twsg",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-05",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378347481787807970410neif70",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-08-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378347481787847416922fu44cp",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378347481787847527348b0o3ya",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833783474817879741514395mm8vu",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378347481787939054546ul22ua",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 111.205,
+      "fecha": "2026-08-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337834748178793913358369tw8o",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 111.205,
+      "fecha": "2026-08-06",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378997671787807970410neif53",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 4,
+      "fecha": "2026-08-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378997671787847416922fu448p",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378997671787847527348b0o33e",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833789976717879741514395mm82z",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883378997671787939054546ul22kq",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 34.632,
+      "fecha": "2026-08-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337899767178793913358369twtm",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 34.632,
+      "fecha": "2026-08-07",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883379563801787807970410neifgf",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 7,
+      "fecha": "2026-08-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883379563801787847416922fu44fn",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883379563801787847527348b0o3z6",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833795638017879741514395mm8z0",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883379563801787939054546ul22tj",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 65.127,
+      "fecha": "2026-08-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788337956380178793913358369twlr",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 65.127,
+      "fecha": "2026-08-08",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380008481787807970410neif6x",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 3,
+      "fecha": "2026-08-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380008481787847416922fu44rs",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380008481787847527348b0o3rp",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833800084817879741514395mm8bi",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380008481787939054546ul220j",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 27.951,
+      "fecha": "2026-08-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338000848178793913358369twi3",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 27.951,
+      "fecha": "2026-08-09",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380511221787807970410neif7l",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-08-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380511221787847416922fu4444",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380511221787847527348b0o3de",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833805112217879741514395mm8ak",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380511221787939054546ul221c",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 88.219,
+      "fecha": "2026-08-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338051122178793913358369twia",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 88.219,
+      "fecha": "2026-08-10",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380891711787807970410neifp3",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380891711787847416922fu444v",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380891711787847527348b0o3ba",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833808917117879741514395mm8sh",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883380891711787939054546ul2262",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338089171178793913358369twuh",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-11",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381358291787807970410neifpt",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 8,
+      "fecha": "2026-08-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381358291787847416922fu448h",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381358301787847527348b0o3a2",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833813583017879741514395mm8co",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381358301787939054546ul22zg",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 73.31,
+      "fecha": "2026-08-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338135830178793913358369twxx",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 73.31,
+      "fecha": "2026-08-12",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381986071787807970410neifpm",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 9,
+      "fecha": "2026-08-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381986071787847416922fu449h",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381986071787847527348b0o3da",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833819860717879741514395mm8oq",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883381986071787939054546ul22r9",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 80.018,
+      "fecha": "2026-08-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338198607178793913358369twer",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 80.018,
+      "fecha": "2026-08-13",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382490311787807970410neifol",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 7,
+      "fecha": "2026-08-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382490311787847416922fu44qb",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382490311787847527348b0o3a6",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833824903117879741514395mm8ga",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382490311787939054546ul2200",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 65.341,
+      "fecha": "2026-08-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338249031178793913358369twh3",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 65.341,
+      "fecha": "2026-08-14",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382842751787807970410neif5k",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382842751787847416922fu44zy",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382842751787847527348b0o3v1",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833828427517879741514395mm8h2",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883382842751787939054546ul2231",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338284275178793913358369twa7",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-15",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883383436991787807970410neifzd",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-08-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883383436991787847416922fu4485",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883383437001787847527348b0o33e",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833834370017879741514395mm8fn",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883383437001787939054546ul22hl",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 92.727,
+      "fecha": "2026-08-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338343700178793913358369twac",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 92.727,
+      "fecha": "2026-08-16",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384359221787807970410neif6i",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384359221787847416922fu4412",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384359221787847527348b0o347",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833843592217879741514395mm8k1",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384359221787939054546ul2277",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338435922178793913358369twh9",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-17",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384569311787807970410neifpt",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384569311787847416922fu44vd",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384569311787847527348b0o30o",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833845693117879741514395mm8vn",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384569311787939054546ul22ic",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338456931178793913358369twap",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-18",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384783961787807970410neifl4",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384783961787847416922fu44rf",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384783961787847527348b0o3i5",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833847839617879741514395mm8pq",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883384783961787939054546ul22xw",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338478396178793913358369tw4p",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-19",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385120041787807970410neif74",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385120041787847416922fu44fa",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385120041787847527348b0o3c6",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833851200417879741514395mm8u9",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385120041787939054546ul22s3",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338512004178793913358369twhk",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-20",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385354351787807970410neifyi",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385354351787847416922fu44on",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385354351787847527348b0o3vo",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833853543517879741514395mm8h2",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385354351787939054546ul22rf",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338535435178793913358369tw63",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-21",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385629461787807970410neifwf",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385629461787847416922fu4443",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385629461787847527348b0o3mw",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833856294617879741514395mm8v7",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385629461787939054546ul22az",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338562946178793913358369tw97",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-22",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385888221787807970410neifkn",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385888221787847416922fu449g",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385888221787847527348b0o3xk",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833858882217879741514395mm8b5",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883385888221787939054546ul2295",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338588822178793913358369twy6",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-23",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386361941787807970410neifaw",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386361941787847416922fu44xa",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386361941787847527348b0o3zn",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833863619417879741514395mm8iq",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386361941787939054546ul22jo",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338636194178793913358369twk2",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-24",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386765751787807970410neifm8",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-08-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386765751787847416922fu44bf",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386765751787847527348b0o3g2",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833867657517879741514395mm84s",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883386765751787939054546ul22kz",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 91.867,
+      "fecha": "2026-08-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338676575178793913358369twhd",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 91.867,
+      "fecha": "2026-08-25",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883387180061787807970410neif2k",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-08-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883387180061787847416922fu44dn",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883387180061787847527348b0o34n",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833871800617879741514395mm8zp",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883387180061787939054546ul22jl",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 89.501,
+      "fecha": "2026-08-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338718006178793913358369twqj",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 89.501,
+      "fecha": "2026-08-26",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883388708161787807970410neifn6",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 5,
+      "fecha": "2026-08-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883388708161787847416922fu44me",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883388708161787847527348b0o34k",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833887081617879741514395mm83l",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883388708161787939054546ul221b",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 45.427,
+      "fecha": "2026-08-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338870816178793913358369twum",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 45.427,
+      "fecha": "2026-08-27",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389225751787807970410neifae",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389225751787847416922fu44e5",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389225751787847527348b0o3i4",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833892257617879741514395mm8sv",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389225761787939054546ul2226",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338922576178793913358369twcb",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-28",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389722341787807970410neifcu",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 12,
+      "fecha": "2026-08-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389722341787847416922fu444o",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389722341787847527348b0o3kt",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833897223417879741514395mm8hj",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883389722341787939054546ul22pb",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 114.591,
+      "fecha": "2026-08-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788338972234178793913358369twof",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 114.591,
+      "fecha": "2026-08-29",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883390152631787807970410neifa3",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 0,
+      "fecha": "2026-08-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883390152631787847416922fu44yt",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883390152631787847527348b0o36l",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833901526317879741514395mm8we",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883390152631787939054546ul224m",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 0,
+      "fecha": "2026-08-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788339015263178793913358369twvg",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 0,
+      "fecha": "2026-08-30",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883391846481787807970410neifkg",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 10,
+      "fecha": "2026-08-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883391846481787847416922fu44y8",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-08-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883391846481787847527348b0o3hr",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-08-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833918464817879741514395mm83u",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-08-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883391846481787939054546ul22y4",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 93.611,
+      "fecha": "2026-08-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788339184648178793913358369twcr",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 93.611,
+      "fecha": "2026-08-31",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883392401801787807970410neiffh",
+      "tipo": "renglon",
+      "renglonId": "1787807970410neif",
+      "cantidad": 9,
+      "fecha": "2026-09-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883392401801787847416922fu44xl",
+      "tipo": "renglon",
+      "renglonId": "1787847416922fu44",
+      "cantidad": 0.01,
+      "fecha": "2026-09-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883392401801787847527348b0o3md",
+      "tipo": "renglon",
+      "renglonId": "1787847527348b0o3",
+      "cantidad": 0.01,
+      "fecha": "2026-09-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "178833924018017879741514395mm8kw",
+      "tipo": "renglon",
+      "renglonId": "17879741514395mm8",
+      "cantidad": 0.01,
+      "fecha": "2026-09-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "17883392401801787939054546ul227n",
+      "tipo": "renglon",
+      "renglonId": "1787939054546ul22",
+      "cantidad": 82.24,
+      "fecha": "2026-09-01",
+      "nota": "Seguimiento diario"
+    },
+    {
+      "id": "1788339240180178793913358369twy3",
+      "tipo": "renglon",
+      "renglonId": "178793913358369tw",
+      "cantidad": 82.24,
+      "fecha": "2026-09-01",
       "nota": "Seguimiento diario"
     }
   ],
@@ -1267,7 +5443,9 @@
       "fecha": "2026-08-05",
       "detalle": {
         "CARPETA3-O1": "2412",
-        "BACHEO-O1": ""
+        "BACHEO-O1": "",
+        "1787854853111h7vt": "12500",
+        "1787855071242kjr7": "25000"
       }
     }
   ],
@@ -1306,13 +5484,17 @@
       "prefijo": "B-09"
     }
   },
-  "precioCombustible": "24.50",
+  "precioCombustible": "26.5",
   "categoriasCustom": [],
   "fechaInicioContrato": "2026-05-05",
   "fechaTerminoContrato": "2026-08-08",
   "fechaInicioReal": "2026-06-05",
   "fechaTerminoReal": "2026-09-10",
   "notasDia": {
-    "2026-06-07": "no se trabajo por problemas en obra de la maquinaria"
+    "2026-06-07": "no se trabajo por problemas en obra de la maquinaria",
+    "2026-06-09": "no se trabajo problemas con el rodillo",
+    "2026-06-21": "semana de descanso del personal regresan el  30/06/26",
+    "2026-07-19": "personal de tendido sale de descanso regresan el 30/07/26",
+    "2026-08-17": "salida de personal de obra "
   }
 }
