@@ -539,6 +539,9 @@ function startPresupuesto039Listener(){
         if(id==='renglones') _p039_renglones=x.items||[];
         else if(id==='config') _p039_config={ grupos:[], codigosConfig:{}, precioCombustible:'', fechaInicioContrato:'', fechaTerminoContrato:'', fechaInicioReal:'', fechaTerminoReal:'', ...x };
       });
+      // Debug temporal: permite inspeccionar los datos reales desde la consola del navegador
+      // (window._debug039) sin depender del scope del módulo. Quitar cuando ya no se necesite.
+      window._debug039={renglones:_p039_renglones, config:_p039_config};
       if(typeof renderCostos==='function') renderCostos();
     }, e=>console.warn('presupuesto039 listener:', e?.code||e));
   }catch(e){ console.warn('presupuesto039 listener', e); }
@@ -588,10 +591,23 @@ function p039_calcularPUManoObra(r){
   const ev=v=>{const e=p039_evalFormula(v);return e.valido?e.valor:0;};
   return ev(r.moBase)*(1+ev(r.moPctCargas)/100)+(ev(r.moHoraExtraCosto)*ev(r.moHoraExtraCantidad))+ev(r.moViaticos);
 }
+// Convierte a número de forma tolerante: acepta números reales, strings numéricos limpios,
+// fórmulas con "=" (vía p039_evalFormula) y strings con comas de miles ("3,646.84").
+// Existe porque datos restaurados desde un respaldo JSON pueden traer pu/cantidad como texto
+// sin evaluar (ese fue el origen del bug de tarjetas en $0.00 tras restaurar).
+function p039_num(v){
+  if(typeof v==='number') return isFinite(v)?v:0;
+  if(v==null||v==='') return 0;
+  const e=p039_evalFormula(v);
+  if(e.valido) return e.valor;
+  const limpio=String(v).replace(/,/g,'').trim();
+  const n=parseFloat(limpio);
+  return isNaN(n)?0:n;
+}
 function p039_importeRenglon(r){
   if(r.activo===false) return 0;
-  const base=(Number(r.pu)||0)*(Number(r.cantidad)||0);
-  if(r.categoria==='mano_obra') return base*(Number(r.diasDuracion)||1);
+  const base=p039_num(r.pu)*p039_num(r.cantidad);
+  if(r.categoria==='mano_obra') return base*(p039_num(r.diasDuracion)||1);
   return base;
 }
 function p039_siguienteCodigo(categoria, lista){
@@ -698,8 +714,8 @@ function renderCostos(){ const el=document.getElementById('costosRoot'); if(el) 
 
 function _p039Render(){
   const renglones=_p039_renglones||[];
-  const combustibleDerivado=renglones.filter(r=>r.categoria==='maquinaria'&&r.activo!==false&&Number(r.litrosPorDia)>0&&Number(r.cantidad)>0)
-    .map(r=>({origenNombre:r.descripcion,costoTotal:Number(r.litrosPorDia)*Number(r.cantidad)*(p039_evalFormula(_p039_config.precioCombustible).valor)}));
+  const combustibleDerivado=renglones.filter(r=>r.categoria==='maquinaria'&&r.activo!==false&&p039_num(r.litrosPorDia)>0&&p039_num(r.cantidad)>0)
+    .map(r=>({origenNombre:r.descripcion,costoTotal:p039_num(r.litrosPorDia)*p039_num(r.cantidad)*(p039_evalFormula(_p039_config.precioCombustible).valor)}));
   const totalCombustible=combustibleDerivado.reduce((s,c)=>s+c.costoTotal,0);
   const totalPresupuestado=renglones.reduce((s,r)=>s+p039_importeRenglon(r),0)+totalCombustible;
 
