@@ -380,7 +380,7 @@ tbody tr:hover td{background:var(--blue4)}
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
-import { initializeFirestore, persistentLocalCache, collection, onSnapshot, query, orderBy } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+import { initializeFirestore, persistentLocalCache, collection, onSnapshot, query, orderBy, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const FB = {
@@ -521,6 +521,402 @@ function startCarrilesListener(){
   }catch(e){ console.warn('config039 listener', e); }
 }
 function carrilesDeObra(tramo){ const c=_carrilesConfig&&_carrilesConfig[tramo]; return (c&&c.length)?c:(CARRILES_DEFAULT[tramo]||CARRILES_DEFAULT.O1); }
+
+// ═══ MÓDULO DE COSTOS (presupuesto039) — ETAPA 1: renglones del presupuesto base + config
+// (grupos/cuadrillas, prefijos de código, precio de combustible, fechas de contrato/reales).
+// Vive en su propia colección con un documento por tipo de dato, para no reescribir todo cada vez
+// que cambia una sola cosa. Reemplazará poco a poco la vieja sección "Gastos ARMAQOP" (localStorage,
+// solo en este navegador) — cuando esté completo el módulo, en la Etapa 4 se retira esa sección.
+let _p039_renglones=[];
+let _p039_config={ grupos:[], codigosConfig:{}, precioCombustible:'', fechaInicioContrato:'', fechaTerminoContrato:'', fechaInicioReal:'', fechaTerminoReal:'' };
+let _p039ListenerStarted=false;
+function startPresupuesto039Listener(){
+  if(_p039ListenerStarted) return; _p039ListenerStarted=true;
+  try{
+    onSnapshot(collection(db,'presupuesto039'), snap=>{
+      snap.forEach(d=>{
+        const id=d.id, x=d.data()||{};
+        if(id==='renglones') _p039_renglones=x.items||[];
+        else if(id==='config') _p039_config={ grupos:[], codigosConfig:{}, precioCombustible:'', fechaInicioContrato:'', fechaTerminoContrato:'', fechaInicioReal:'', fechaTerminoReal:'', ...x };
+      });
+      if(typeof renderCostos==='function') renderCostos();
+    }, e=>console.warn('presupuesto039 listener:', e?.code||e));
+  }catch(e){ console.warn('presupuesto039 listener', e); }
+}
+// Guarda un tipo de dato completo (reemplaza el doc entero) — mismo patrón que usa Tendido para
+// config039. Devuelve true/false para que la UI pueda avisar si falló.
+async function guardarP039(tipo, data){
+  try{
+    await setDoc(doc(db,'presupuesto039',tipo), tipo==='config' ? data : {items:data});
+    return true;
+  }catch(e){
+    console.warn('guardarP039', tipo, e);
+    alert('No se pudo guardar en la nube — revisa tu conexión e intenta de nuevo.');
+    return false;
+  }
+}
+// ═══ MÓDULO DE COSTOS — UI (Etapa 1: Presupuesto base + Config) ═══
+const P039_CATEGORIAS=[
+  {key:'material',label:'Material',color:'#b45309',icon:'📦'},
+  {key:'mano_obra',label:'Mano de obra',color:'#1d4ed8',icon:'👷'},
+  {key:'maquinaria',label:'Maquinaria y equipo menor',color:'#dc2626',icon:'🚜'},
+  {key:'combustible',label:'Combustible',color:'#7c3aed',icon:'⛽'},
+  {key:'emulsion',label:'Emulsión',color:'#0ea5e9',icon:'🛢️'},
+  {key:'acarreo',label:'Acarreo',color:'#059669',icon:'🚚'},
+  {key:'indirectos',label:'Indirectos',color:'#db2777',icon:'💼'},
+  {key:'subcontratos',label:'Subcontratos',color:'#2563eb',icon:'🤝'},
+  {key:'movilizacion',label:'Movilización',color:'#0891b2',icon:'🚛'}
+];
+function p039_catInfo(key){ return P039_CATEGORIAS.find(c=>c.key===key) || {key,label:key,color:'#64748b',icon:'📦'}; }
+function p039_money(n){ return '$'+(Number(n)||0).toLocaleString('es-MX',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+// Evalúa una fórmula sencilla ("1/2", "=32000/30", "12500*12*.025") o número plano — nunca ejecuta
+// texto arbitrario, solo dígitos y + - * / ( ) . espacio.
+function p039_evalFormula(texto){
+  let limpio=String(texto==null?'':texto).trim();
+  if(limpio.startsWith('=')) limpio=limpio.slice(1).trim();
+  if(limpio==='') return {valor:0,esFormula:false,valido:true};
+  if(/^-?\d+(\.\d+)?$/.test(limpio)) return {valor:parseFloat(limpio),esFormula:false,valido:true};
+  if(/^[\d\s.+\-*/()]+$/.test(limpio)){
+    try{
+      const val=Function('"use strict"; return ('+limpio+')')();
+      if(typeof val==='number'&&isFinite(val)) return {valor:Math.round(val*100)/100,esFormula:true,valido:true};
+    }catch(e){}
+  }
+  return {valor:0,esFormula:true,valido:false};
+}
+function p039_calcularPUManoObra(r){
+  const ev=v=>{const e=p039_evalFormula(v);return e.valido?e.valor:0;};
+  return ev(r.moBase)*(1+ev(r.moPctCargas)/100)+(ev(r.moHoraExtraCosto)*ev(r.moHoraExtraCantidad))+ev(r.moViaticos);
+}
+function p039_importeRenglon(r){
+  if(r.activo===false) return 0;
+  const base=(Number(r.pu)||0)*(Number(r.cantidad)||0);
+  if(r.categoria==='mano_obra') return base*(Number(r.diasDuracion)||1);
+  return base;
+}
+function p039_siguienteCodigo(categoria, lista){
+  const cfg=(_p039_config.codigosConfig||{})[categoria];
+  if(!cfg||!cfg.prefijo) return '';
+  const pref=cfg.prefijo+'-';
+  const usados=(lista||_p039_renglones).filter(r=>r.categoria===categoria&&r.codigo&&r.codigo.startsWith(pref));
+  const nums=usados.map(r=>parseInt(r.codigo.slice(pref.length),10)).filter(n=>!isNaN(n));
+  const sig=(nums.length?Math.max(...nums):0)+1;
+  return cfg.prefijo+'-'+String(sig).padStart(3,'0');
+}
+
+// ── Estado de UI (no se guarda, vive solo mientras tienes la página abierta) ──
+let _p039_tab='presupuesto'; // 'presupuesto' | 'config'
+let _p039_form=null; // objeto del renglón que se está creando/editando, o null
+let _p039_catAbierta=null; // qué acordeón de categoría está abierto
+
+function p039_emptyForm(categoria){
+  return {id:null,categoria:categoria||'material',grupo:'',codigo:'',descripcion:'',unidad:'Día',puTexto:'',cantidad:'',
+    moBase:'',moPctCargas:'',moHoraExtraCosto:'',moHoraExtraCantidad:'',moViaticos:'',diasDuracion:'',litrosPorDia:'',
+    activo:true,formaCobro:'Tonelada'};
+}
+window.p039_nuevoRenglon=function(categoria){ _p039_form=p039_emptyForm(categoria); renderCostos(); setTimeout(()=>{const el=document.getElementById('p039FormAnchor'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});},50); };
+window.p039_editarRenglon=function(id){
+  const r=_p039_renglones.find(x=>x.id===id); if(!r) return;
+  _p039_form={...r, puTexto:String(r.pu==null?'':r.pu), cantidad:String(r.cantidad==null?'':r.cantidad),
+    moBase:String(r.moBase||''), moPctCargas:String(r.moPctCargas||''), moHoraExtraCosto:String(r.moHoraExtraCosto||''),
+    moHoraExtraCantidad:String(r.moHoraExtraCantidad||''), moViaticos:String(r.moViaticos||''),
+    diasDuracion:String(r.diasDuracion||''), litrosPorDia:String(r.litrosPorDia||'')};
+  renderCostos();
+  setTimeout(()=>{const el=document.getElementById('p039FormAnchor'); if(el) el.scrollIntoView({behavior:'smooth',block:'start'});},50);
+};
+window.p039_cancelarForm=function(){ _p039_form=null; renderCostos(); };
+window.p039_setCampo=function(campo,valor){ if(!_p039_form) return; _p039_form[campo]=valor;
+  if(campo==='categoria'){ if(!_p039_form.codigo) _p039_form.codigo=p039_siguienteCodigo(valor); }
+  renderCostos();
+};
+window.p039_guardarRenglon=async function(){
+  const f=_p039_form;
+  if(!f.descripcion||!f.descripcion.trim()){ alert('Ponle una descripción al renglón'); return; }
+  if(!f.cantidad){ alert('Falta la cantidad'); return; }
+  const evCant=p039_evalFormula(f.cantidad);
+  if(!evCant.valido){ alert('Esa cantidad no es una fórmula válida'); return; }
+  let puFinal;
+  if(f.categoria==='mano_obra'){
+    if(!f.moBase){ alert('Falta el precio base de mano de obra'); return; }
+    if(!f.diasDuracion){ alert('Falta cuántos días va a trabajar esta cuadrilla/puesto'); return; }
+    puFinal=p039_calcularPUManoObra(f);
+  } else {
+    const ev=p039_evalFormula(f.puTexto);
+    if(!f.puTexto||!ev.valido){ alert('El precio unitario no es válido'); return; }
+    puFinal=ev.valor;
+  }
+  const evLitros=p039_evalFormula(f.litrosPorDia), evDias=p039_evalFormula(f.diasDuracion);
+  const evNum=v=>{ const e=p039_evalFormula(v); return v?e.valor:''; };
+  const nuevo={...f, pu:puFinal, cantidad:evCant.valor,
+    litrosPorDia: f.litrosPorDia?evLitros.valor:'', diasDuracion: f.diasDuracion?evDias.valor:'',
+    moBase:evNum(f.moBase), moPctCargas:evNum(f.moPctCargas), moHoraExtraCosto:evNum(f.moHoraExtraCosto),
+    moHoraExtraCantidad:evNum(f.moHoraExtraCantidad), moViaticos:evNum(f.moViaticos),
+    id: f.id || (Date.now().toString()+Math.random().toString(36).slice(2,6))
+  };
+  delete nuevo.puTexto;
+  const next = f.id ? _p039_renglones.map(r=>r.id===f.id?nuevo:r) : [..._p039_renglones, nuevo];
+  const ok=await guardarP039('renglones', next);
+  if(ok){ _p039_form=null; renderCostos(); }
+};
+window.p039_borrarRenglon=async function(id){
+  if(!confirm('¿Borrar este renglón? No se puede deshacer.')) return;
+  await guardarP039('renglones', _p039_renglones.filter(r=>r.id!==id));
+};
+window.p039_toggleActivo=async function(id){
+  await guardarP039('renglones', _p039_renglones.map(r=>r.id===id?{...r,activo:r.activo===false}:r));
+};
+window.p039_toggleActivoGrupo=async function(categoria,grupo,activar){
+  const next=_p039_renglones.map(r=>(r.categoria===categoria&&(r.grupo||'')===grupo)?{...r,activo:activar}:r);
+  await guardarP039('renglones', next);
+};
+window.p039_toggleCat=function(key){ _p039_catAbierta = _p039_catAbierta===key?null:key; renderCostos(); };
+window.p039_setTab=function(t){ _p039_tab=t; renderCostos(); };
+
+// ── Config ──
+window.p039_agregarGrupo=function(){
+  const nombre=(document.getElementById('p039NuevoGrupo')||{}).value;
+  if(!nombre||!nombre.trim()) return;
+  const grupos=[...(_p039_config.grupos||[])];
+  if(!grupos.includes(nombre.trim())) grupos.push(nombre.trim());
+  guardarP039('config', {..._p039_config, grupos});
+  const el=document.getElementById('p039NuevoGrupo'); if(el) el.value='';
+};
+window.p039_setPrefijo=function(categoria,prefijo){
+  const codigosConfig={...(_p039_config.codigosConfig||{})};
+  codigosConfig[categoria]={prefijo:prefijo.trim().toUpperCase()};
+  guardarP039('config', {..._p039_config, codigosConfig});
+};
+window.p039_setPrecioCombustible=function(v){ guardarP039('config', {..._p039_config, precioCombustible:v}); };
+window.p039_setFecha=function(campo,v){ guardarP039('config', {..._p039_config, [campo]:v}); };
+
+// ── Render principal ──
+function buildCostos(){
+  return `<div class="section-hdr">💰 Costos — presupuesto y gastos de obra</div>
+  <div id="costosRoot">${_p039Render()}</div>`;
+}
+function renderCostos(){ const el=document.getElementById('costosRoot'); if(el) el.innerHTML=_p039Render(); }
+
+function _p039Render(){
+  const renglones=_p039_renglones||[];
+  const combustibleDerivado=renglones.filter(r=>r.categoria==='maquinaria'&&r.activo!==false&&Number(r.litrosPorDia)>0&&Number(r.cantidad)>0)
+    .map(r=>({origenNombre:r.descripcion,costoTotal:Number(r.litrosPorDia)*Number(r.cantidad)*(p039_evalFormula(_p039_config.precioCombustible).valor)}));
+  const totalCombustible=combustibleDerivado.reduce((s,c)=>s+c.costoTotal,0);
+  const totalPresupuestado=renglones.reduce((s,r)=>s+p039_importeRenglon(r),0)+totalCombustible;
+
+  const tabs=`<div style="display:flex;gap:8px;margin-bottom:14px">
+    <button class="btn-exp ${_p039_tab==='presupuesto'?'primary':''}" onclick="p039_setTab('presupuesto')">💵 Presupuesto base</button>
+    <button class="btn-exp ${_p039_tab==='config'?'primary':''}" onclick="p039_setTab('config')">⚙️ Config</button>
+  </div>`;
+
+  if(_p039_tab==='config') return tabs+_p039RenderConfig();
+
+  // ── Presupuesto base ──
+  const porCategoria=P039_CATEGORIAS.map(c=>{
+    const rs=renglones.filter(r=>r.categoria===c.key);
+    let total=rs.reduce((s,r)=>s+p039_importeRenglon(r),0);
+    if(c.key==='combustible') total+=totalCombustible;
+    return {...c, n:rs.length+(c.key==='combustible'?combustibleDerivado.length:0), total};
+  });
+
+  const resumen=`<div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>Total presupuestado</h4></div>
+    <div class="card-body" style="text-align:center">
+      <div style="font-size:26px;font-weight:800;color:var(--gold)">${p039_money(totalPresupuestado)}</div>
+    </div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:14px">
+    ${porCategoria.map(c=>`<div class="card" style="cursor:pointer" onclick="p039_toggleCat('${c.key}')">
+      <div class="card-body" style="padding:10px 12px">
+        <div style="font-size:11px;font-weight:700;color:${c.color}">${c.icon} ${c.label}</div>
+        <div style="font-size:15px;font-weight:800">${p039_money(c.total)}</div>
+        <div style="font-size:10px;color:var(--gray)">${c.n} renglón(es)</div>
+      </div>
+    </div>`).join('')}
+  </div>`;
+
+  const detalle=P039_CATEGORIAS.filter(c=>c.key===_p039_catAbierta).map(c=>{
+    const rs=renglones.filter(r=>r.categoria===c.key);
+    const gruposMap={};
+    rs.forEach(r=>{ const g=(r.grupo&&r.grupo.trim())?r.grupo.trim():'Sin grupo'; (gruposMap[g]=gruposMap[g]||[]).push(r); });
+    let extra='';
+    if(c.key==='combustible'&&combustibleDerivado.length){
+      extra=`<div class="card" style="margin-bottom:10px"><div class="card-body">
+        <div style="font-size:11px;font-weight:700;color:${c.color};margin-bottom:6px">⛽ Calculado automático (litros/día de cada máquina)</div>
+        ${combustibleDerivado.map(cd=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:3px 0">
+          <span>${cd.origenNombre}</span><span style="font-weight:700">${p039_money(cd.costoTotal)}</span></div>`).join('')}
+      </div></div>`;
+    }
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="card-hdr"><h4>${c.icon} ${c.label}</h4>
+        <button class="btn-exp primary" onclick="p039_nuevoRenglon('${c.key}')">+ Renglón</button>
+      </div>
+      <div class="card-body">
+        ${extra}
+        ${Object.keys(gruposMap).length===0?'<div style="color:var(--gray);font-size:12px">Sin renglones todavía.</div>':''}
+        ${Object.keys(gruposMap).map(gName=>{
+          const rsG=gruposMap[gName];
+          const subtotal=rsG.reduce((s,r)=>s+p039_importeRenglon(r),0);
+          const todosActivos=rsG.every(r=>r.activo!==false), todosInactivos=rsG.every(r=>r.activo===false);
+          return `<div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 2px;flex-wrap:wrap;gap:6px">
+              <span style="font-size:11px;font-weight:700;color:var(--gray)">${gName==='Sin grupo'?'(sin grupo)':'📦 '+gName}</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                <span style="font-size:11px;font-weight:700;font-family:monospace">${p039_money(subtotal)}</span>
+                ${todosInactivos
+                  ? `<button class="btn-exp" style="color:#059669;border-color:#059669" onclick="p039_toggleActivoGrupo('${c.key}','${gName==='Sin grupo'?'':gName}',true)">▶️ Activar grupo</button>`
+                  : `<button class="btn-exp" style="color:#dc2626;border-color:#dc2626" onclick="p039_toggleActivoGrupo('${c.key}','${gName==='Sin grupo'?'':gName}',false)">⏸ Desactivar grupo</button>`}
+              </div>
+            </div>
+            ${rsG.map(r=>{
+              const inactivo=r.activo===false;
+              return `<div style="background:var(--surf);border:1px solid ${inactivo?'#fecaca':'var(--gray2)'};border-radius:8px;padding:12px;margin-bottom:6px;opacity:${inactivo?.6:1}">
+                <div style="display:flex;justify-content:space-between;align-items:flex-start">
+                  <div style="flex:1">
+                    ${r.codigo?`<span style="font-size:10px;color:var(--gray)">${r.codigo}</span>`:''}
+                    ${inactivo?'<span style="font-size:9px;font-weight:700;color:#dc2626;border:1px solid #dc2626;border-radius:4px;padding:1px 5px;margin-left:6px">DESACTIVADO</span>':''}
+                    <div style="font-weight:700;font-size:13px">${r.descripcion}</div>
+                    ${r.categoria==='mano_obra'?`<div style="font-size:10px;color:var(--gray);margin-top:2px">base ${p039_money(r.moBase)} · +${r.moPctCargas||0}% cargas · h.extra ${p039_money(r.moHoraExtraCosto)}×${r.moHoraExtraCantidad||0} · viát. ${p039_money(r.moViaticos)}</div>`:''}
+                    ${r.categoria==='maquinaria'&&Number(r.litrosPorDia)>0?`<div style="font-size:10px;color:#7c3aed;margin-top:2px">⛽ ${r.litrosPorDia} L/día</div>`:''}
+                  </div>
+                  <div style="display:flex;gap:6px">
+                    <button class="btn-exp" style="padding:5px 8px" onclick="p039_toggleActivo('${r.id}')">${inactivo?'▶️':'⏸'}</button>
+                    <button class="btn-exp" style="padding:5px 8px" onclick="p039_editarRenglon('${r.id}')">✏️</button>
+                    <button class="btn-exp" style="padding:5px 8px;color:#dc2626" onclick="p039_borrarRenglon('${r.id}')">🗑️</button>
+                  </div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--gray2);font-size:11px">
+                  <span style="color:var(--gray)">${r.cantidad} ${r.categoria==='mano_obra'?'persona(s)':r.unidad} × ${p039_money(r.pu)}${r.categoria==='mano_obra'?` × ${r.diasDuracion||0} día(s)`:''}</span>
+                  <span style="font-weight:700;color:${inactivo?'var(--gray)':'var(--gold)'}">${inactivo?'— (no cuenta)':p039_money(p039_importeRenglon(r))}</span>
+                </div>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  return tabs+resumen+detalle+(_p039_form?_p039RenderForm():'');
+}
+
+function _p039RenderForm(){
+  const f=_p039_form;
+  const esNuevo=!f.id;
+  const grupos=_p039_config.grupos||[];
+  const evPu=f.puTexto?p039_evalFormula(f.puTexto):{valido:true,esFormula:false,valor:0};
+  return `<div id="p039FormAnchor" class="card" style="border:2px solid var(--gold);margin-bottom:14px">
+    <div class="card-hdr"><h4>${esNuevo?'➕ Nuevo renglón':'✏️ Editar renglón'}</h4></div>
+    <div class="card-body">
+      <label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Categoría</label>
+      <select onchange="p039_setCampo('categoria',this.value)" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;margin-bottom:10px">
+        ${P039_CATEGORIAS.map(c=>`<option value="${c.key}" ${f.categoria===c.key?'selected':''}>${c.icon} ${c.label}</option>`).join('')}
+      </select>
+
+      <label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Grupo (opcional)</label>
+      <select onchange="p039_setCampo('grupo',this.value)" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;margin-bottom:10px">
+        <option value="">— sin grupo —</option>
+        ${grupos.map(g=>`<option value="${g}" ${f.grupo===g?'selected':''}>${g}</option>`).join('')}
+      </select>
+
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <div style="flex:1"><label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Código</label>
+          <input value="${f.codigo||''}" oninput="p039_setCampo('codigo',this.value)" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px"></div>
+        <div style="flex:2"><label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Descripción</label>
+          <input value="${f.descripcion||''}" oninput="p039_setCampo('descripcion',this.value)" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px"></div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <div style="flex:1"><label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Unidad</label>
+          <input value="${f.unidad||''}" oninput="p039_setCampo('unidad',this.value)" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px"></div>
+        <div style="flex:1"><label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Cantidad proyectada</label>
+          <input value="${f.cantidad||''}" oninput="p039_setCampo('cantidad',this.value)" placeholder="0 (o fórmula)" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;font-family:monospace"></div>
+      </div>
+
+      ${f.categoria!=='mano_obra'?`
+      <label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Precio unitario (puede ser fórmula, ej. "32000/30")</label>
+      <input value="${f.puTexto||''}" oninput="p039_setCampo('puTexto',this.value)" style="width:100%;padding:10px;border:1px solid ${(f.puTexto&&!evPu.valido)?'#dc2626':'var(--gray2)'};border-radius:8px;font-family:monospace;margin-bottom:${(f.puTexto&&evPu.esFormula&&evPu.valido)?'2px':'10px'}">
+      ${(f.puTexto&&evPu.esFormula&&evPu.valido)?`<div style="font-size:11px;color:#7c3aed;margin-bottom:10px">= ${p039_money(evPu.valor)}</div>`:''}
+      `:''}
+
+      ${f.categoria==='mano_obra'?`
+      <div style="background:var(--blue4);border-radius:8px;padding:12px;margin-bottom:10px">
+        <div style="font-size:11px;font-weight:700;color:var(--blue);margin-bottom:8px">Precio unitario real — 4 partes</div>
+        <label style="font-size:10px;color:var(--gray)">1. Precio base (salario/día)</label>
+        <input value="${f.moBase||''}" oninput="p039_setCampo('moBase',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px;margin-bottom:8px;font-family:monospace">
+        <label style="font-size:10px;color:var(--gray)">2. % de cargas sociales</label>
+        <input value="${f.moPctCargas||''}" oninput="p039_setCampo('moPctCargas',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px;margin-bottom:8px;font-family:monospace">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input value="${f.moHoraExtraCosto||''}" oninput="p039_setCampo('moHoraExtraCosto',this.value)" placeholder="$/hora extra" style="flex:1;padding:8px;border:1px solid var(--gray2);border-radius:6px;font-family:monospace">
+          <input value="${f.moHoraExtraCantidad||''}" oninput="p039_setCampo('moHoraExtraCantidad',this.value)" placeholder="hrs extra" style="flex:1;padding:8px;border:1px solid var(--gray2);border-radius:6px;font-family:monospace">
+        </div>
+        <label style="font-size:10px;color:var(--gray)">Viáticos por día</label>
+        <input value="${f.moViaticos||''}" oninput="p039_setCampo('moViaticos',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px;font-family:monospace">
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--gray2);text-align:right;font-weight:800;color:var(--green)">= ${p039_money(p039_calcularPUManoObra(f))}/día</div>
+      </div>
+      <label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Días que va a trabajar</label>
+      <input value="${f.diasDuracion||''}" oninput="p039_setCampo('diasDuracion',this.value)" placeholder="ej. 90" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;margin-bottom:10px;font-family:monospace">
+      `:''}
+
+      ${f.categoria==='maquinaria'?`
+      <label style="font-size:11px;font-weight:700;color:var(--gray);display:block;margin-bottom:4px">Litros de combustible por día (opcional — se cobra aparte, automático)</label>
+      <input value="${f.litrosPorDia||''}" oninput="p039_setCampo('litrosPorDia',this.value)" placeholder="ej. 80" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;margin-bottom:10px;font-family:monospace">
+      `:''}
+
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn-exp" onclick="p039_cancelarForm()" style="flex:1">Cancelar</button>
+        <button class="btn-exp primary" onclick="p039_guardarRenglon()" style="flex:2">✓ Guardar</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function _p039RenderConfig(){
+  const cfg=_p039_config;
+  return `<div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>📦 Grupos / cuadrillas</h4></div>
+    <div class="card-body">
+      ${(cfg.grupos||[]).map(g=>`<div style="display:inline-block;background:var(--gray3);border-radius:99px;padding:5px 12px;margin:0 6px 6px 0;font-size:12px">${g}</div>`).join('')||'<div style="color:var(--gray);font-size:12px;margin-bottom:8px">Sin grupos todavía.</div>'}
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <input id="p039NuevoGrupo" placeholder="ej. Cuadrilla de tendido" style="flex:1;padding:10px;border:1px solid var(--gray2);border-radius:8px">
+        <button class="btn-exp primary" onclick="p039_agregarGrupo()">+ Agregar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>🔢 Prefijo de código por categoría</h4></div>
+    <div class="card-body">
+      ${P039_CATEGORIAS.map(c=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--gray3)">
+        <span style="font-size:12px;color:${c.color};font-weight:700">${c.icon} ${c.label}</span>
+        <input value="${(cfg.codigosConfig&&cfg.codigosConfig[c.key]&&cfg.codigosConfig[c.key].prefijo)||''}" onchange="p039_setPrefijo('${c.key}',this.value)" placeholder="ej. B-01" style="width:90px;padding:6px 8px;border:1px solid var(--gray2);border-radius:6px;text-align:center">
+      </div>`).join('')}
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>⛽ Precio del combustible</h4></div>
+    <div class="card-body">
+      <input value="${cfg.precioCombustible||''}" onchange="p039_setPrecioCombustible(this.value)" placeholder="$/litro" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;font-family:monospace">
+    </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>📅 Fechas del proyecto</h4></div>
+    <div class="card-body">
+      <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;margin-bottom:6px">Contractual</div>
+      <div style="display:flex;gap:10px;margin-bottom:10px">
+        <div style="flex:1"><label style="font-size:10px;color:var(--gray)">Inicio</label><input type="date" value="${cfg.fechaInicioContrato||''}" onchange="p039_setFecha('fechaInicioContrato',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+        <div style="flex:1"><label style="font-size:10px;color:var(--gray)">Término</label><input type="date" value="${cfg.fechaTerminoContrato||''}" onchange="p039_setFecha('fechaTerminoContrato',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;margin-bottom:6px">Real (campo)</div>
+      <div style="display:flex;gap:10px">
+        <div style="flex:1"><label style="font-size:10px;color:var(--gray)">Inicio</label><input type="date" value="${cfg.fechaInicioReal||''}" onchange="p039_setFecha('fechaInicioReal',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+        <div style="flex:1"><label style="font-size:10px;color:var(--gray)">Término (estimado)</label><input type="date" value="${cfg.fechaTerminoReal||''}" onchange="p039_setFecha('fechaTerminoReal',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+      </div>
+    </div>
+  </div>`;
+}
+
 function ladoDeCarril(carril){
   const key=(carril||'').trim().toUpperCase();
   for(const t of ['O1','O2']){ const f=(carrilesDeObra(t)||[]).find(x=>(x.label||'').trim().toUpperCase()===key); if(f&&f.lado) return f.lado; }
@@ -723,6 +1119,7 @@ let secciones={
   rutas:true,
   tabla:true,
   gastos:false,
+  costos:true,
   espesor:true,
   balanceDias:true,
   larguillo:true
@@ -731,14 +1128,14 @@ let secciones={
 // ═══ GRUPOS (uno se ve a la vez, como pestañas) — dentro de cada grupo TODAS sus secciones van
 // prendidas siempre; lo único que se ajusta es el ORDEN en que aparecen (con las flechas ▲▼).
 const GRUPOS={
-  financiera:['financiero','programa','gastos'],
+  financiera:['financiero','programa','costos','gastos'],
   avances:['kpis','avance','graficas','espesor','faltante','balanceDias','larguillo'],
   analisis:['emulsion','tendencia','horarios','rutas','tabla']
 };
 const GRUPO_LABEL={financiera:'💰 Financiera', avances:'📈 Avances', analisis:'🔍 Análisis de producción y tendencias'};
 const GRUPO_COLOR={financiera:'#7c3aed', avances:'#16a34a', analisis:'#2563eb'};
 const SECCION_LABEL={
-  financiero:'💰 Físico-financiero', programa:'📅 Avance vs programa', gastos:'💵 Gastos ARMAQOP',
+  financiero:'💰 Físico-financiero', programa:'📅 Avance vs programa', gastos:'💵 Gastos ARMAQOP', costos:'💰 Costos (presupuesto y gastos de obra)',
   kpis:'📈 Producción del día', avance:'📐 Avance por concepto', graficas:'📊 Gráficas',
   espesor:'📏 Espesor de carpeta', faltante:'⏳ Volumen faltante', balanceDias:'📅 Balance de días',
   larguillo:'🛣️ Larguillo de obra', emulsion:'🛢️ Análisis de emulsión', tendencia:'📈 Tendencia de volúmenes',
@@ -860,6 +1257,7 @@ onAuthStateChanged(auth, user=>{
     startExtrasListener();
     startEmulsionListener();
     startCarrilesListener();
+    startPresupuesto039Listener();
     // Sincroniza el botón del grupo activo (el que quedó guardado, o Financiera la primera vez) y
     // el panel de orden — antes de esto solo se sincronizaban botones sueltos de encender/apagar.
     document.querySelectorAll('.grupo-btn').forEach(b=>b.classList.remove('active'));
@@ -2297,6 +2695,7 @@ function render(){
     financiero: ()=> buildFinanciero(exec),
     programa: ()=> `<div id="avanceProgWrap">${buildAvanceProgramado(filtered)}</div>`,
     gastos: ()=> buildGastos(filtered),
+    costos: ()=> buildCostos(),
     kpis: ()=> `
       <div class="section-hdr">📈 Producción — día y acumulado</div>
       <div class="kpi-grid" id="kpiGrid">
