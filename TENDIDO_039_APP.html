@@ -1189,25 +1189,17 @@ function aplicarObraActiva(){
   if(bn) bn.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
   const vt=document.getElementById('viajesToolbar');
   if(vt) vt.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
-  // Maquinaria: YA es la versión oficial (ya no "en pruebas"), pero por ahora SOLO el admin
-  // (superintendente) puede verla y capturar en ella — mientras se valida qué está funcionando
-  // bien y se capacita al residente/checador para usarla. Cuando esté listo abrir a más gente,
-  // basta con quitar la condición "_sess.rol==='admin'" de la línea de tabMaq de aquí abajo.
+  // Maquinaria: versión oficial, abierta a quien captura en campo (admin y residente). Antes
+  // dependía de un flag `maquinariaActiva` guardado en el localStorage de CADA dispositivo, lo que
+  // hacía que la pestaña apareciera en un teléfono y no en otro aunque el rol fuera correcto —
+  // por eso al residente nunca le salía. Ese flag ya no decide nada: manda el rol y punto.
   const tabMaq=document.getElementById('tabMaquinaria');
-  const maqOn = !!(OBRAS[obraActiva] && OBRAS[obraActiva].maquinariaActiva);
-  if(tabMaq) tabMaq.style.display = (maqOn && _sess && _sess.rol==='admin') ? '' : 'none';
+  if(tabMaq) tabMaq.style.display = (_sess && _rolEsEditor(_sess.rol)) ? '' : 'none';
   const btnMaqToggle=document.getElementById('btnToggleMaquinaria');
-  if(btnMaqToggle){
-    btnMaqToggle.style.display = (_sess && _sess.rol==='admin') ? '' : 'none';
-    btnMaqToggle.textContent = maqOn ? '🚜 Maquinaria: ACTIVADA (clic para ocultar)' : '🚜 Maquinaria: oculta (clic para activar en esta obra)';
-    btnMaqToggle.style.color = maqOn ? 'var(--green)' : 'var(--muted)';
-    btnMaqToggle.style.borderColor = maqOn ? 'var(--green)' : 'var(--bord)';
-  }
-  // Evaluación del operador: solo la ve/llena residente o superintendente (admin). Con Maquinaria
-  // restringida a admin por ahora, esto de momento solo aplica a admin, pero se deja listo para
-  // cuando se abra también a residente.
+  if(btnMaqToggle) btnMaqToggle.style.display='none';
+  // Evaluación del operador: la ve y la llena residente o superintendente (admin).
   const evalBlock=document.getElementById('maqEvalOperadorBlock');
-  if(evalBlock) evalBlock.style.display = (_sess && (_sess.rol==='admin'||_sess.rol==='residente')) ? '' : 'none';
+  if(evalBlock) evalBlock.style.display = (_sess && _rolEsEditor(_sess.rol)) ? '' : 'none';
   _actualizarTramoCapturaUI();
   try{ if(window._appLista && typeof renderConceptosContainer==='function') renderConceptosContainer(); }catch(e){}
 }
@@ -1919,8 +1911,8 @@ async function cargarSesion(user) {
   session = { uid:user.uid, nombre:perfil.nombre, rol:perfil.rol, obras:perfil.obras||[] };
   // Guarda el último rol BUENO solo cuando se leyó fresco del servidor
   if(leido){ try{ localStorage.setItem(_rolKey, JSON.stringify({rol:perfil.rol,nombre:perfil.nombre,obras:perfil.obras||[]})); }catch(e){} }
-  const isAdmin = perfil.rol==='admin';
-  const isEditor = perfil.rol==='admin'||perfil.rol==='residente';
+
+  const isEditor = _rolEsEditor(perfil.rol);
   const hi=document.getElementById('hInfo'); if(hi) hi.textContent = session.nombre+' · N-27';
   const rt=document.getElementById('roleTag');
   if(rt){ rt.textContent = (perfil.rol||'').toUpperCase()||'—'; rt.className='role-tag '+(isEditor?'admin':'op'); }
@@ -2935,7 +2927,14 @@ window.editQuitarConcepto=function(i){
 // admin / residente: editan todo siempre.
 // checador / capturista: solo SUS capturas y solo durante la jornada vigente
 //   (se bloquean al iniciar la siguiente jornada).
-function esEditor(){ return session.rol==='admin' || session.rol==='residente'; }
+// ── QUIÉN PUEDE EDITAR ──
+// Un solo lugar donde se decide qué roles tienen permiso pleno, para que no se desincronice entre
+// la app y sus distintas pantallas. El checador quedó igualado al residente: ve todo y captura
+// todo. Lo que NO se le abre son las funciones destructivas del admin (eliminar obra, catálogo,
+// normalizar conceptos) ni la escritura de costos en el reporte ejecutivo — eso sigue siendo
+// exclusivo del superintendente.
+function _rolEsEditor(rol){ return rol==='admin' || rol==='residente' || rol==='checador'; }
+function esEditor(){ return _rolEsEditor(session.rol); }
 function mismoUsuario(v){
   if(session.uid && v.capturado_por_uid) return v.capturado_por_uid===session.uid;
   return v.capturado_por && session.nombre && v.capturado_por===session.nombre;
@@ -2952,7 +2951,7 @@ function ultimaJornada(){
 function puedeEditar(v){
   if(!v) return false;
   if(esEditor()) return true;
-  if(session.rol==='checador' || session.rol==='capturista'){
+  if(session.rol==='capturista'){
     return mismoUsuario(v) && v.fecha===ultimaJornada();
   }
   return false;
@@ -3062,7 +3061,7 @@ function _avanceHeaderHtml(av){
   return `<div style="font-size:10.5px;color:#94a3b8;margin-bottom:6px">% avance contra contrato: <b style="color:var(--gold)">${av.pct.toFixed(2)}%</b> (${av.tot.toFixed(2)} / ${av.TOT} m³ del catálogo${obraActiva==='039'?' E-7':''}) · <b style="color:#f87171">Faltan ${faltante.toFixed(2)} m³ por ejecutar</b>${av.extra>0?` · <span style="color:#a78bfa">incluye +${av.extra.toFixed(2)} m³ extra</span>`:''}</div>`;
 }
 function _puedeImprimirGrafico(){
-  return !!(typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente'));
+  return !!(typeof session!=='undefined' && session && _rolEsEditor(session.rol));
 }
 let _tiroVista='sup'; // qué gráfico se muestra: 'sup' o 'cli'
 window.tiroVista=function(v){
@@ -4623,7 +4622,7 @@ function renderMaqHistorial(){
   const body=document.getElementById('maqHistorialBody'); if(!body) return;
   const lista=_bitacoras.filter(b=>(b.obra||'039')===obraActiva);
   if(!lista.length){ body.innerHTML='<div style="font-size:13px;color:var(--muted);text-align:center;padding:20px">Sin registros de maquinaria todavía.</div>'; return; }
-  const puedeVerEval = typeof session!=='undefined' && session && (session.rol==='admin'||session.rol==='residente');
+  const puedeVerEval = typeof session!=='undefined' && session && _rolEsEditor(session.rol);
   const porMaquina={}; // agrupa por equipoId (no solo por nombre) — así se puede abrir "editar equipo" directo
   lista.forEach(b=>{ const k=b.equipoId||b.equipoNombre||'—'; if(!porMaquina[k]) porMaquina[k]={nombre:b.equipoNombre||'—', regs:[]}; porMaquina[k].regs.push(b); });
   Object.values(porMaquina).forEach(g=>g.regs.sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')));

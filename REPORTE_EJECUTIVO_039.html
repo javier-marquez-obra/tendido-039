@@ -3473,8 +3473,8 @@ function render(){
     tendencia: ()=> buildTendencia(filtered),
     horarios: ()=> buildHorarios(filtered),
     rutas: ()=> `
-      <div class="section-hdr admin-only">🗺️ Distancias planta → obra · <span style="font-weight:400;color:var(--gray)">${ruta.label}</span></div>
-      <div class="ruta-grid admin-only">
+      <div class="section-hdr">🗺️ Distancias planta → obra · <span style="font-weight:400;color:var(--gray)">${ruta.label}</span></div>
+      <div class="ruta-grid">
         <div class="ruta-card"><div class="ruta-obra">Obra 1 · MEX-200 km 46+200 – 58+700</div><div class="ruta-km-big">${ruta.obra1.km_total} km</div><div class="ruta-km-label">recorrido total ida</div><div class="ruta-bascula">⚖️ ${ruta.obra1.bascula}</div><div class="ruta-stops">${ruta.obra1.stops}</div><div style="margin-top:8px;font-size:11px;color:var(--gray)">Ciclo tortón: ~${Math.round(ruta.obra1.km_total*4+30)} min · Ciclos/día: ~${Math.floor(540/(ruta.obra1.km_total*4+30))}</div></div>
         <div class="ruta-card"><div class="ruta-obra">Obra 2 · MEX-80 km 247+600 – 251+600</div><div class="ruta-km-big">${ruta.obra2.km_total} km</div><div class="ruta-km-label">recorrido total ida</div><div class="ruta-bascula">⚖️ ${ruta.obra2.bascula}</div><div class="ruta-stops">${ruta.obra2.stops}</div><div style="margin-top:8px;font-size:11px;color:var(--gray)">Ciclo tortón: ~${Math.round(ruta.obra2.km_total*4+30)} min · Ciclos/día: ~${Math.floor(540/(ruta.obra2.km_total*4+30))}</div></div>
       </div>`,
