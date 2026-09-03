@@ -533,6 +533,8 @@ let _p039_config={ grupos:[], codigosConfig:{}, precioCombustible:'', fechaInici
 // estimaciones por corte. Cada uno es su propio documento dentro de presupuesto039.
 let _p039_catalogo=[];      // [{key,codigoSCT,label,unidad,volContrato,pu,obra}]
 let _p039_estimaciones=[];  // [{id,numero,fechaIni,fechaFin,incluirExtra,cerrada,lineas:[...],notas}]
+// ETAPA 3 — Seguimiento diario: un registro por renglón que sí se gastó ese día.
+let _p039_gastos=[];        // [{id,fecha,renglonId,categoria,descripcion,cantidad,pu,importe,obs,auto,origenId}]
 let _p039ListenerStarted=false;
 function startPresupuesto039Listener(){
   if(_p039ListenerStarted) return; _p039ListenerStarted=true;
@@ -543,11 +545,12 @@ function startPresupuesto039Listener(){
         if(id==='renglones') _p039_renglones=x.items||[];
         else if(id==='catalogo') _p039_catalogo=x.items||[];
         else if(id==='estimaciones') _p039_estimaciones=x.items||[];
+        else if(id==='gastos') _p039_gastos=x.items||[];
         else if(id==='config') _p039_config={ grupos:[], codigosConfig:{}, precioCombustible:'', fechaInicioContrato:'', fechaTerminoContrato:'', fechaInicioReal:'', fechaTerminoReal:'', ...x };
       });
       // Debug temporal: permite inspeccionar los datos reales desde la consola del navegador
       // (window._debug039) sin depender del scope del módulo. Quitar cuando ya no se necesite.
-      window._debug039={renglones:_p039_renglones, config:_p039_config, catalogo:_p039_catalogo, estimaciones:_p039_estimaciones};
+      window._debug039={renglones:_p039_renglones, config:_p039_config, catalogo:_p039_catalogo, estimaciones:_p039_estimaciones, gastos:_p039_gastos};
       if(typeof renderCostos==='function') renderCostos();
     }, e=>console.warn('presupuesto039 listener:', e?.code||e));
   }catch(e){ console.warn('presupuesto039 listener', e); }
@@ -678,6 +681,119 @@ function p039_acumuladoAnterior(est){
     .forEach(e=>{ (e.lineas||[]).forEach(l=>{ if(acum[l.key]!=null) acum[l.key]+=p039_num(l.cantidad); }); });
   return acum;
 }
+// ═══ SEGUIMIENTO DIARIO ═══
+// Categorías que se dan por hecho todos los días: si el renglón está activo en el presupuesto,
+// el día abre con ellas ya marcadas y con su cantidad presupuestada. El resto se marca a mano.
+const P039_AUTO_DIARIO=['mano_obra','maquinaria'];
+let _p039_fechaSel=null;     // día que se está capturando (ISO)
+let _p039_borrador=null;     // {fecha, items:{renglonId:{on,cantidad,obs}}}
+let _p039_catSegAbierta=null;
+let _p039_formMasivo=null;   // {desde,hasta} para carga en rango
+
+function p039_hoyISO(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function p039_gastosDe(fecha){ return _p039_gastos.filter(g=>g.fecha===fecha); }
+function p039_totalDia(fecha){ return p039_gastosDe(fecha).reduce((s,g)=>s+p039_num(g.importe),0); }
+// Cuánto cuesta un renglón en UN día (a diferencia del presupuesto, que multiplica por diasDuracion).
+function p039_costoDiario(r, cantidad){
+  const cant = cantidad!=null ? p039_num(cantidad) : p039_num(r.cantidad);
+  return Math.round(p039_num(r.pu)*cant*100)/100;
+}
+// Arma el borrador del día: si ya se capturó, respeta lo guardado; si es día nuevo, prellena
+// mano de obra y maquinaria (lo que sí o sí se paga cuando hay obra) y deja el resto apagado.
+function p039_abrirDia(fecha){
+  const guardados=p039_gastosDe(fecha).filter(g=>!g.auto);
+  const yaCapturado=guardados.length>0;
+  const items={};
+  _p039_renglones.filter(r=>r.activo!==false).forEach(r=>{
+    const g=guardados.find(x=>x.renglonId===r.id);
+    if(g) items[r.id]={on:true, cantidad:String(g.cantidad), obs:g.obs||''};
+    else if(!yaCapturado && P039_AUTO_DIARIO.includes(r.categoria)) items[r.id]={on:true, cantidad:String(p039_num(r.cantidad)), obs:''};
+    else items[r.id]={on:false, cantidad:String(p039_num(r.cantidad)), obs:''};
+  });
+  _p039_borrador={fecha, items};
+}
+// Días con obra: se toman de los viajes capturados (allRecs) más los días que ya tengan gasto,
+// para que la franja muestre exactamente los días que existen en la obra, no un calendario vacío.
+function p039_diasObra(){
+  const s=new Set();
+  (typeof allRecs!=='undefined'?allRecs:[]).forEach(r=>{ if(r.fecha) s.add(r.fecha); });
+  _p039_gastos.forEach(g=>{ if(g.fecha) s.add(g.fecha); });
+  const hoy=p039_hoyISO(); s.add(hoy);
+  return [...s].sort();
+}
+// Construye los registros a guardar de un día a partir del borrador (o de un renglón-plantilla,
+// para la carga masiva). Incluye el combustible derivado de cada máquina con litros/día, igual que
+// lo hace el Presupuesto base — si no, el Análisis compararía contra un presupuesto que sí lo trae.
+function p039_registrosDeDia(fecha, items){
+  const out=[];
+  const precioComb=p039_evalFormula(_p039_config.precioCombustible).valor;
+  Object.keys(items).forEach(rid=>{
+    const it=items[rid]; if(!it.on) return;
+    const r=_p039_renglones.find(x=>x.id===rid); if(!r) return;
+    const cant=p039_num(it.cantidad);
+    out.push({id:fecha+'_'+rid, fecha, renglonId:rid, categoria:r.categoria,
+      descripcion:r.descripcion, cantidad:cant, pu:p039_num(r.pu),
+      importe:p039_costoDiario(r,cant), obs:it.obs||'', auto:false});
+    const lpd=p039_num(r.litrosPorDia);
+    if(r.categoria==='maquinaria' && lpd>0 && precioComb>0){
+      const litros=lpd*cant;
+      out.push({id:fecha+'_'+rid+'_comb', fecha, renglonId:null, categoria:'combustible',
+        descripcion:'⛽ Combustible · '+r.descripcion, cantidad:Math.round(litros*100)/100,
+        pu:precioComb, importe:Math.round(litros*precioComb*100)/100, obs:'', auto:true, origenId:rid});
+    }
+  });
+  return out;
+}
+window.p039_setDia=function(fecha){ _p039_fechaSel=fecha; p039_abrirDia(fecha); renderCostos(); };
+window.p039_setItem=function(rid,campo,valor){
+  if(!_p039_borrador) return;
+  const it=_p039_borrador.items[rid]; if(!it) return;
+  it[campo]=valor;
+  if(campo==='on'&&valor===false){ it.obs=''; }
+  renderCostos();
+};
+window.p039_toggleCatSeg=function(k){ _p039_catSegAbierta=_p039_catSegAbierta===k?null:k; renderCostos(); };
+window.p039_guardarDia=async function(){
+  const b=_p039_borrador; if(!b) return;
+  // La observación es obligatoria cuando la cantidad del día no es la presupuestada — así queda
+  // constancia de por qué ese día se pagó distinto, que es justo lo que después se reclama.
+  const faltan=[];
+  Object.keys(b.items).forEach(rid=>{
+    const it=b.items[rid]; if(!it.on) return;
+    const r=_p039_renglones.find(x=>x.id===rid); if(!r) return;
+    if(p039_num(it.cantidad)!==p039_num(r.cantidad) && !(it.obs||'').trim()) faltan.push(r.descripcion);
+  });
+  if(faltan.length){ alert('Cambiaste la cantidad en estos renglones pero les falta la observación de por qué:\n\n• '+faltan.join('\n• ')); return; }
+  const nuevos=p039_registrosDeDia(b.fecha, b.items);
+  const resto=_p039_gastos.filter(g=>g.fecha!==b.fecha);
+  const ok=await guardarP039('gastos', [...resto, ...nuevos]);
+  if(ok){ alert('✓ Día guardado: '+p039_money(nuevos.reduce((s,g)=>s+g.importe,0))); renderCostos(); }
+};
+window.p039_borrarDia=async function(fecha){
+  if(!confirm('¿Borrar toda la captura del '+fecha+'? No se puede deshacer.')) return;
+  const ok=await guardarP039('gastos', _p039_gastos.filter(g=>g.fecha!==fecha));
+  if(ok){ p039_abrirDia(fecha); renderCostos(); }
+};
+window.p039_abrirMasivo=function(){ _p039_formMasivo={desde:_p039_fechaSel||p039_hoyISO(), hasta:_p039_fechaSel||p039_hoyISO()}; renderCostos(); };
+window.p039_setMasivo=function(c,v){ if(_p039_formMasivo) _p039_formMasivo[c]=v; renderCostos(); };
+window.p039_cancelarMasivo=function(){ _p039_formMasivo=null; renderCostos(); };
+// Carga masiva: replica el borrador del día abierto en todos los días del rango que TENGAN obra
+// (viajes capturados). No inventa días sin actividad, y no pisa días que ya tengan captura.
+window.p039_guardarMasivo=async function(){
+  const f=_p039_formMasivo, b=_p039_borrador;
+  if(!f||!b) return;
+  if(f.hasta<f.desde){ alert('La fecha final no puede ser antes que la inicial'); return; }
+  const dias=p039_diasObra().filter(d=>d>=f.desde&&d<=f.hasta);
+  const yaTienen=dias.filter(d=>p039_gastosDe(d).length>0);
+  const aplicar=dias.filter(d=>p039_gastosDe(d).length===0);
+  if(!aplicar.length){ alert('En ese rango no hay días con obra sin capturar.'+(yaTienen.length?' ('+yaTienen.length+' ya tienen captura y no se tocan.)':'')); return; }
+  if(!confirm('Se va a copiar lo que tienes marcado en el día '+b.fecha+' a '+aplicar.length+' día(s) con obra del rango.'+(yaTienen.length?'\n\n'+yaTienen.length+' día(s) ya capturados NO se tocan.':'')+'\n\n¿Confirmas?')) return;
+  let nuevos=[];
+  aplicar.forEach(d=>{ nuevos=nuevos.concat(p039_registrosDeDia(d, b.items)); });
+  const ok=await guardarP039('gastos', [..._p039_gastos, ...nuevos]);
+  if(ok){ _p039_formMasivo=null; alert('✓ Se cargaron '+aplicar.length+' día(s)'); renderCostos(); }
+};
+
 function p039_siguienteCodigo(categoria, lista){
   const cfg=(_p039_config.codigosConfig||{})[categoria];
   if(!cfg||!cfg.prefijo) return '';
@@ -796,24 +912,94 @@ window.p039_guardarEstimacion=async function(){
 };
 window.p039_recalcularEst=async function(id){
   const est=_p039_estimaciones.find(e=>e.id===id); if(!est) return;
-  if(est.cerrada){ alert('Esta estimación está cerrada. Ábrela primero si de verdad necesitas recalcularla.'); return; }
-  if(!confirm('Vuelve a leer los viajes de ese rango y reescribe las cantidades. Úsalo si capturaste o corregiste viajes después de haber creado el corte. ¿Recalcular?')) return;
+  if(p039_estAutorizada(est)){ alert('Esta estimación está autorizada. Ábrela primero si de verdad necesitas recalcularla.'); return; }
+  const manuales=(est.lineas||[]).filter(l=>l.manual).length;
+  const aviso=manuales?('\n\nOJO: tienes '+manuales+' línea(s) que editaste a mano. El recálculo las va a pisar con lo que digan los viajes.'):'';
+  if(!confirm('Vuelve a leer los viajes de ese rango y reescribe las cantidades. Úsalo si capturaste o corregiste viajes después de haber creado el corte.'+aviso+'\n\n¿Recalcular?')) return;
   const lineas=p039_calcularLineas(est.fechaIni,est.fechaFin,est.incluirExtra);
   await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id?{...e,lineas}:e));
 };
-// Cerrar congela las cantidades: una estimación ya presentada a SICT no debe moverse sola cuando
-// después se corrigen viejos viajes en campo.
-window.p039_toggleCerrarEst=async function(id){
+// Una estimación es editable hasta que se AUTORIZA. Autorizada = congelada: ni se recalcula sola
+// cuando después se corrigen viajes viejos, ni se edita, hasta que se reabra con la clave.
+// (Se sigue leyendo el campo viejo `cerrada` para no perder el estado de estimaciones anteriores.)
+function p039_estAutorizada(e){ return !!(e.autorizada || e.cerrada); }
+// Edición manual de una línea, solo mientras la estimación está abierta. Queda marcada como
+// manual para que el recálculo avise antes de pisarla.
+window.p039_setLinea=async function(estId, key, campo, valor){
+  const est=_p039_estimaciones.find(e=>e.id===estId); if(!est) return;
+  if(p039_estAutorizada(est)){ alert('Estimación autorizada — reábrela con tu clave para poder corregirla.'); renderCostos(); return; }
+  const v=p039_evalFormula(valor).valor;
+  const lineas=(est.lineas||[]).map(l=>{
+    if(l.key!==key) return l;
+    const n={...l, [campo]:v, manual:true};
+    n.importe=Math.round(p039_num(n.cantidad)*p039_num(n.pu)*100)/100;
+    return n;
+  });
+  await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===estId?{...e,lineas}:e));
+};
+window.p039_autorizarEst=async function(id){
   const est=_p039_estimaciones.find(e=>e.id===id); if(!est) return;
-  const msg=est.cerrada
-    ? 'Vas a REABRIR esta estimación para poder recalcularla. Si ya la presentaste a SICT, ojo: las cantidades pueden cambiar. ¿Continuar?'
-    : 'Al cerrarla, las cantidades quedan congeladas aunque después se editen viajes de ese rango. Es lo que conviene una vez que ya la presentaste. ¿Cerrar?';
-  if(!confirm(msg)) return;
-  await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id?{...e,cerrada:!e.cerrada}:e));
+  if(!_p039_config.claveAutorizacion){
+    alert('Primero pon tu clave de autorización en la pestaña ⚙️ Config. Es la que te va a pedir para corregir una estimación ya autorizada.');
+    _p039_tab='config'; renderCostos(); return;
+  }
+  if(!confirm('Vas a AUTORIZAR la estimación '+est.numero+' por '+p039_money(p039_totalEstimacion(est))+'.\n\nQueda congelada: no se recalcula ni se edita, aunque después corrijas viajes de ese rango. Para moverla vas a necesitar tu clave.\n\n¿Autorizar?')) return;
+  await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id
+    ? {...e, autorizada:true, cerrada:true, autorizadaEn:new Date().toISOString()} : e));
+};
+// Reabrir SÍ pide clave: es el único camino para mover una estimación ya presentada.
+window.p039_reabrirEst=function(id){
+  const est=_p039_estimaciones.find(e=>e.id===id); if(!est) return;
+  p039_pedirClave('Reabrir la estimación '+est.numero+' para corregirla', async()=>{
+    await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id
+      ? {...e, autorizada:false, cerrada:false, reabiertaEn:new Date().toISOString()} : e));
+  });
 };
 window.p039_borrarEstimacion=async function(id){
+  const est=_p039_estimaciones.find(e=>e.id===id);
+  if(est && p039_estAutorizada(est)){ alert('No se puede borrar una estimación autorizada. Reábrela primero con tu clave.'); return; }
   if(!confirm('¿Borrar esta estimación? No se puede deshacer.')) return;
   await guardarP039('estimaciones', _p039_estimaciones.filter(e=>e.id!==id));
+};
+
+// ── Clave de autorización ──
+// Candado operativo contra movimientos accidentales, NO seguridad criptográfica: vive en Firestore
+// y quien tenga acceso admin y sepa buscarla puede verla. Su trabajo es que una estimación ya
+// presentada a SICT no se mueva por descuido. La escritura real la sigue protegiendo la regla de
+// Firestore (solo rol admin).
+window.p039_setClave=async function(v){ await guardarP039('config', {..._p039_config, claveAutorizacion:String(v||'').trim()}); };
+let _p039_claveCb=null;
+window.p039_pedirClave=function(motivo, cb){
+  if(!_p039_config.claveAutorizacion){ alert('No tienes clave configurada todavía. Ponla en ⚙️ Config.'); return; }
+  _p039_claveCb={motivo, cb};
+  renderCostos();
+  setTimeout(()=>{const el=document.getElementById('p039ClaveInput'); if(el) el.focus();},60);
+};
+window.p039_cancelarClave=function(){ _p039_claveCb=null; renderCostos(); };
+window.p039_confirmarClave=async function(){
+  const el=document.getElementById('p039ClaveInput'); if(!el) return;
+  if(el.value!==_p039_config.claveAutorizacion){
+    const err=document.getElementById('p039ClaveErr'); if(err) err.textContent='Clave incorrecta';
+    return;
+  }
+  const cb=_p039_claveCb&&_p039_claveCb.cb; _p039_claveCb=null; renderCostos();
+  if(cb) await cb();
+};
+// Recuperar la clave: se valida contra la contraseña real de Firebase del usuario en sesión. Esa
+// contraseña sí se puede resetear por correo desde el login, así que nunca te quedas afuera.
+window.p039_recuperarClave=async function(){
+  const el=document.getElementById('p039ClavePass'), err=document.getElementById('p039ClaveErr');
+  const user=auth.currentUser;
+  if(!user||!user.email){ if(err) err.textContent='No hay sesión activa'; return; }
+  if(!el||!el.value){ if(err) err.textContent='Escribe tu contraseña del login'; return; }
+  if(err) err.textContent='Verificando...';
+  try{
+    await signInWithEmailAndPassword(auth, user.email, el.value);
+    if(err){ err.style.color='#059669'; err.textContent='Tu clave es: '+_p039_config.claveAutorizacion; }
+    el.value='';
+  }catch(e){
+    if(err){ err.style.color='#dc2626'; err.textContent='Contraseña incorrecta'; }
+  }
 };
 window.p039_setNotaEst=async function(id,v){
   await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id?{...e,notas:v}:e));
@@ -854,11 +1040,13 @@ function _p039Render(){
   const tabs=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
     <button class="btn-exp ${_p039_tab==='presupuesto'?'primary':''}" onclick="p039_setTab('presupuesto')">💵 Presupuesto base</button>
     <button class="btn-exp ${_p039_tab==='generador'?'primary':''}" onclick="p039_setTab('generador')">🧾 Generador</button>
+    <button class="btn-exp ${_p039_tab==='seguimiento'?'primary':''}" onclick="p039_setTab('seguimiento')">📆 Seguimiento</button>
     <button class="btn-exp ${_p039_tab==='config'?'primary':''}" onclick="p039_setTab('config')">⚙️ Config</button>
   </div>`;
 
   if(_p039_tab==='config') return tabs+_p039RenderConfig();
   if(_p039_tab==='generador') return tabs+_p039RenderGenerador();
+  if(_p039_tab==='seguimiento') return tabs+_p039RenderSeguimiento();
 
   // ── Presupuesto base ──
   const porCategoria=P039_CATEGORIAS.map(c=>{
@@ -1066,6 +1254,15 @@ function _p039RenderConfig(){
     </div>
   </div>
 
+  <div class="card" style="margin-bottom:14px;border:1px solid #b45309">
+    <div class="card-hdr"><h4>🔑 Clave de autorización</h4></div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Es la que te va a pedir para corregir una estimación ya autorizada. Autorizar no la pide; solo reabrir. Si se te olvida, el candado te deja recuperarla con tu contraseña del login.</div>
+      <input type="text" value="${cfg.claveAutorizacion||''}" onchange="p039_setClave(this.value)" placeholder="Escribe tu clave" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;font-family:monospace">
+      <div style="font-size:10px;color:var(--gray);margin-top:8px">Es un candado contra movimientos por descuido, no seguridad a prueba de todo: se guarda en la base y quien tenga acceso de administrador podría verla. Lo que de verdad protege la información son las reglas de Firestore.</div>
+    </div>
+  </div>
+
   <div class="card" style="margin-bottom:14px;border:1px solid #7c3aed">
     <div class="card-hdr"><h4>📥 Restaurar desde un respaldo</h4></div>
     <div class="card-body">
@@ -1182,8 +1379,13 @@ function _p039RenderGenerador(){
   const ordenadas=[..._p039_estimaciones].sort((a,b)=>p039_num(a.numero)-p039_num(b.numero));
   const listaEst=ordenadas.map(e=>{
     const total=p039_totalEstimacion(e), abierta=_p039_estAbierta===e.id;
+    const aut=p039_estAutorizada(e);
     const anterior=p039_acumuladoAnterior(e);
+    const nManuales=(e.lineas||[]).filter(l=>l.manual).length;
     const detalle=abierta?`<div class="card-body" style="border-top:1px solid var(--gray2)">
+      ${aut?`<div style="background:#ecfdf5;border:1px solid #059669;border-radius:6px;padding:8px;margin-bottom:10px;font-size:11px;color:#065f46">
+        🔒 Autorizada${e.autorizadaEn?' el '+e.autorizadaEn.slice(0,10):''} — congelada. Para corregirla necesitas tu clave.</div>`
+       :`<div style="font-size:11px;color:var(--gray);margin-bottom:10px">✏️ Abierta — puedes editar cantidades y precios a mano, o recalcular desde los viajes. Cuando ya esté como la vas a presentar, autorízala.</div>`}
       <div style="overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:11px">
           <thead><tr style="background:var(--surf)">
@@ -1197,12 +1399,15 @@ function _p039RenderGenerador(){
           <tbody>
           ${(e.lineas||[]).map(l=>{
             const ant=anterior[l.key]||0, act=p039_num(l.cantidad);
+            const celda=(campo,val)=>aut
+              ? `<span style="font-family:monospace">${campo==='pu'?p039_money(val):p039_num(val).toFixed(2)}</span>`
+              : `<input value="${p039_num(val)}" onchange="p039_setLinea('${e.id}','${l.key}','${campo}',this.value)" style="width:${campo==='pu'?'88':'74'}px;padding:4px 6px;border:1px solid ${l.manual?'#b45309':'var(--gray2)'};border-radius:5px;font-family:monospace;font-size:11px;text-align:right">`;
             return `<tr style="border-bottom:1px solid var(--gray2)">
-              <td style="padding:6px">${l.label}${l.codigoSCT?`<br><span style="font-size:9px;color:var(--gray);font-family:monospace">${l.codigoSCT}</span>`:''}</td>
+              <td style="padding:6px">${l.label}${l.codigoSCT?`<br><span style="font-size:9px;color:var(--gray);font-family:monospace">${l.codigoSCT}</span>`:''}${l.manual?'<br><span style="font-size:9px;color:#b45309">✏️ editado a mano</span>':''}</td>
               <td style="padding:6px;text-align:right;color:var(--gray);font-family:monospace">${ant.toFixed(2)}</td>
-              <td style="padding:6px;text-align:right;font-weight:700;font-family:monospace">${act.toFixed(2)}</td>
+              <td style="padding:6px;text-align:right">${celda('cantidad',l.cantidad)}</td>
               <td style="padding:6px;text-align:right;font-family:monospace">${(ant+act).toFixed(2)}</td>
-              <td style="padding:6px;text-align:right;font-family:monospace">${p039_money(l.pu)}</td>
+              <td style="padding:6px;text-align:right">${celda('pu',l.pu)}</td>
               <td style="padding:6px;text-align:right;font-weight:700;font-family:monospace">${p039_money(l.importe)}</td>
             </tr>`;
           }).join('')}
@@ -1213,25 +1418,50 @@ function _p039RenderGenerador(){
           </tr></tfoot>
         </table>
       </div>
+      ${nManuales&&!aut?`<div style="font-size:10px;color:#b45309;margin-top:6px">✏️ ${nManuales} línea(s) editada(s) a mano — un recálculo las pisa.</div>`:''}
       <div style="margin-top:10px">
         <label style="font-size:10px;color:var(--gray)">Notas del corte</label>
-        <textarea onchange="p039_setNotaEst('${e.id}',this.value)" placeholder="Observaciones, número de oficio, quién la recibió..." style="width:100%;min-height:50px;padding:8px;border:1px solid var(--gray2);border-radius:6px;font-size:11px">${e.notas||''}</textarea>
+        <textarea ${aut?'disabled style="background:var(--surf);opacity:.7;"':''} onchange="p039_setNotaEst('${e.id}',this.value)" placeholder="Observaciones, número de oficio, quién la recibió..." style="width:100%;min-height:50px;padding:8px;border:1px solid var(--gray2);border-radius:6px;font-size:11px">${e.notas||''}</textarea>
       </div>
       <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-        <button class="btn-exp" onclick="p039_recalcularEst('${e.id}')" ${e.cerrada?'disabled style="opacity:.4"':''}>↻ Recalcular</button>
-        <button class="btn-exp" style="color:${e.cerrada?'#059669':'#b45309'};border-color:${e.cerrada?'#059669':'#b45309'}" onclick="p039_toggleCerrarEst('${e.id}')">${e.cerrada?'🔓 Reabrir':'🔒 Cerrar'}</button>
-        <button class="btn-exp" style="color:#dc2626;border-color:#dc2626" onclick="p039_borrarEstimacion('${e.id}')">🗑️ Borrar</button>
+        ${aut
+          ? `<button class="btn-exp" style="color:#b45309;border-color:#b45309" onclick="p039_reabrirEst('${e.id}')">🔑 Corregir (pide clave)</button>`
+          : `<button class="btn-exp" onclick="p039_recalcularEst('${e.id}')">↻ Recalcular</button>
+             <button class="btn-exp primary" onclick="p039_autorizarEst('${e.id}')">✅ Autorizar</button>
+             <button class="btn-exp" style="color:#dc2626;border-color:#dc2626" onclick="p039_borrarEstimacion('${e.id}')">🗑️ Borrar</button>`}
       </div>
     </div>`:'';
     return `<div class="card" style="margin-bottom:10px">
       <div class="card-hdr" style="cursor:pointer" onclick="p039_toggleEst('${e.id}')">
-        <h4>${e.cerrada?'🔒':'📝'} Estimación ${e.numero}
-          <span style="font-size:10px;font-weight:400;color:var(--gray)">${e.fechaIni} → ${e.fechaFin}${e.incluirExtra?' · +extra':''}</span></h4>
+        <h4>${aut?'🔒':'✏️'} Estimación ${e.numero}
+          <span style="font-size:10px;font-weight:400;color:var(--gray)">${e.fechaIni} → ${e.fechaFin}${e.incluirExtra?' · +extra':''}${aut?' · AUTORIZADA':''}</span></h4>
         <div class="meta" style="font-weight:800;color:var(--gold)">${p039_money(total)} ${abierta?'▲':'▼'}</div>
       </div>
       ${detalle}
     </div>`;
   }).join('');
+
+  // Modal de clave — se dibuja arriba de todo cuando algo pide autorización.
+  const modalClave=_p039_claveCb?`<div class="card" style="margin-bottom:14px;border:2px solid #b45309">
+    <div class="card-hdr"><h4>🔑 Clave de autorización</h4></div>
+    <div class="card-body">
+      <div style="font-size:12px;margin-bottom:10px">${_p039_claveCb.motivo}</div>
+      <input id="p039ClaveInput" type="password" placeholder="Tu clave" onkeydown="if(event.key==='Enter')p039_confirmarClave()" style="width:100%;padding:10px;border:1px solid var(--gray2);border-radius:8px;margin-bottom:8px">
+      <div id="p039ClaveErr" style="font-size:11px;color:#dc2626;min-height:15px;margin-bottom:8px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="btn-exp primary" style="flex:1" onclick="p039_confirmarClave()">Confirmar</button>
+        <button class="btn-exp" onclick="p039_cancelarClave()">Cancelar</button>
+      </div>
+      <details>
+        <summary style="font-size:11px;color:var(--gray);cursor:pointer">¿Olvidaste la clave?</summary>
+        <div style="margin-top:8px">
+          <div style="font-size:11px;color:var(--gray);margin-bottom:6px">Escribe la contraseña con la que entras al reporte y te la muestro. Si tampoco la recuerdas, sal y usa "olvidé mi contraseña" en el login.</div>
+          <input id="p039ClavePass" type="password" placeholder="Tu contraseña del login" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px;margin-bottom:6px">
+          <button class="btn-exp" style="width:100%" onclick="p039_recuperarClave()">Mostrar mi clave</button>
+        </div>
+      </details>
+    </div>
+  </div>`:'';
 
   const bloqueEst=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
       <div style="font-size:13px;font-weight:800">🧾 Estimaciones por corte</div>
@@ -1240,7 +1470,135 @@ function _p039RenderGenerador(){
     ${formEst}
     ${ordenadas.length?listaEst:'<div class="card"><div class="card-body" style="color:var(--gray);font-size:12px">Todavía no hay estimaciones. Crea la primera con el botón de arriba — las cantidades se calculan solas con los viajes capturados en el rango de fechas que elijas.</div></div>'}`;
 
-  return resumen+bloqueCat+bloqueEst;
+  return modalClave+resumen+bloqueCat+bloqueEst;
+}
+
+// ── Render del Seguimiento diario ──
+function _p039RenderSeguimiento(){
+  const dias=p039_diasObra();
+  if(!_p039_fechaSel || !dias.includes(_p039_fechaSel)){ _p039_fechaSel = dias[dias.length-1]||p039_hoyISO(); }
+  if(!_p039_borrador || _p039_borrador.fecha!==_p039_fechaSel) p039_abrirDia(_p039_fechaSel);
+  const b=_p039_borrador, fecha=_p039_fechaSel;
+
+  const gastadoTotal=_p039_gastos.reduce((s,g)=>s+p039_num(g.importe),0);
+  const diasCapturados=new Set(_p039_gastos.map(g=>g.fecha)).size;
+
+  // ── Franja de días ──
+  const idx=dias.indexOf(fecha);
+  const franja=dias.map(d=>{
+    const tiene=p039_gastosDe(d).length>0, act=d===fecha;
+    const dt=new Date(d+'T12:00:00');
+    return `<button onclick="p039_setDia('${d}')" style="flex:0 0 auto;border:1px solid ${act?'var(--blue)':(tiene?'#059669':'var(--gray2)')};background:${act?'var(--blue)':'var(--white)'};color:${act?'#fff':'var(--txt3)'};border-radius:8px;padding:5px 8px;cursor:pointer;text-align:center;min-width:46px">
+      <div style="font-size:9px;opacity:.8">${['dom','lun','mar','mié','jue','vie','sáb'][dt.getDay()]}</div>
+      <div style="font-size:13px;font-weight:800">${dt.getDate()}</div>
+      <div style="font-size:8px">${_mesCorto[dt.getMonth()]}${tiene?' ✓':''}</div>
+    </button>`;
+  }).join('');
+
+  const header=`<div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>📆 Captura del día</h4>
+      <div class="meta">${diasCapturados} día(s) · ${p039_money(gastadoTotal)} gastado</div></div>
+    <div class="card-body">
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:8px">
+        <button class="btn-exp" ${idx<=0?'disabled style="opacity:.4"':''} onclick="p039_setDia('${dias[Math.max(0,idx-1)]}')">←</button>
+        <div style="flex:1;overflow-x:auto;display:flex;gap:4px;padding:2px">${franja}</div>
+        <button class="btn-exp" ${idx>=dias.length-1?'disabled style="opacity:.4"':''} onclick="p039_setDia('${dias[Math.min(dias.length-1,idx+1)]}')">→</button>
+      </div>
+      <div style="font-size:11px;color:var(--gray)">Los días con ✓ ya tienen captura guardada. La franja solo muestra días con obra capturada en viajes.</div>
+    </div>
+  </div>`;
+
+  // ── Renglones por categoría ──
+  const activos=_p039_renglones.filter(r=>r.activo!==false);
+  const precioComb=p039_evalFormula(_p039_config.precioCombustible).valor;
+  let totalBorrador=0, totalComb=0;
+  activos.forEach(r=>{ const it=b.items[r.id]; if(it&&it.on){
+    totalBorrador+=p039_costoDiario(r,it.cantidad);
+    const lpd=p039_num(r.litrosPorDia);
+    if(r.categoria==='maquinaria'&&lpd>0&&precioComb>0) totalComb+=lpd*p039_num(it.cantidad)*precioComb;
+  }});
+
+  const bloquesCat=P039_CATEGORIAS.map(c=>{
+    const rs=activos.filter(r=>r.categoria===c.key);
+    if(!rs.length) return '';
+    const nOn=rs.filter(r=>b.items[r.id]&&b.items[r.id].on).length;
+    const subtotal=rs.reduce((s,r)=>{ const it=b.items[r.id]; return s+((it&&it.on)?p039_costoDiario(r,it.cantidad):0); },0);
+    const abierta=_p039_catSegAbierta===c.key;
+    const auto=P039_AUTO_DIARIO.includes(c.key);
+    const detalle=abierta?`<div class="card-body" style="border-top:1px solid var(--gray2)">
+      ${rs.map(r=>{
+        const it=b.items[r.id]||{on:false,cantidad:'',obs:''};
+        const cambio=p039_num(it.cantidad)!==p039_num(r.cantidad);
+        return `<div style="background:${it.on?'var(--surf)':'transparent'};border:1px solid ${it.on?(cambio?'#b45309':'var(--gray2)'):'var(--gray2)'};border-radius:8px;padding:10px;margin-bottom:6px;opacity:${it.on?1:.55}">
+          <div style="display:flex;align-items:flex-start;gap:8px">
+            <input type="checkbox" ${it.on?'checked':''} onchange="p039_setItem('${r.id}','on',this.checked)" style="margin-top:3px;width:17px;height:17px;flex:0 0 auto">
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;font-size:12px">${r.descripcion}</div>
+              <div style="font-size:10px;color:var(--gray)">${r.codigo?r.codigo+' · ':''}presupuestado ${p039_num(r.cantidad)} ${r.categoria==='mano_obra'?'persona(s)':(r.unidad||'')} × ${p039_money(r.pu)}</div>
+            </div>
+            <div style="text-align:right;flex:0 0 auto">
+              <div style="font-size:12px;font-weight:800;font-family:monospace;color:${it.on?'var(--gold)':'var(--gray)'}">${it.on?p039_money(p039_costoDiario(r,it.cantidad)):'—'}</div>
+            </div>
+          </div>
+          ${it.on?`<div style="display:flex;gap:6px;margin-top:8px;align-items:center">
+            <div style="flex:0 0 92px"><label style="font-size:9px;color:var(--gray);text-transform:uppercase">Cantidad</label>
+              <input value="${it.cantidad}" oninput="p039_setItem('${r.id}','cantidad',this.value)" style="width:100%;padding:6px;border:1px solid ${cambio?'#b45309':'var(--gray2)'};border-radius:6px;font-family:monospace;font-size:12px"></div>
+            <div style="flex:1"><label style="font-size:9px;color:${cambio?'#b45309':'var(--gray)'};text-transform:uppercase">Observación${cambio?' (obligatoria)':''}</label>
+              <input value="${(it.obs||'').replace(/"/g,'&quot;')}" oninput="p039_setItem('${r.id}','obs',this.value)" placeholder="${cambio?'¿Por qué cambió la cantidad hoy?':'Opcional'}" style="width:100%;padding:6px;border:1px solid ${cambio&&!(it.obs||'').trim()?'#dc2626':'var(--gray2)'};border-radius:6px;font-size:11px"></div>
+          </div>
+          ${(r.categoria==='maquinaria'&&p039_num(r.litrosPorDia)>0&&precioComb>0)?`<div style="font-size:10px;color:#7c3aed;margin-top:6px">⛽ + ${p039_money(p039_num(r.litrosPorDia)*p039_num(it.cantidad)*precioComb)} de combustible (${p039_num(r.litrosPorDia)} L/día × ${p039_num(it.cantidad)})</div>`:''}`:''}
+        </div>`;
+      }).join('')}
+    </div>`:'';
+    return `<div class="card" style="margin-bottom:8px">
+      <div class="card-hdr" style="cursor:pointer" onclick="p039_toggleCatSeg('${c.key}')">
+        <h4 style="color:${c.color}">${c.icon} ${c.label}
+          ${auto?'<span style="font-size:9px;font-weight:700;color:#059669;border:1px solid #059669;border-radius:4px;padding:1px 4px;margin-left:4px">AUTO</span>':''}</h4>
+        <div class="meta">${nOn}/${rs.length} · <strong style="color:var(--gold)">${p039_money(subtotal)}</strong> ${abierta?'▲':'▼'}</div>
+      </div>
+      ${detalle}
+    </div>`;
+  }).join('');
+
+  const guardado=p039_gastosDe(fecha);
+  const totalGuardado=p039_totalDia(fecha);
+  const totalNuevo=totalBorrador+totalComb;
+
+  const masivo=_p039_formMasivo?`<div class="card" style="margin-bottom:14px;border:1px solid #7c3aed">
+    <div class="card-hdr"><h4>📋 Copiar este día a un rango</h4></div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Copia exactamente lo que tienes marcado hoy (${fecha}) a los días con obra del rango que aún no tengan captura. Los días ya capturados no se tocan.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <div style="flex:1"><label style="font-size:10px;color:var(--gray)">Desde</label>
+          <input type="date" value="${_p039_formMasivo.desde}" onchange="p039_setMasivo('desde',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+        <div style="flex:1"><label style="font-size:10px;color:var(--gray)">Hasta</label>
+          <input type="date" value="${_p039_formMasivo.hasta}" onchange="p039_setMasivo('hasta',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-exp primary" style="flex:1" onclick="p039_guardarMasivo()">Copiar a esos días</button>
+        <button class="btn-exp" onclick="p039_cancelarMasivo()">Cancelar</button>
+      </div>
+    </div>
+  </div>`:'';
+
+  const acciones=`<div class="card" style="margin-bottom:14px;position:sticky;bottom:0">
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+        <div><div style="font-size:10px;color:var(--gray);text-transform:uppercase">Total del día</div>
+          <div style="font-size:20px;font-weight:800;color:var(--gold)">${p039_money(totalNuevo)}</div>
+          ${totalComb>0?`<div style="font-size:10px;color:#7c3aed">incluye ${p039_money(totalComb)} de combustible</div>`:''}</div>
+        ${guardado.length?`<div style="text-align:right"><div style="font-size:10px;color:var(--gray)">Ya guardado</div>
+          <div style="font-size:13px;font-weight:700;color:${Math.abs(totalGuardado-totalNuevo)<0.01?'#059669':'#b45309'}">${p039_money(totalGuardado)}</div></div>`:''}
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-exp primary" style="flex:1;min-width:130px" onclick="p039_guardarDia()">💾 Guardar día</button>
+        ${_p039_formMasivo?'':'<button class="btn-exp" onclick="p039_abrirMasivo()">📋 Copiar a rango</button>'}
+        ${guardado.length?`<button class="btn-exp" style="color:#dc2626;border-color:#dc2626" onclick="p039_borrarDia('${fecha}')">🗑️ Borrar día</button>`:''}
+      </div>
+    </div>
+  </div>`;
+
+  return header+masivo+acciones+(activos.length?bloquesCat:'<div class="card"><div class="card-body" style="color:var(--gray);font-size:12px">No hay renglones activos en el Presupuesto base. Ve a la pestaña 💵 Presupuesto base y activa o captura renglones primero.</div></div>');
 }
 
 window.p039_restaurar=async function(){
@@ -1254,7 +1612,7 @@ window.p039_restaurar=async function(){
   if(Array.isArray(datos.renglones)) partes.push('Presupuesto base ('+datos.renglones.length+' renglón(es))');
   if(Array.isArray(datos.catalogo)) partes.push('Catálogo de cobro ('+datos.catalogo.length+' concepto(s))');
   if(Array.isArray(datos.estimaciones)) partes.push('Estimaciones ('+datos.estimaciones.length+' corte(s))');
-  if(Array.isArray(datos.gastos)) partes.push('Seguimiento/gastos ('+datos.gastos.length+' registro(s) — se guardan en Firebase pero aún no hay pantalla para verlos, llega en la Etapa 3)');
+  if(Array.isArray(datos.gastos)) partes.push('Seguimiento diario ('+datos.gastos.length+' registro(s))');
   if(datos.grupos||datos.codigosConfig||datos.precioCombustible||datos.fechaInicioContrato||datos.fechaInicioReal) partes.push('Configuración (grupos, prefijos, combustible, fechas)');
   if(!partes.length){ alert('No reconocí datos de presupuesto en ese JSON'); return; }
 
