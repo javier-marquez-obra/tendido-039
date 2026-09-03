@@ -529,6 +529,10 @@ function carrilesDeObra(tramo){ const c=_carrilesConfig&&_carrilesConfig[tramo];
 // solo en este navegador) — cuando esté completo el módulo, en la Etapa 4 se retira esa sección.
 let _p039_renglones=[];
 let _p039_config={ grupos:[], codigosConfig:{}, precioCombustible:'', fechaInicioContrato:'', fechaTerminoContrato:'', fechaInicioReal:'', fechaTerminoReal:'' };
+// ETAPA 2 — Generador: catálogo de cobro (arranca desde el E-7 oficial, luego editable) y
+// estimaciones por corte. Cada uno es su propio documento dentro de presupuesto039.
+let _p039_catalogo=[];      // [{key,codigoSCT,label,unidad,volContrato,pu,obra}]
+let _p039_estimaciones=[];  // [{id,numero,fechaIni,fechaFin,incluirExtra,cerrada,lineas:[...],notas}]
 let _p039ListenerStarted=false;
 function startPresupuesto039Listener(){
   if(_p039ListenerStarted) return; _p039ListenerStarted=true;
@@ -537,11 +541,13 @@ function startPresupuesto039Listener(){
       snap.forEach(d=>{
         const id=d.id, x=d.data()||{};
         if(id==='renglones') _p039_renglones=x.items||[];
+        else if(id==='catalogo') _p039_catalogo=x.items||[];
+        else if(id==='estimaciones') _p039_estimaciones=x.items||[];
         else if(id==='config') _p039_config={ grupos:[], codigosConfig:{}, precioCombustible:'', fechaInicioContrato:'', fechaTerminoContrato:'', fechaInicioReal:'', fechaTerminoReal:'', ...x };
       });
       // Debug temporal: permite inspeccionar los datos reales desde la consola del navegador
       // (window._debug039) sin depender del scope del módulo. Quitar cuando ya no se necesite.
-      window._debug039={renglones:_p039_renglones, config:_p039_config};
+      window._debug039={renglones:_p039_renglones, config:_p039_config, catalogo:_p039_catalogo, estimaciones:_p039_estimaciones};
       if(typeof renderCostos==='function') renderCostos();
     }, e=>console.warn('presupuesto039 listener:', e?.code||e));
   }catch(e){ console.warn('presupuesto039 listener', e); }
@@ -609,6 +615,68 @@ function p039_importeRenglon(r){
   const base=p039_num(r.pu)*p039_num(r.cantidad);
   if(r.categoria==='mano_obra') return base*(p039_num(r.diasDuracion)||1);
   return base;
+}
+// ═══ GENERADOR — catálogo de cobro y estimaciones ═══
+// El catálogo arranca sembrado desde el E-7 oficial (const CAT) para no capturar a mano lo que ya
+// está en el reporte. En cuanto se guarda una vez en Firebase, manda la versión guardada (editable).
+function p039_catalogoSemilla(){
+  return Object.keys(CAT).map(k=>({
+    key:k, codigoSCT:'', label:CAT[k].label, unidad:'m³',
+    volContrato:CAT[k].vol, pu:CAT[k].pu, obra:CAT[k].obra
+  }));
+}
+function p039_catalogoEfectivo(){
+  return (_p039_catalogo && _p039_catalogo.length) ? _p039_catalogo : p039_catalogoSemilla();
+}
+// Volumen ejecutado por clave de catálogo dentro de un rango de fechas (inclusive, formato ISO).
+// Usa _conceptosReales — el MISMO reparto geométrico que alimenta KPIs, curvas S y % de catálogo,
+// para que la estimación nunca dé un número distinto al del resto del reporte.
+function p039_volPorConceptoRango(fechaIni, fechaFin){
+  const acum={};
+  p039_catalogoEfectivo().forEach(c=>{ acum[c.key]=0; });
+  (typeof allRecs!=='undefined'?allRecs:[]).forEach(r=>{
+    const f=r.fecha;
+    if(!f) return;
+    if(fechaIni && f<fechaIni) return;
+    if(fechaFin && f>fechaFin) return;
+    _conceptosReales(r).forEach(({key,vol})=>{ if(acum[key]!=null) acum[key]+=(+vol||0); });
+  });
+  Object.keys(acum).forEach(k=>{ acum[k]=Math.round(acum[k]*1000)/1000; });
+  return acum;
+}
+// Volumen extra (extras039, importado por Excel): no trae fecha propia, así que solo se suma
+// cuando la estimación se marca explícitamente para incluirlo — normalmente en el último corte.
+function p039_extrasPorConcepto(){
+  const e={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
+  (typeof _extras!=='undefined'?_extras:[]).forEach(x=>{
+    const key = x.tipo==='reniv' ? 'reniv' : (+x.obra===2 ? 'bach2' : 'bach1');
+    if(e[key]!=null) e[key]+=(+x.vol||0);
+  });
+  return e;
+}
+// Construye las líneas de una estimación a partir de su rango. Se usa al crear y al recalcular.
+function p039_calcularLineas(fechaIni, fechaFin, incluirExtra){
+  const vols=p039_volPorConceptoRango(fechaIni, fechaFin);
+  const extras=incluirExtra?p039_extrasPorConcepto():{};
+  return p039_catalogoEfectivo().map(c=>{
+    const cantidad=Math.round(((vols[c.key]||0)+(extras[c.key]||0))*1000)/1000;
+    const pu=p039_num(c.pu);
+    return {key:c.key, label:c.label, codigoSCT:c.codigoSCT||'', unidad:c.unidad||'m³',
+            cantidad, pu, importe:Math.round(cantidad*pu*100)/100};
+  });
+}
+function p039_totalEstimacion(est){
+  return (est.lineas||[]).reduce((s,l)=>s+p039_num(l.importe),0);
+}
+// Acumulado de todas las estimaciones ANTERIORES a una dada (por orden de número), por concepto.
+// Es lo que en el formato SICT va en la columna "estimado anterior".
+function p039_acumuladoAnterior(est){
+  const acum={};
+  p039_catalogoEfectivo().forEach(c=>{ acum[c.key]=0; });
+  _p039_estimaciones
+    .filter(e=>p039_num(e.numero)<p039_num(est.numero))
+    .forEach(e=>{ (e.lineas||[]).forEach(l=>{ if(acum[l.key]!=null) acum[l.key]+=p039_num(l.cantidad); }); });
+  return acum;
 }
 function p039_siguienteCodigo(categoria, lista){
   const cfg=(_p039_config.codigosConfig||{})[categoria];
@@ -688,6 +756,70 @@ window.p039_toggleActivoGrupo=async function(categoria,grupo,activar){
 window.p039_toggleCat=function(key){ _p039_catAbierta = _p039_catAbierta===key?null:key; renderCostos(); };
 window.p039_setTab=function(t){ _p039_tab=t; renderCostos(); };
 
+// ── Generador: acciones ──
+let _p039_estAbierta=null;   // id de la estimación cuyo detalle está desplegado
+let _p039_formEst=null;      // {numero,fechaIni,fechaFin,incluirExtra} mientras se crea una
+
+window.p039_setCatCampo=async function(key, campo, valor){
+  const base=p039_catalogoEfectivo();
+  const next=base.map(c=>c.key===key?{...c,[campo]: (campo==='volContrato'||campo==='pu') ? p039_evalFormula(valor).valor : valor}:c);
+  await guardarP039('catalogo', next);
+};
+window.p039_resetCatalogo=async function(){
+  if(!confirm('Esto regresa el catálogo de cobro a los 5 conceptos del E-7 oficial, con sus volúmenes y precios de contrato. Se pierden tus ediciones del catálogo (las estimaciones ya guardadas NO se tocan). ¿Confirmas?')) return;
+  await guardarP039('catalogo', p039_catalogoSemilla());
+};
+window.p039_nuevaEstimacion=function(){
+  const nums=_p039_estimaciones.map(e=>p039_num(e.numero)).filter(n=>n>0);
+  const sig=(nums.length?Math.max(...nums):0)+1;
+  // Arranca donde terminó el último corte, para que no queden días sin estimar ni días duplicados.
+  const ultimas=[..._p039_estimaciones].sort((a,b)=>p039_num(b.numero)-p039_num(a.numero));
+  const desde=ultimas.length&&ultimas[0].fechaFin ? _isoDia(_addDays(ultimas[0].fechaFin,1)) : (_p039_config.fechaInicioReal||'');
+  _p039_formEst={numero:String(sig), fechaIni:desde, fechaFin:'', incluirExtra:false};
+  renderCostos();
+};
+window.p039_setFormEst=function(campo,valor){ if(!_p039_formEst) return; _p039_formEst[campo]=valor; renderCostos(); };
+window.p039_cancelarEst=function(){ _p039_formEst=null; renderCostos(); };
+window.p039_guardarEstimacion=async function(){
+  const f=_p039_formEst;
+  if(!f.fechaIni||!f.fechaFin){ alert('Pon la fecha de inicio y la de cierre del corte'); return; }
+  if(f.fechaFin<f.fechaIni){ alert('La fecha de cierre no puede ser antes que la de inicio'); return; }
+  const lineas=p039_calcularLineas(f.fechaIni,f.fechaFin,f.incluirExtra);
+  const total=lineas.reduce((s,l)=>s+l.importe,0);
+  if(total===0 && !confirm('En ese rango de fechas no hay volumen capturado — la estimación quedaría en $0.00. ¿La creas de todos modos?')) return;
+  const nueva={id:Date.now().toString()+Math.random().toString(36).slice(2,6),
+    numero:f.numero, fechaIni:f.fechaIni, fechaFin:f.fechaFin,
+    incluirExtra:!!f.incluirExtra, cerrada:false, notas:'', lineas,
+    creada:new Date().toISOString()};
+  const ok=await guardarP039('estimaciones', [..._p039_estimaciones, nueva]);
+  if(ok){ _p039_formEst=null; _p039_estAbierta=nueva.id; renderCostos(); }
+};
+window.p039_recalcularEst=async function(id){
+  const est=_p039_estimaciones.find(e=>e.id===id); if(!est) return;
+  if(est.cerrada){ alert('Esta estimación está cerrada. Ábrela primero si de verdad necesitas recalcularla.'); return; }
+  if(!confirm('Vuelve a leer los viajes de ese rango y reescribe las cantidades. Úsalo si capturaste o corregiste viajes después de haber creado el corte. ¿Recalcular?')) return;
+  const lineas=p039_calcularLineas(est.fechaIni,est.fechaFin,est.incluirExtra);
+  await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id?{...e,lineas}:e));
+};
+// Cerrar congela las cantidades: una estimación ya presentada a SICT no debe moverse sola cuando
+// después se corrigen viejos viajes en campo.
+window.p039_toggleCerrarEst=async function(id){
+  const est=_p039_estimaciones.find(e=>e.id===id); if(!est) return;
+  const msg=est.cerrada
+    ? 'Vas a REABRIR esta estimación para poder recalcularla. Si ya la presentaste a SICT, ojo: las cantidades pueden cambiar. ¿Continuar?'
+    : 'Al cerrarla, las cantidades quedan congeladas aunque después se editen viajes de ese rango. Es lo que conviene una vez que ya la presentaste. ¿Cerrar?';
+  if(!confirm(msg)) return;
+  await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id?{...e,cerrada:!e.cerrada}:e));
+};
+window.p039_borrarEstimacion=async function(id){
+  if(!confirm('¿Borrar esta estimación? No se puede deshacer.')) return;
+  await guardarP039('estimaciones', _p039_estimaciones.filter(e=>e.id!==id));
+};
+window.p039_setNotaEst=async function(id,v){
+  await guardarP039('estimaciones', _p039_estimaciones.map(e=>e.id===id?{...e,notas:v}:e));
+};
+window.p039_toggleEst=function(id){ _p039_estAbierta=_p039_estAbierta===id?null:id; renderCostos(); };
+
 // ── Config ──
 window.p039_agregarGrupo=function(){
   const nombre=(document.getElementById('p039NuevoGrupo')||{}).value;
@@ -719,12 +851,14 @@ function _p039Render(){
   const totalCombustible=combustibleDerivado.reduce((s,c)=>s+c.costoTotal,0);
   const totalPresupuestado=renglones.reduce((s,r)=>s+p039_importeRenglon(r),0)+totalCombustible;
 
-  const tabs=`<div style="display:flex;gap:8px;margin-bottom:14px">
+  const tabs=`<div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
     <button class="btn-exp ${_p039_tab==='presupuesto'?'primary':''}" onclick="p039_setTab('presupuesto')">💵 Presupuesto base</button>
+    <button class="btn-exp ${_p039_tab==='generador'?'primary':''}" onclick="p039_setTab('generador')">🧾 Generador</button>
     <button class="btn-exp ${_p039_tab==='config'?'primary':''}" onclick="p039_setTab('config')">⚙️ Config</button>
   </div>`;
 
   if(_p039_tab==='config') return tabs+_p039RenderConfig();
+  if(_p039_tab==='generador') return tabs+_p039RenderGenerador();
 
   // ── Presupuesto base ──
   const porCategoria=P039_CATEGORIAS.map(c=>{
@@ -942,6 +1076,173 @@ function _p039RenderConfig(){
   </div>`;
 }
 
+// ── Render del Generador (catálogo de cobro + estimaciones por corte) ──
+function _p039RenderGenerador(){
+  const cat=p039_catalogoEfectivo();
+  const sinGuardar=!(_p039_catalogo && _p039_catalogo.length);
+  const totalContrato=cat.reduce((s,c)=>s+p039_num(c.volContrato)*p039_num(c.pu),0);
+
+  // Acumulado global por concepto (todas las estimaciones) para el saldo por cobrar.
+  const acumTotal={}; cat.forEach(c=>{ acumTotal[c.key]=0; });
+  _p039_estimaciones.forEach(e=>{ (e.lineas||[]).forEach(l=>{ if(acumTotal[l.key]!=null) acumTotal[l.key]+=p039_num(l.cantidad); }); });
+  const cobradoTotal=_p039_estimaciones.reduce((s,e)=>s+p039_totalEstimacion(e),0);
+  const pctCobrado=totalContrato>0?(cobradoTotal/totalContrato*100):0;
+
+  const resumen=`<div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>Cobro acumulado vs contrato</h4></div>
+    <div class="card-body">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px">
+        <div><div style="font-size:10px;color:var(--gray);text-transform:uppercase">Estimado a la fecha</div>
+          <div style="font-size:22px;font-weight:800;color:var(--gold)">${p039_money(cobradoTotal)}</div></div>
+        <div style="text-align:right"><div style="font-size:10px;color:var(--gray);text-transform:uppercase">Contrato E-7</div>
+          <div style="font-size:16px;font-weight:700">${p039_money(totalContrato)}</div></div>
+      </div>
+      <div style="background:var(--gray2);border-radius:6px;height:10px;margin-top:10px;overflow:hidden">
+        <div style="background:var(--gold);height:100%;width:${Math.min(100,pctCobrado).toFixed(1)}%"></div>
+      </div>
+      <div style="font-size:11px;color:var(--gray);margin-top:6px">${pctCobrado.toFixed(1)}% del contrato estimado · ${_p039_estimaciones.length} estimación(es) · falta ${p039_money(Math.max(0,totalContrato-cobradoTotal))}</div>
+    </div>
+  </div>`;
+
+  // ── Catálogo de cobro ──
+  const filasCat=cat.map(c=>{
+    const vc=p039_num(c.volContrato), pu=p039_num(c.pu), ac=acumTotal[c.key]||0;
+    const saldo=vc-ac, pct=vc>0?(ac/vc*100):0;
+    return `<div style="background:var(--surf);border:1px solid var(--gray2);border-radius:8px;padding:10px;margin-bottom:6px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <div style="font-weight:700;font-size:13px">${c.label} <span style="font-size:10px;color:var(--gray);font-weight:400">${c.obra||''}</span></div>
+        <div style="font-size:12px;font-weight:700;font-family:monospace">${p039_money(vc*pu)}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">
+        <div><label style="font-size:9px;color:var(--gray);text-transform:uppercase">Código SCT</label>
+          <input value="${c.codigoSCT||''}" onchange="p039_setCatCampo('${c.key}','codigoSCT',this.value)" placeholder="—" style="width:100%;padding:6px;border:1px solid var(--gray2);border-radius:6px;font-family:monospace;font-size:11px"></div>
+        <div><label style="font-size:9px;color:var(--gray);text-transform:uppercase">Vol. contrato</label>
+          <input value="${vc}" onchange="p039_setCatCampo('${c.key}','volContrato',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray2);border-radius:6px;font-family:monospace;font-size:11px"></div>
+        <div><label style="font-size:9px;color:var(--gray);text-transform:uppercase">P.U.</label>
+          <input value="${pu}" onchange="p039_setCatCampo('${c.key}','pu',this.value)" style="width:100%;padding:6px;border:1px solid var(--gray2);border-radius:6px;font-family:monospace;font-size:11px"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--gray);margin-top:8px;padding-top:6px;border-top:1px solid var(--gray2)">
+        <span>Estimado: <strong style="color:var(--txt)">${ac.toFixed(2)}</strong> / ${vc} ${c.unidad||'m³'} (${pct.toFixed(1)}%)</span>
+        <span>Saldo: <strong style="color:${saldo<0?'#dc2626':'var(--txt)'}">${saldo.toFixed(2)}</strong> ${c.unidad||'m³'}</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const bloqueCat=`<div class="card" style="margin-bottom:14px">
+    <div class="card-hdr"><h4>📋 Catálogo de cobro (E-7)</h4>
+      <button class="btn-exp" onclick="p039_resetCatalogo()">↺ Restaurar E-7</button>
+    </div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px">${sinGuardar
+        ? 'Precargado con los 5 conceptos del E-7 oficial del contrato. Edita cualquier campo y se guarda en la nube.'
+        : 'Catálogo editado y guardado en la nube. El P.U. de aquí es el que usan las estimaciones nuevas.'}</div>
+      ${filasCat}
+    </div>
+  </div>`;
+
+  // ── Formulario de nueva estimación ──
+  const formEst=_p039_formEst?(()=>{
+    const f=_p039_formEst;
+    const preview=(f.fechaIni&&f.fechaFin&&f.fechaFin>=f.fechaIni)?p039_calcularLineas(f.fechaIni,f.fechaFin,f.incluirExtra):null;
+    const totPrev=preview?preview.reduce((s,l)=>s+l.importe,0):0;
+    const volPrev=preview?preview.reduce((s,l)=>s+l.cantidad,0):0;
+    return `<div class="card" style="margin-bottom:14px;border:1px solid #7c3aed">
+      <div class="card-hdr"><h4>➕ Nueva estimación</h4></div>
+      <div class="card-body">
+        <div style="display:grid;grid-template-columns:80px 1fr 1fr;gap:8px;margin-bottom:10px">
+          <div><label style="font-size:10px;color:var(--gray)">N°</label>
+            <input value="${f.numero}" oninput="p039_setFormEst('numero',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px;font-family:monospace"></div>
+          <div><label style="font-size:10px;color:var(--gray)">Del</label>
+            <input type="date" value="${f.fechaIni||''}" onchange="p039_setFormEst('fechaIni',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+          <div><label style="font-size:10px;color:var(--gray)">Al</label>
+            <input type="date" value="${f.fechaFin||''}" onchange="p039_setFormEst('fechaFin',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:10px;cursor:pointer">
+          <input type="checkbox" ${f.incluirExtra?'checked':''} onchange="p039_setFormEst('incluirExtra',this.checked)">
+          <span>Incluir volumen extra importado por Excel (reniv/bacheo sin viaje)</span>
+        </label>
+        ${f.incluirExtra?`<div style="font-size:10px;color:#7c3aed;background:#f5f3ff;border-radius:6px;padding:8px;margin-bottom:10px">El volumen extra no trae fecha propia, así que entra COMPLETO en esta estimación sin importar el rango. Normalmente se marca solo en un corte, para no cobrarlo dos veces.</div>`:''}
+        ${preview?`<div style="background:var(--surf);border:1px solid var(--gray2);border-radius:8px;padding:10px;margin-bottom:10px">
+          <div style="font-size:10px;font-weight:700;color:var(--gray);text-transform:uppercase;margin-bottom:6px">Vista previa del corte</div>
+          ${preview.filter(l=>l.cantidad>0).map(l=>`<div style="display:flex;justify-content:space-between;font-size:11px;padding:2px 0">
+            <span>${l.label}</span><span style="font-family:monospace">${l.cantidad.toFixed(2)} ${l.unidad} · ${p039_money(l.importe)}</span></div>`).join('')
+            || '<div style="font-size:11px;color:#dc2626">No hay volumen capturado en ese rango de fechas.</div>'}
+          <div style="display:flex;justify-content:space-between;font-size:12px;font-weight:800;padding-top:6px;margin-top:6px;border-top:1px solid var(--gray2)">
+            <span>${volPrev.toFixed(2)} m³</span><span style="color:var(--gold)">${p039_money(totPrev)}</span></div>
+        </div>`:'<div style="font-size:11px;color:var(--gray);margin-bottom:10px">Elige las dos fechas para ver la vista previa.</div>'}
+        <div style="display:flex;gap:8px">
+          <button class="btn-exp primary" style="flex:1" onclick="p039_guardarEstimacion()">Guardar estimación</button>
+          <button class="btn-exp" onclick="p039_cancelarEst()">Cancelar</button>
+        </div>
+      </div>
+    </div>`;
+  })():'';
+
+  // ── Lista de estimaciones ──
+  const ordenadas=[..._p039_estimaciones].sort((a,b)=>p039_num(a.numero)-p039_num(b.numero));
+  const listaEst=ordenadas.map(e=>{
+    const total=p039_totalEstimacion(e), abierta=_p039_estAbierta===e.id;
+    const anterior=p039_acumuladoAnterior(e);
+    const detalle=abierta?`<div class="card-body" style="border-top:1px solid var(--gray2)">
+      <div style="overflow-x:auto">
+        <table style="width:100%;border-collapse:collapse;font-size:11px">
+          <thead><tr style="background:var(--surf)">
+            <th style="padding:6px;text-align:left">Concepto</th>
+            <th style="padding:6px;text-align:right">Anterior</th>
+            <th style="padding:6px;text-align:right">Este corte</th>
+            <th style="padding:6px;text-align:right">Acumulado</th>
+            <th style="padding:6px;text-align:right">P.U.</th>
+            <th style="padding:6px;text-align:right">Importe</th>
+          </tr></thead>
+          <tbody>
+          ${(e.lineas||[]).map(l=>{
+            const ant=anterior[l.key]||0, act=p039_num(l.cantidad);
+            return `<tr style="border-bottom:1px solid var(--gray2)">
+              <td style="padding:6px">${l.label}${l.codigoSCT?`<br><span style="font-size:9px;color:var(--gray);font-family:monospace">${l.codigoSCT}</span>`:''}</td>
+              <td style="padding:6px;text-align:right;color:var(--gray);font-family:monospace">${ant.toFixed(2)}</td>
+              <td style="padding:6px;text-align:right;font-weight:700;font-family:monospace">${act.toFixed(2)}</td>
+              <td style="padding:6px;text-align:right;font-family:monospace">${(ant+act).toFixed(2)}</td>
+              <td style="padding:6px;text-align:right;font-family:monospace">${p039_money(l.pu)}</td>
+              <td style="padding:6px;text-align:right;font-weight:700;font-family:monospace">${p039_money(l.importe)}</td>
+            </tr>`;
+          }).join('')}
+          </tbody>
+          <tfoot><tr style="background:var(--surf);font-weight:800">
+            <td style="padding:6px" colspan="5">TOTAL</td>
+            <td style="padding:6px;text-align:right;color:var(--gold);font-family:monospace">${p039_money(total)}</td>
+          </tr></tfoot>
+        </table>
+      </div>
+      <div style="margin-top:10px">
+        <label style="font-size:10px;color:var(--gray)">Notas del corte</label>
+        <textarea onchange="p039_setNotaEst('${e.id}',this.value)" placeholder="Observaciones, número de oficio, quién la recibió..." style="width:100%;min-height:50px;padding:8px;border:1px solid var(--gray2);border-radius:6px;font-size:11px">${e.notas||''}</textarea>
+      </div>
+      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn-exp" onclick="p039_recalcularEst('${e.id}')" ${e.cerrada?'disabled style="opacity:.4"':''}>↻ Recalcular</button>
+        <button class="btn-exp" style="color:${e.cerrada?'#059669':'#b45309'};border-color:${e.cerrada?'#059669':'#b45309'}" onclick="p039_toggleCerrarEst('${e.id}')">${e.cerrada?'🔓 Reabrir':'🔒 Cerrar'}</button>
+        <button class="btn-exp" style="color:#dc2626;border-color:#dc2626" onclick="p039_borrarEstimacion('${e.id}')">🗑️ Borrar</button>
+      </div>
+    </div>`:'';
+    return `<div class="card" style="margin-bottom:10px">
+      <div class="card-hdr" style="cursor:pointer" onclick="p039_toggleEst('${e.id}')">
+        <h4>${e.cerrada?'🔒':'📝'} Estimación ${e.numero}
+          <span style="font-size:10px;font-weight:400;color:var(--gray)">${e.fechaIni} → ${e.fechaFin}${e.incluirExtra?' · +extra':''}</span></h4>
+        <div class="meta" style="font-weight:800;color:var(--gold)">${p039_money(total)} ${abierta?'▲':'▼'}</div>
+      </div>
+      ${detalle}
+    </div>`;
+  }).join('');
+
+  const bloqueEst=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:800">🧾 Estimaciones por corte</div>
+      ${_p039_formEst?'':'<button class="btn-exp primary" onclick="p039_nuevaEstimacion()">+ Nueva estimación</button>'}
+    </div>
+    ${formEst}
+    ${ordenadas.length?listaEst:'<div class="card"><div class="card-body" style="color:var(--gray);font-size:12px">Todavía no hay estimaciones. Crea la primera con el botón de arriba — las cantidades se calculan solas con los viajes capturados en el rango de fechas que elijas.</div></div>'}`;
+
+  return resumen+bloqueCat+bloqueEst;
+}
+
 window.p039_restaurar=async function(){
   const box=document.getElementById('p039RestoreBox');
   if(!box||!box.value.trim()){ alert('Pega el JSON del respaldo primero'); return; }
@@ -951,6 +1252,8 @@ window.p039_restaurar=async function(){
 
   const partes=[];
   if(Array.isArray(datos.renglones)) partes.push('Presupuesto base ('+datos.renglones.length+' renglón(es))');
+  if(Array.isArray(datos.catalogo)) partes.push('Catálogo de cobro ('+datos.catalogo.length+' concepto(s))');
+  if(Array.isArray(datos.estimaciones)) partes.push('Estimaciones ('+datos.estimaciones.length+' corte(s))');
   if(Array.isArray(datos.gastos)) partes.push('Seguimiento/gastos ('+datos.gastos.length+' registro(s) — se guardan en Firebase pero aún no hay pantalla para verlos, llega en la Etapa 3)');
   if(datos.grupos||datos.codigosConfig||datos.precioCombustible||datos.fechaInicioContrato||datos.fechaInicioReal) partes.push('Configuración (grupos, prefijos, combustible, fechas)');
   if(!partes.length){ alert('No reconocí datos de presupuesto en ese JSON'); return; }
@@ -958,6 +1261,8 @@ window.p039_restaurar=async function(){
   if(!confirm('Esto va a SOBRESCRIBIR en Firebase:\n\n'+partes.join('\n')+'\n\n¿Confirmas?')) return;
 
   if(Array.isArray(datos.renglones)) await guardarP039('renglones', datos.renglones);
+  if(Array.isArray(datos.catalogo)) await guardarP039('catalogo', datos.catalogo);
+  if(Array.isArray(datos.estimaciones)) await guardarP039('estimaciones', datos.estimaciones);
   if(Array.isArray(datos.gastos)) await guardarP039('gastos', datos.gastos);
   const cfgNuevo={..._p039_config};
   if(Array.isArray(datos.grupos)) cfgNuevo.grupos=datos.grupos;
