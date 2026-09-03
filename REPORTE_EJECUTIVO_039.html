@@ -914,8 +914,48 @@ function _p039RenderConfig(){
         <div style="flex:1"><label style="font-size:10px;color:var(--gray)">Término (estimado)</label><input type="date" value="${cfg.fechaTerminoReal||''}" onchange="p039_setFecha('fechaTerminoReal',this.value)" style="width:100%;padding:8px;border:1px solid var(--gray2);border-radius:6px"></div>
       </div>
     </div>
+  </div>
+
+  <div class="card" style="margin-bottom:14px;border:1px solid #7c3aed">
+    <div class="card-hdr"><h4>📥 Restaurar desde un respaldo</h4></div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px">Pega aquí el respaldo del prototipo (renglones, config, y de una vez el seguimiento diario si lo tienes) para traer todo de vuelta. Esto SOBRESCRIBE lo que haya guardado en Firebase para cada tipo de dato que traiga el respaldo — con confirmación antes.</div>
+      <textarea id="p039RestoreBox" placeholder="Pega aquí el JSON del respaldo..." style="width:100%;min-height:120px;padding:10px;border:1px solid var(--gray2);border-radius:8px;font-family:monospace;font-size:11px"></textarea>
+      <button class="btn-exp primary" style="width:100%;margin-top:10px" onclick="p039_restaurar()">Restaurar</button>
+    </div>
   </div>`;
 }
+
+window.p039_restaurar=async function(){
+  const box=document.getElementById('p039RestoreBox');
+  if(!box||!box.value.trim()){ alert('Pega el JSON del respaldo primero'); return; }
+  let datos;
+  try{ datos=JSON.parse(box.value); }
+  catch(e){ alert('Ese texto no es un JSON válido — revisa que lo hayas copiado completo'); return; }
+
+  const partes=[];
+  if(Array.isArray(datos.renglones)) partes.push('Presupuesto base ('+datos.renglones.length+' renglón(es))');
+  if(Array.isArray(datos.gastos)) partes.push('Seguimiento/gastos ('+datos.gastos.length+' registro(s) — se guardan en Firebase pero aún no hay pantalla para verlos, llega en la Etapa 3)');
+  if(datos.grupos||datos.codigosConfig||datos.precioCombustible||datos.fechaInicioContrato||datos.fechaInicioReal) partes.push('Configuración (grupos, prefijos, combustible, fechas)');
+  if(!partes.length){ alert('No reconocí datos de presupuesto en ese JSON'); return; }
+
+  if(!confirm('Esto va a SOBRESCRIBIR en Firebase:\n\n'+partes.join('\n')+'\n\n¿Confirmas?')) return;
+
+  if(Array.isArray(datos.renglones)) await guardarP039('renglones', datos.renglones);
+  if(Array.isArray(datos.gastos)) await guardarP039('gastos', datos.gastos);
+  const cfgNuevo={..._p039_config};
+  if(Array.isArray(datos.grupos)) cfgNuevo.grupos=datos.grupos;
+  if(datos.codigosConfig) cfgNuevo.codigosConfig=datos.codigosConfig;
+  if(datos.precioCombustible!=null) cfgNuevo.precioCombustible=datos.precioCombustible;
+  if(datos.fechaInicioContrato) cfgNuevo.fechaInicioContrato=datos.fechaInicioContrato;
+  if(datos.fechaTerminoContrato) cfgNuevo.fechaTerminoContrato=datos.fechaTerminoContrato;
+  if(datos.fechaInicioReal) cfgNuevo.fechaInicioReal=datos.fechaInicioReal;
+  if(datos.fechaTerminoReal) cfgNuevo.fechaTerminoReal=datos.fechaTerminoReal;
+  await guardarP039('config', cfgNuevo);
+
+  box.value='';
+  alert('✓ Restaurado — el Presupuesto base ya debería verse arriba.');
+};
 
 function ladoDeCarril(carril){
   const key=(carril||'').trim().toUpperCase();
