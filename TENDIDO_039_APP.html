@@ -297,6 +297,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <button class="be" onclick="nuevaObra()" title="Dar de alta una obra nueva" style="padding:5px 10px;font-size:12px;white-space:nowrap">➕ Nueva obra</button>
     <button class="be" id="btnEliminarObra" onclick="eliminarObra()" title="Eliminar la obra activa (solo admin)" style="padding:5px 10px;font-size:12px;white-space:nowrap;border-color:#ef4444;color:#ef4444;display:none">🗑 Eliminar obra</button>
     <button class="be" onclick="abrirConfigCarriles()" title="Definir carriles y ancho sugerido por tramo" style="padding:5px 10px;font-size:12px;white-space:nowrap">🛣️ Carriles</button>
+    <button class="be" onclick="abrirConfigCamiones()" title="Densidad del material y capacidad en m³ de cada placa, para calcular toneladas sin báscula" style="padding:5px 10px;font-size:12px;white-space:nowrap">🚛 Camiones</button>
     <button class="be" id="btnConfigCatalogo" onclick="abrirConfigCatalogo()" title="Definir conceptos, cantidades y precios de la obra activa" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">📋 Catálogo</button>
     <button class="be" id="btnNormConceptos" onclick="document.getElementById('normConceptosModal').style.display='flex';diagnosticarConceptos()" title="Corregir viajes viejos cuyo concepto no coincide con el catálogo actual" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">🔧 Normalizar</button>
     <button class="be" id="btnToggleMaquinaria" onclick="toggleMaquinariaObra()" title="Prende/apaga el módulo de Maquinaria SOLO en esta obra (en pruebas)" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">🚜 Maquinaria</button>
@@ -318,6 +319,28 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="display:flex;gap:8px;margin-top:14px">
         <button onclick="guardarConfigCarriles()" style="flex:1;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Guardar</button>
         <button onclick="cerrarConfigCarriles()" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="camionesModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px">🚛 Camiones · calcular ton sin báscula</div>
+        <button onclick="cerrarConfigCamiones()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Se comparte en la nube entre todos los celulares. Ton calculada = capacidad (m³) de la placa × densidad. Úsalo solo cuando no haya báscula cerca.</div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:var(--gold)">Densidad / factor del material (ton/m³)</label>
+        <input type="number" id="camDensidad" step="0.01" inputmode="decimal" placeholder="ej. 2.35" style="width:100%;margin-top:4px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)">
+        <div id="camFactorCalc" style="margin-top:6px;font-size:11px;color:var(--muted)"></div>
+      </div>
+      <div style="font-weight:800;color:var(--gold);font-size:13px;margin-bottom:6px">Capacidad por placa (m³)</div>
+      <div id="camionesBody"></div>
+      <button onclick="_camAgregar()" style="margin-top:4px;background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer">+ Placa</button>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="guardarConfigCamiones()" style="flex:1;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Guardar</button>
+        <button onclick="cerrarConfigCamiones()" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
       </div>
     </div>
   </div>
@@ -605,7 +628,10 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
           <input type="text" id="f_placas" list="placasList" placeholder="HW9792A" style="text-transform:uppercase" oninput="this.value=this.value.toUpperCase()" autocomplete="off"><datalist id="placasList"></datalist>
           <label style="font-size:11px;display:flex;gap:6px;align-items:center;margin-top:5px;color:var(--gold);cursor:pointer"><input type="checkbox" id="f_sinplaca" onchange="toggleSinPlaca()"> Sin placa (volumen sin camión)</label>
         </div>
-        <div class="field"><label>Ton recibidas</label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist();autoAsignarTon();checkTonRango()">
+        <div class="field"><label>Ton recibidas
+          <button type="button" onclick="calcularTonPorVolumen()" title="Calcular toneladas con capacidad de la placa × densidad, cuando no hay báscula cerca" style="margin-left:6px;background:var(--blue4);border:1px solid var(--blue);border-radius:5px;color:var(--blue);padding:1px 7px;font-size:10px;font-weight:700;cursor:pointer;vertical-align:middle">📐 Sin báscula</button>
+        </label><input type="number" id="f_ton" placeholder="22.50" step="0.01" inputmode="decimal" oninput="calc();actualizarHintDist();autoAsignarTon();checkTonRango();_tonEditadoAMano()">
+          <div id="tonCalcInfo" style="display:none;margin-top:4px;font-size:10.5px;font-weight:700;color:var(--blue)"></div>
           <div id="tonWarn" style="display:none;margin-top:4px;font-size:11px;font-weight:700;color:var(--red);background:var(--red2);border-radius:6px;padding:4px 8px"></div>
         </div>
         <div class="field"><label>Material</label>
@@ -1257,6 +1283,10 @@ window.cambiarObra=function(v){
   if(typeof renderMaqHistorial==='function') renderMaqHistorial();
   toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
 };
+// ── Densidad del material y capacidad (m³) por placa — para calcular ton sin báscula ──
+let _camVol = { densidad:null, capacidades:{} };
+let _camionesEdit=null; // filas en edición dentro del modal: [{placa,m3}]
+let _ultimoTonCalc=null; // {placa, valor, capacidad, densidad} — para saber si el ton final vino de este cálculo
 // ── Editor de carriles y ancho por tramo (por obra) ──
 let _carrilesEdit=null, _carrilesObra=null;
 window.abrirConfigCarriles=function(){
@@ -1317,6 +1347,99 @@ window.guardarConfigCarriles=function(){
   if(typeof renderConceptosContainer==='function') renderConceptosContainer();
   try{ if(typeof renderTablaTiro==='function') renderTablaTiro(); }catch(e){}
 };
+// ── Editor de densidad + capacidad por placa (para calcular ton sin báscula) ──
+window.abrirConfigCamiones=function(){
+  _camionesEdit=Object.keys(_camVol.capacidades||{}).sort().map(p=>({placa:p, m3:_camVol.capacidades[p]}));
+  const dEl=document.getElementById('camDensidad'); if(dEl) dEl.value=_camVol.densidad!=null?_camVol.densidad:'';
+  _renderConfigCamiones();
+  _renderFactorCalculado();
+  document.getElementById('camionesModal').style.display='flex';
+};
+// Factor real de campo: promedio de (ton báscula ÷ m³ de caja) de los viajes YA pesados cuya placa
+// tiene capacidad registrada. Es el dato duro para calibrar la densidad — no un valor adivinado.
+// soloHoy=true filtra a la fecha de jornada actual (para calibraciones del día, ej. inicio/mitad/fin de tramo).
+function _factorCalculadoCampo(soloHoy){
+  const hoy=fechaJornada();
+  const pares=(recordsAll||[]).filter(r=>r.ton_metodo!=='calculado' && r.placas && r.ton_recibidas>0 && _camVol.capacidades[normPlacas(r.placas)]>0 && (!soloHoy || r.fecha===hoy))
+    .map(r=>r.ton_recibidas/_camVol.capacidades[normPlacas(r.placas)]);
+  if(!pares.length) return null;
+  const prom=pares.reduce((s,v)=>s+v,0)/pares.length;
+  return {factor:+prom.toFixed(3), n:pares.length};
+}
+function _renderFactorCalculado(){
+  const el=document.getElementById('camFactorCalc'); if(!el) return;
+  const hoy=_factorCalculadoCampo(true), todo=_factorCalculadoCampo(false);
+  const fila=(r,etiqueta)=> r ? `📊 ${etiqueta}: <b>${r.factor}</b> ton/m³ (${r.n} pesada${r.n===1?'':'s'}) ·
+    <button type="button" onclick="document.getElementById('camDensidad').value='${r.factor}'" style="background:var(--blue4);border:1px solid var(--blue);border-radius:5px;color:var(--blue);padding:1px 7px;font-size:10.5px;font-weight:700;cursor:pointer">usar este</button>`
+    : `${etiqueta}: sin datos aún.`;
+  el.innerHTML = `<div style="margin-bottom:4px">${fila(hoy,'Factor de HOY')}</div><div>${fila(todo,'Factor histórico (todas las fechas)')}</div>`;
+}
+function _renderConfigCamiones(){
+  const cs=_camionesEdit||[];
+  const rows=cs.map((c,idx)=>`
+    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+      <input id="cm_pl_${idx}" value="${(c.placa||'').replace(/"/g,'&quot;')}" oninput="_camionesEdit[${idx}].placa=this.value.toUpperCase()" style="text-transform:uppercase;flex:1.4;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)" placeholder="HW9792A">
+      <input id="cm_m3_${idx}" type="number" step="0.1" inputmode="decimal" value="${c.m3!=null?c.m3:''}" oninput="_camionesEdit[${idx}].m3=parseFloat(this.value)||0" style="width:78px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)" placeholder="m³">
+      <button onclick="_camQuitar(${idx})" title="Quitar" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
+    </div>`).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin placas registradas · agrega al menos una.</div>';
+  document.getElementById('camionesBody').innerHTML=rows;
+}
+window._camAgregar=function(){ _camionesEdit.push({placa:'',m3:null}); _renderConfigCamiones(); };
+window._camQuitar=function(i){ _camionesEdit.splice(i,1); _renderConfigCamiones(); };
+window.cerrarConfigCamiones=function(){ document.getElementById('camionesModal').style.display='none'; };
+window.guardarConfigCamiones=function(){
+  const densidad=parseFloat(document.getElementById('camDensidad').value)||null;
+  const capacidades={};
+  (_camionesEdit||[]).forEach((c,idx)=>{
+    const pl=(document.getElementById('cm_pl_'+idx)||{}).value||c.placa||'';
+    const m3=parseFloat((document.getElementById('cm_m3_'+idx)||{}).value);
+    const p=normPlacas(pl);
+    if(p && m3>0) capacidades[p]=m3;
+  });
+  _camVol={densidad, capacidades};
+  try{
+    setDoc(doc(db,'config039','camionesVolumen'), { densidad, capacidades, ts:Date.now(), by:((typeof session!=='undefined'&&session&&session.nombre)||'admin') })
+      .then(()=>toast('Densidad y capacidades guardadas en la nube ✓','ok'))
+      .catch(e=>{ console.warn('camionesVolumen→nube:',e?.code||e); toast('Guardado local (sin nube: '+(e?.code||'sin señal')+')','warn'); });
+  }catch(e){ console.warn('camionesVolumen→nube:',e); }
+  document.getElementById('camionesModal').style.display='none';
+};
+// Calcula ton = capacidad(m³) de la placa capturada × densidad, y llena el campo Ton recibidas.
+// Si la placa no tiene capacidad registrada, la pide una vez y la guarda para la próxima.
+window.calcularTonPorVolumen=function(){
+  const sinPlaca=!!(document.getElementById('f_sinplaca')||{}).checked;
+  if(sinPlaca){ toast('Marcaste "Sin placa" — este cálculo necesita una placa para saber su capacidad','err'); return; }
+  const placa=normPlacas((document.getElementById('f_placas')||{}).value||'');
+  if(!placa){ toast('Captura primero las placas del camión','err'); return; }
+  if(!_camVol.densidad){
+    toast('Primero define la densidad del material en "🚛 Camiones"','warn');
+    abrirConfigCamiones();
+    return;
+  }
+  let capacidad=_camVol.capacidades[placa];
+  if(!capacidad){
+    const txt=prompt(`La placa ${placa} no tiene capacidad registrada.\n\n¿Cuántos m³ le caben a este camión? (ej. 7)`);
+    capacidad=parseFloat(txt);
+    if(!capacidad||capacidad<=0){ toast('Capacidad no válida — no se calculó','err'); return; }
+    _camVol.capacidades[placa]=capacidad;
+    try{ setDoc(doc(db,'config039','camionesVolumen'), _camVol, {merge:true}).catch(e=>console.warn('capacidad→nube:',e?.code||e)); }catch(e){}
+  }
+  const ton=capacidad*_camVol.densidad;
+  const tEl=document.getElementById('f_ton');
+  if(tEl){ tEl.value=ton.toFixed(2); calc(); actualizarHintDist(); autoAsignarTon(); checkTonRango(); }
+  _ultimoTonCalc={placa, valor:ton.toFixed(2), capacidad, densidad:_camVol.densidad};
+  const info=document.getElementById('tonCalcInfo');
+  if(info){ info.style.display='block'; info.textContent=`📐 Calculado sin báscula: ${capacidad} m³ × ${_camVol.densidad} ton/m³ = ${ton.toFixed(2)} ton`; }
+  toast('Ton calculada por volumen: '+ton.toFixed(2),'ok');
+};
+// Si el usuario edita el campo de ton a mano después de haber calculado, ya no cuenta como "calculado"
+// (aunque coincida por casualidad, se prioriza no marcar algo como calculado si el dedo lo tocó después).
+function _tonEditadoAMano(){
+  const info=document.getElementById('tonCalcInfo');
+  if(!_ultimoTonCalc || !info || info.style.display==='none') return;
+  const t=(document.getElementById('f_ton')||{}).value;
+  if(String(parseFloat(t).toFixed(2))!==String(_ultimoTonCalc.valor)){ info.style.display='none'; _ultimoTonCalc=null; }
+}
 // Reasigna todos los viajes guardados que tengan el nombre VIEJO de un carril al nombre NUEVO,
 // tras renombrarlo en el editor — para que no se separen en reportes/larguillo como carriles distintos.
 window.reasignarCarrilViajes=async function(tramo, idx){
@@ -1930,7 +2053,13 @@ function startConfigCarriles(){
   if(_cfgCarrilesOn) return; _cfgCarrilesOn=true;
   onSnapshot(collection(db,'config039'), snap=>{
     let cambio=false;
-    snap.forEach(d=>{ const data=d.data()||{}; if(!data.carriles) return;
+    snap.forEach(d=>{
+      const data=d.data()||{};
+      if(d.id==='camionesVolumen'){
+        _camVol={ densidad:(data.densidad!=null?+data.densidad:null), capacidades:data.capacidades||{} };
+        return;
+      }
+      if(!data.carriles) return;
       if(!OBRAS[d.id]) OBRAS[d.id]={clave:d.id,nombre:data.nombre||d.id};
       OBRAS[d.id].carriles=data.carriles; cambio=true;
     });
@@ -2614,6 +2743,8 @@ window.guardar = async function() {
   const placas=sinPlaca?'SIN PLACA':normPlacas(document.getElementById('f_placas').value);
   const ton=parseFloat(document.getElementById('f_ton').value);
   const fecha=document.getElementById('f_fecha').value;
+  // ¿Este ton vino del botón "Sin báscula" (capacidad de caja × densidad) o de pesar de verdad?
+  const esCalculado = !!(_ultimoTonCalc && _ultimoTonCalc.placa===placas && String(+((+ton).toFixed(2)))===String(_ultimoTonCalc.valor));
   if (!placas) { toast('Captura las placas del camión (o marca "Sin placa")','err'); return; }
   if (!ton||isNaN(ton)) { toast('Captura las toneladas recibidas','err'); return; }
   if (!fecha) {
@@ -2690,6 +2821,17 @@ window.guardar = async function() {
   const er=ton&&area?(ton/(area*DEN)):0;
   const mf=ton&&area&&et?((et)-(ton/(area*DEN)))*area:0;
   if (ton<5||ton>60) { if(!confirm('Toneladas: '+ton+'. Fuera del rango normal (5-60 ton). ¿Es correcto?')) return; }
+  // Cruce: si el ton vino de "Sin báscula" (caja×densidad), avisar si no cuadra contra lo tendido
+  // en campo a un espesor fijo de 3cm (área del concepto principal × 0.03 × densidad calibrada).
+  if (esCalculado && area>0 && _camVol.densidad){
+    const tonEsperado=area*0.03*_camVol.densidad;
+    if(tonEsperado>0){
+      const difPct=Math.abs(ton-tonEsperado)/tonEsperado*100;
+      if(difPct>15){
+        if(!confirm(`⚠️ Ton calculado por volumen de caja: ${ton.toFixed(2)} ton.\nCon lo tendido a 3cm de espesor (área ${area.toFixed(1)} m²) se esperarían ~${tonEsperado.toFixed(2)} ton.\nDiferencia: ${difPct.toFixed(0)}%.\n\n¿Guardar de todos modos?`)) return;
+      }
+    }
+  }
   if (_horaIni && !_horaFin) { if(!confirm('⏱️ No marcaste ⏹ Termina en el tiempo de descarga.\n\nInicio: '+_horaIni+'\n\n¿Guardar de todos modos sin la hora de término?')) return; }
   const rec={
     fecha, placas, ton_recibidas:ton, sin_placa:sinPlaca, obra:obraActiva,
@@ -2720,7 +2862,12 @@ window.guardar = async function() {
     num_viaje_dia:calcNumViajeDia(),
     observaciones:document.getElementById('f_obs').value.trim(),
     fotos:fotosActuales.filter(f=>f.b64).map(f=>f.b64),
-    capturado_por:session.nombre, capturado_por_uid:session.uid, rol:session.rol, ts:Date.now()
+    capturado_por:session.nombre, capturado_por_uid:session.uid, rol:session.rol, ts:Date.now(),
+    // Trazabilidad de cómo se obtuvo el peso — para auditar pagos a ARMAQOP y a los camiones cuando
+    // no hubo báscula cerca y se usó capacidad(m³) de la placa × densidad en su lugar.
+    ...(esCalculado
+      ? { ton_metodo:'calculado', capacidad_m3_usada:_ultimoTonCalc.capacidad, densidad_usada:_ultimoTonCalc.densidad }
+      : { ton_metodo:'bascula' })
   };
   const btn=document.getElementById('btnGuardar');
   btn.disabled=true; btn.textContent='⟳ GUARDANDO...';
@@ -2784,6 +2931,7 @@ function resetForm(kaAnterior, idAnterior, carrilAnterior) {
   renderConceptosContainer();
   // Solo limpiar campos globales que SÍ existen (los de cadenamiento/ML viven por concepto)
   ['f_placas','f_ton','f_tp','f_tt','f_vale','f_remision','f_obs'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  _ultimoTonCalc=null; const _tci=document.getElementById('tonCalcInfo'); if(_tci) _tci.style.display='none';
   // limpiar tipo de camión y "sin placa" para el siguiente viaje
   const _sp=document.getElementById('f_sinplaca'); if(_sp) _sp.checked=false;
   const _pl=document.getElementById('f_placas'); if(_pl){ _pl.disabled=false; _pl.style.opacity='1'; }
