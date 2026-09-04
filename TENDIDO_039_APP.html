@@ -331,9 +331,8 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Se comparte en la nube entre todos los celulares. Ton calculada = capacidad (m³) de la placa × densidad. Úsalo solo cuando no haya báscula cerca.</div>
       <div style="margin-bottom:14px">
-        <label style="font-size:11px;font-weight:700;color:var(--gold)">Densidad / factor del material (ton/m³)</label>
-        <input type="number" id="camDensidad" step="0.01" inputmode="decimal" placeholder="ej. 2.35" style="width:100%;margin-top:4px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)">
-        <div id="camFactorCalc" style="margin-top:6px;font-size:11px;color:var(--muted)"></div>
+        <label style="font-size:11px;font-weight:700;color:var(--gold)">Factor (ton/m³) — lo calcula la app, no se escribe a mano</label>
+        <div id="camFactorCalc" style="margin-top:6px;font-size:12px;color:var(--txt);background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"></div>
       </div>
       <div style="font-weight:800;color:var(--gold);font-size:13px;margin-bottom:6px">Capacidad por placa (m³)</div>
       <div id="camionesBody"></div>
@@ -341,6 +340,38 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       <div style="display:flex;gap:8px;margin-top:14px">
         <button onclick="guardarConfigCamiones()" style="flex:1;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Guardar</button>
         <button onclick="cerrarConfigCamiones()" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="cajaCalcModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1100;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px">📐 Volumen de la caja</div>
+        <button onclick="cerrarCajaCalc()" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:12px" id="cajaCalcPlacaLbl"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px">
+        <div><label style="font-size:10px;color:var(--muted)">Largo (m)</label><input type="number" id="cj_largo" step="0.01" inputmode="decimal" oninput="_cajaCalcPreview()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:13px;color:var(--txt)"></div>
+        <div><label style="font-size:10px;color:var(--muted)">Ancho (m)</label><input type="number" id="cj_ancho" step="0.01" inputmode="decimal" oninput="_cajaCalcPreview()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:13px;color:var(--txt)"></div>
+        <div><label style="font-size:10px;color:var(--muted)">Altura (m)</label><input type="number" id="cj_altura" step="0.01" inputmode="decimal" oninput="_cajaCalcPreview()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:13px;color:var(--txt)"></div>
+      </div>
+      <label style="font-size:11px;display:flex;gap:6px;align-items:center;margin-bottom:8px;color:var(--gold);cursor:pointer">
+        <input type="checkbox" id="cj_tiene_gato" onchange="document.getElementById('cj_gatoBox').style.display=this.checked?'block':'none';_cajaCalcPreview()"> Restar hueco del gato (trapecio)
+      </label>
+      <div id="cj_gatoBox" style="display:none;background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px;margin-bottom:10px">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:6px">Área del trapecio = (largo mayor + largo menor) ÷ 2 × altura. Ese hueco tiene además un ancho (qué tan hondo entra en la caja) — con eso se saca el volumen a restar.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <div><label style="font-size:10px;color:var(--muted)">Largo mayor (m)</label><input type="number" id="cj_g_mayor" step="0.01" inputmode="decimal" oninput="_cajaCalcPreview()" style="width:100%;background:var(--card);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:13px;color:var(--txt)"></div>
+          <div><label style="font-size:10px;color:var(--muted)">Largo menor (m)</label><input type="number" id="cj_g_menor" step="0.01" inputmode="decimal" oninput="_cajaCalcPreview()" style="width:100%;background:var(--card);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:13px;color:var(--txt)"></div>
+          <div><label style="font-size:10px;color:var(--muted)">Altura trapecio (m)</label><input type="number" id="cj_g_alt" step="0.01" inputmode="decimal" oninput="_cajaCalcPreview()" style="width:100%;background:var(--card);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:13px;color:var(--txt)"></div>
+          <div><label style="font-size:10px;color:var(--muted)">Ancho del hueco (m)</label><input type="number" id="cj_g_ancho" step="0.01" inputmode="decimal" oninput="_cajaCalcPreview()" style="width:100%;background:var(--card);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:13px;color:var(--txt)"></div>
+        </div>
+      </div>
+      <div id="cajaCalcResultado" style="font-size:12.5px;font-weight:700;color:var(--txt);margin-bottom:12px"></div>
+      <div style="display:flex;gap:8px">
+        <button onclick="calcularCajaYUsar()" style="flex:1;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Calcular y usar</button>
+        <button onclick="cerrarCajaCalc()" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
       </div>
     </div>
   </div>
@@ -1284,7 +1315,7 @@ window.cambiarObra=function(v){
   toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
 };
 // ── Densidad del material y capacidad (m³) por placa — para calcular ton sin báscula ──
-let _camVol = { densidad:null, capacidades:{} };
+let _camVol = { capacidades:{} };
 let _camionesEdit=null; // filas en edición dentro del modal: [{placa,m3}]
 let _ultimoTonCalc=null; // {placa, valor, capacidad, densidad} — para saber si el ton final vino de este cálculo
 // ── Editor de carriles y ancho por tramo (por obra) ──
@@ -1349,8 +1380,7 @@ window.guardarConfigCarriles=function(){
 };
 // ── Editor de densidad + capacidad por placa (para calcular ton sin báscula) ──
 window.abrirConfigCamiones=function(){
-  _camionesEdit=Object.keys(_camVol.capacidades||{}).sort().map(p=>({placa:p, m3:_camVol.capacidades[p]}));
-  const dEl=document.getElementById('camDensidad'); if(dEl) dEl.value=_camVol.densidad!=null?_camVol.densidad:'';
+  _camionesEdit=Object.keys(_camVol.capacidades||{}).sort().map(p=>({placa:p, m3:_camVol.capacidades[p], detalle:(_camVol.detalles||{})[p]||null}));
   _renderConfigCamiones();
   _renderFactorCalculado();
   document.getElementById('camionesModal').style.display='flex';
@@ -1369,10 +1399,9 @@ function _factorCalculadoCampo(soloHoy){
 function _renderFactorCalculado(){
   const el=document.getElementById('camFactorCalc'); if(!el) return;
   const hoy=_factorCalculadoCampo(true), todo=_factorCalculadoCampo(false);
-  const fila=(r,etiqueta)=> r ? `📊 ${etiqueta}: <b>${r.factor}</b> ton/m³ (${r.n} pesada${r.n===1?'':'s'}) ·
-    <button type="button" onclick="document.getElementById('camDensidad').value='${r.factor}'" style="background:var(--blue4);border:1px solid var(--blue);border-radius:5px;color:var(--blue);padding:1px 7px;font-size:10.5px;font-weight:700;cursor:pointer">usar este</button>`
-    : `${etiqueta}: sin datos aún.`;
-  el.innerHTML = `<div style="margin-bottom:4px">${fila(hoy,'Factor de HOY')}</div><div>${fila(todo,'Factor histórico (todas las fechas)')}</div>`;
+  if(!todo){ el.innerHTML='Sin pesadas de calibración todavía. Registra la capacidad (m³) de una placa arriba y guarda un viaje CON báscula de esa placa — en cuanto haya al menos una pesada, aquí aparece el factor.'; return; }
+  el.innerHTML = `<div>📊 <b>Factor vigente: ${todo.factor} ton/m³</b><br><span style="color:var(--muted);font-size:10.5px">calculado con ${todo.n} pesada${todo.n===1?'':'s'} real${todo.n===1?'':'es'} de todo el historial — así se usa en "Sin báscula" y en el aviso de cruce</span></div>`
+    + (hoy?`<div style="margin-top:6px;color:var(--muted);font-size:10.5px">De hoy: ${hoy.factor} ton/m³ (${hoy.n} pesada${hoy.n===1?'':'s'}) — solo de referencia, no reemplaza al vigente</div>`:'');
 }
 function _renderConfigCamiones(){
   const cs=_camionesEdit||[];
@@ -1380,6 +1409,7 @@ function _renderConfigCamiones(){
     <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
       <input id="cm_pl_${idx}" value="${(c.placa||'').replace(/"/g,'&quot;')}" oninput="_camionesEdit[${idx}].placa=this.value.toUpperCase()" style="text-transform:uppercase;flex:1.4;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)" placeholder="HW9792A">
       <input id="cm_m3_${idx}" type="number" step="0.1" inputmode="decimal" value="${c.m3!=null?c.m3:''}" oninput="_camionesEdit[${idx}].m3=parseFloat(this.value)||0" style="width:78px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px;font-size:12px;color:var(--txt)" placeholder="m³">
+      <button onclick="abrirCajaCalc(${idx})" title="Calcular a partir de largo × ancho × altura de la caja" style="background:var(--blue4);border:1px solid var(--blue);border-radius:6px;color:var(--blue);padding:5px 8px;cursor:pointer;font-size:12px">🧮</button>
       <button onclick="_camQuitar(${idx})" title="Quitar" style="background:none;border:1px solid var(--bord);border-radius:6px;color:#dc2626;padding:5px 9px;cursor:pointer">✕</button>
     </div>`).join('')||'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">Sin placas registradas · agrega al menos una.</div>';
   document.getElementById('camionesBody').innerHTML=rows;
@@ -1387,22 +1417,74 @@ function _renderConfigCamiones(){
 window._camAgregar=function(){ _camionesEdit.push({placa:'',m3:null}); _renderConfigCamiones(); };
 window._camQuitar=function(i){ _camionesEdit.splice(i,1); _renderConfigCamiones(); };
 window.cerrarConfigCamiones=function(){ document.getElementById('camionesModal').style.display='none'; };
+// ── Calculadora de volumen de caja: largo × ancho × altura, menos el hueco del gato (trapecio) ──
+let _cajaCalcIdx=null;
+window.abrirCajaCalc=function(idx){
+  _cajaCalcIdx=idx;
+  ['cj_largo','cj_ancho','cj_altura','cj_g_mayor','cj_g_menor','cj_g_alt','cj_g_ancho'].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; });
+  const chk=document.getElementById('cj_tiene_gato'); if(chk) chk.checked=false;
+  const gb=document.getElementById('cj_gatoBox'); if(gb) gb.style.display='none';
+  const det=_camionesEdit[idx]&&_camionesEdit[idx].detalle;
+  if(det){
+    const set=(id,v)=>{ const el=document.getElementById(id); if(el&&v!=null) el.value=v; };
+    set('cj_largo',det.largo); set('cj_ancho',det.ancho); set('cj_altura',det.altura);
+    if(det.descuentoGato>0){ if(chk) chk.checked=true; if(gb) gb.style.display='block'; }
+  }
+  const lbl=document.getElementById('cajaCalcPlacaLbl');
+  const placa=(_camionesEdit[idx]&&_camionesEdit[idx].placa)||'(sin placa aún)';
+  if(lbl) lbl.textContent='Placa: '+placa;
+  _cajaCalcPreview();
+  document.getElementById('cajaCalcModal').style.display='flex';
+};
+window.cerrarCajaCalc=function(){ document.getElementById('cajaCalcModal').style.display='none'; };
+function _cajaCalc(){
+  const n=id=>parseFloat((document.getElementById(id)||{}).value)||0;
+  const largo=n('cj_largo'), ancho=n('cj_ancho'), altura=n('cj_altura');
+  const bruto=largo*ancho*altura;
+  const tieneGato=!!(document.getElementById('cj_tiene_gato')||{}).checked;
+  let descuento=0;
+  if(tieneGato){
+    const mayor=n('cj_g_mayor'), menor=n('cj_g_menor'), altTrap=n('cj_g_alt'), anchoHueco=n('cj_g_ancho');
+    const areaTrap=((mayor+menor)/2)*altTrap;
+    descuento=areaTrap*anchoHueco;
+  }
+  const neto=Math.max(0, bruto-descuento);
+  return {largo,ancho,altura,bruto,tieneGato,descuento,neto};
+}
+function _cajaCalcPreview(){
+  const r=_cajaCalc();
+  const el=document.getElementById('cajaCalcResultado'); if(!el) return;
+  if(!r.bruto){ el.textContent=''; return; }
+  el.innerHTML = r.tieneGato
+    ? `Bruto: ${r.bruto.toFixed(2)} m³ − hueco gato: ${r.descuento.toFixed(2)} m³ = <span style="color:var(--green)">${r.neto.toFixed(2)} m³</span>`
+    : `Volumen: <span style="color:var(--green)">${r.neto.toFixed(2)} m³</span>`;
+}
+window.calcularCajaYUsar=function(){
+  if(_cajaCalcIdx==null) return;
+  const r=_cajaCalc();
+  if(!r.neto||r.neto<=0){ toast('Captura largo, ancho y altura de la caja','err'); return; }
+  _camionesEdit[_cajaCalcIdx].m3=+r.neto.toFixed(2);
+  _camionesEdit[_cajaCalcIdx].detalle={largo:r.largo,ancho:r.ancho,altura:r.altura,descuentoGato:r.tieneGato?r.descuento:0};
+  _renderConfigCamiones();
+  cerrarCajaCalc();
+  toast('Volumen de caja: '+r.neto.toFixed(2)+' m³','ok');
+};
 window.guardarConfigCamiones=function(){
-  const densidad=parseFloat(document.getElementById('camDensidad').value)||null;
-  const capacidades={};
+  const capacidades={}, detalles={};
   (_camionesEdit||[]).forEach((c,idx)=>{
     const pl=(document.getElementById('cm_pl_'+idx)||{}).value||c.placa||'';
     const m3=parseFloat((document.getElementById('cm_m3_'+idx)||{}).value);
     const p=normPlacas(pl);
-    if(p && m3>0) capacidades[p]=m3;
+    if(p && m3>0){ capacidades[p]=m3; if(c.detalle) detalles[p]=c.detalle; }
   });
-  _camVol={densidad, capacidades};
+  _camVol={..._camVol, capacidades, detalles};
   try{
-    setDoc(doc(db,'config039','camionesVolumen'), { densidad, capacidades, ts:Date.now(), by:((typeof session!=='undefined'&&session&&session.nombre)||'admin') })
-      .then(()=>toast('Densidad y capacidades guardadas en la nube ✓','ok'))
+    setDoc(doc(db,'config039','camionesVolumen'), { capacidades, detalles, ts:Date.now(), by:((typeof session!=='undefined'&&session&&session.nombre)||'admin') })
+      .then(()=>toast('Capacidades guardadas en la nube ✓','ok'))
       .catch(e=>{ console.warn('camionesVolumen→nube:',e?.code||e); toast('Guardado local (sin nube: '+(e?.code||'sin señal')+')','warn'); });
   }catch(e){ console.warn('camionesVolumen→nube:',e); }
   document.getElementById('camionesModal').style.display='none';
+  _renderFactorCalculado();
 };
 // Calcula ton = capacidad(m³) de la placa capturada × densidad, y llena el campo Ton recibidas.
 // Si la placa no tiene capacidad registrada, la pide una vez y la guarda para la próxima.
@@ -1411,8 +1493,9 @@ window.calcularTonPorVolumen=function(){
   if(sinPlaca){ toast('Marcaste "Sin placa" — este cálculo necesita una placa para saber su capacidad','err'); return; }
   const placa=normPlacas((document.getElementById('f_placas')||{}).value||'');
   if(!placa){ toast('Captura primero las placas del camión','err'); return; }
-  if(!_camVol.densidad){
-    toast('Primero define la densidad del material en "🚛 Camiones"','warn');
+  const factObj=_factorCalculadoCampo(false);
+  if(!factObj){
+    toast('Aún no hay pesadas de calibración — guarda al menos un viaje CON báscula de una placa con m³ registrados','warn');
     abrirConfigCamiones();
     return;
   }
@@ -1422,14 +1505,15 @@ window.calcularTonPorVolumen=function(){
     capacidad=parseFloat(txt);
     if(!capacidad||capacidad<=0){ toast('Capacidad no válida — no se calculó','err'); return; }
     _camVol.capacidades[placa]=capacidad;
-    try{ setDoc(doc(db,'config039','camionesVolumen'), _camVol, {merge:true}).catch(e=>console.warn('capacidad→nube:',e?.code||e)); }catch(e){}
+    try{ setDoc(doc(db,'config039','camionesVolumen'), {capacidades:_camVol.capacidades}, {merge:true}).catch(e=>console.warn('capacidad→nube:',e?.code||e)); }catch(e){}
   }
-  const ton=capacidad*_camVol.densidad;
+  const factor=factObj.factor;
+  const ton=capacidad*factor;
   const tEl=document.getElementById('f_ton');
   if(tEl){ tEl.value=ton.toFixed(2); calc(); actualizarHintDist(); autoAsignarTon(); checkTonRango(); }
-  _ultimoTonCalc={placa, valor:ton.toFixed(2), capacidad, densidad:_camVol.densidad};
+  _ultimoTonCalc={placa, valor:ton.toFixed(2), capacidad, densidad:factor};
   const info=document.getElementById('tonCalcInfo');
-  if(info){ info.style.display='block'; info.textContent=`📐 Calculado sin báscula: ${capacidad} m³ × ${_camVol.densidad} ton/m³ = ${ton.toFixed(2)} ton`; }
+  if(info){ info.style.display='block'; info.textContent=`📐 Calculado sin báscula: ${capacidad} m³ × ${factor} ton/m³ (factor de ${factObj.n} pesada${factObj.n===1?'':'s'} real${factObj.n===1?'':'es'}) = ${ton.toFixed(2)} ton`; }
   toast('Ton calculada por volumen: '+ton.toFixed(2),'ok');
 };
 // Si el usuario edita el campo de ton a mano después de haber calculado, ya no cuenta como "calculado"
@@ -2056,7 +2140,7 @@ function startConfigCarriles(){
     snap.forEach(d=>{
       const data=d.data()||{};
       if(d.id==='camionesVolumen'){
-        _camVol={ densidad:(data.densidad!=null?+data.densidad:null), capacidades:data.capacidades||{} };
+        _camVol={ ..._camVol, capacidades:data.capacidades||{}, detalles:data.detalles||{} };
         return;
       }
       if(!data.carriles) return;
@@ -2823,8 +2907,9 @@ window.guardar = async function() {
   if (ton<5||ton>60) { if(!confirm('Toneladas: '+ton+'. Fuera del rango normal (5-60 ton). ¿Es correcto?')) return; }
   // Cruce: si el ton vino de "Sin báscula" (caja×densidad), avisar si no cuadra contra lo tendido
   // en campo a un espesor fijo de 3cm (área del concepto principal × 0.03 × densidad calibrada).
-  if (esCalculado && area>0 && _camVol.densidad){
-    const tonEsperado=area*0.03*_camVol.densidad;
+  if (esCalculado && area>0){
+    const factObj=_factorCalculadoCampo(false);
+    const tonEsperado=factObj?area*0.03*factObj.factor:0;
     if(tonEsperado>0){
       const difPct=Math.abs(ton-tonEsperado)/tonEsperado*100;
       if(difPct>15){
