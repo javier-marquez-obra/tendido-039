@@ -331,7 +331,15 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
       </div>
       <div style="font-size:11px;color:var(--muted);margin-bottom:12px">Se comparte en la nube entre todos los celulares. Ton calculada = capacidad (m³) de la placa × densidad. Úsalo solo cuando no haya báscula cerca.</div>
       <div style="margin-bottom:14px">
-        <label style="font-size:11px;font-weight:700;color:var(--gold)">Factor (ton/m³) — lo calcula la app, no se escribe a mano</label>
+        <label style="font-size:11px;font-weight:700;color:var(--gold)">Peso volumétrico de laboratorio (kg/m³)</label>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+          <div><label style="font-size:10px;color:var(--muted)">Suelto (en la caja)</label><input type="number" id="camLabSuelto" step="1" inputmode="decimal" placeholder="ej. 1273" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)"></div>
+          <div><label style="font-size:10px;color:var(--muted)">Compacto (ya tendido)</label><input type="number" id="camLabCompacto" step="1" inputmode="decimal" placeholder="ej. 2290" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)"></div>
+        </div>
+        <div style="font-size:10px;color:var(--muted);margin-top:4px">Del laboratorio. El suelto se usa para "Sin báscula" (caja × suelto); el compacto se usa para avisar si lo tendido a 3cm no cuadra.</div>
+      </div>
+      <div style="margin-bottom:14px">
+        <label style="font-size:11px;font-weight:700;color:var(--gold)">Factor de campo (verificación opcional)</label>
         <div id="camFactorCalc" style="margin-top:6px;font-size:12px;color:var(--txt);background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"></div>
       </div>
       <div style="font-weight:800;color:var(--gold);font-size:13px;margin-bottom:6px">Capacidad por placa (m³)</div>
@@ -1315,7 +1323,7 @@ window.cambiarObra=function(v){
   toast('Obra activa: '+((OBRAS[v]&&OBRAS[v].nombre)||v),'ok');
 };
 // ── Densidad del material y capacidad (m³) por placa — para calcular ton sin báscula ──
-let _camVol = { capacidades:{} };
+let _camVol = { capacidades:{}, detalles:{}, labSuelto:null, labCompacto:null };
 let _camionesEdit=null; // filas en edición dentro del modal: [{placa,m3}]
 let _ultimoTonCalc=null; // {placa, valor, capacidad, densidad} — para saber si el ton final vino de este cálculo
 // ── Editor de carriles y ancho por tramo (por obra) ──
@@ -1381,6 +1389,8 @@ window.guardarConfigCarriles=function(){
 // ── Editor de densidad + capacidad por placa (para calcular ton sin báscula) ──
 window.abrirConfigCamiones=function(){
   _camionesEdit=Object.keys(_camVol.capacidades||{}).sort().map(p=>({placa:p, m3:_camVol.capacidades[p], detalle:(_camVol.detalles||{})[p]||null}));
+  const sEl=document.getElementById('camLabSuelto'); if(sEl) sEl.value=_camVol.labSuelto!=null?Math.round(_camVol.labSuelto*1000):'';
+  const cEl=document.getElementById('camLabCompacto'); if(cEl) cEl.value=_camVol.labCompacto!=null?Math.round(_camVol.labCompacto*1000):'';
   _renderConfigCamiones();
   _renderFactorCalculado();
   document.getElementById('camionesModal').style.display='flex';
@@ -1399,9 +1409,12 @@ function _factorCalculadoCampo(soloHoy){
 function _renderFactorCalculado(){
   const el=document.getElementById('camFactorCalc'); if(!el) return;
   const hoy=_factorCalculadoCampo(true), todo=_factorCalculadoCampo(false);
-  if(!todo){ el.innerHTML='Sin pesadas de calibración todavía. Registra la capacidad (m³) de una placa arriba y guarda un viaje CON báscula de esa placa — en cuanto haya al menos una pesada, aquí aparece el factor.'; return; }
-  el.innerHTML = `<div>📊 <b>Factor vigente: ${todo.factor} ton/m³</b><br><span style="color:var(--muted);font-size:10.5px">calculado con ${todo.n} pesada${todo.n===1?'':'s'} real${todo.n===1?'':'es'} de todo el historial — así se usa en "Sin báscula" y en el aviso de cruce</span></div>`
-    + (hoy?`<div style="margin-top:6px;color:var(--muted);font-size:10.5px">De hoy: ${hoy.factor} ton/m³ (${hoy.n} pesada${hoy.n===1?'':'s'}) — solo de referencia, no reemplaza al vigente</div>`:'');
+  if(!todo && !hoy){ el.innerHTML='Sin pesadas de verificación todavía — opcional. El cálculo de "Sin báscula" ya funciona con el peso volumétrico de laboratorio de arriba.'; return; }
+  let html='';
+  if(todo) html+=`<div>Campo (histórico): <b>${todo.factor}</b> ton/m³ (${todo.n} pesada${todo.n===1?'':'s'})</div>`;
+  if(hoy) html+=`<div style="margin-top:4px">Campo (hoy): <b>${hoy.factor}</b> ton/m³ (${hoy.n} pesada${hoy.n===1?'':'s'})</div>`;
+  html+=`<div style="margin-top:6px;color:var(--muted);font-size:10.5px">Solo de referencia — no se aplica automáticamente mientras haya un valor de laboratorio capturado.</div>`;
+  el.innerHTML=html;
 }
 function _renderConfigCamiones(){
   const cs=_camionesEdit||[];
@@ -1477,10 +1490,14 @@ window.guardarConfigCamiones=function(){
     const p=normPlacas(pl);
     if(p && m3>0){ capacidades[p]=m3; if(c.detalle) detalles[p]=c.detalle; }
   });
-  _camVol={..._camVol, capacidades, detalles};
+  const labSueltoKg=parseFloat((document.getElementById('camLabSuelto')||{}).value);
+  const labCompactoKg=parseFloat((document.getElementById('camLabCompacto')||{}).value);
+  const labSuelto=labSueltoKg>0?+(labSueltoKg/1000).toFixed(4):null;
+  const labCompacto=labCompactoKg>0?+(labCompactoKg/1000).toFixed(4):null;
+  _camVol={..._camVol, capacidades, detalles, labSuelto, labCompacto};
   try{
-    setDoc(doc(db,'config039','camionesVolumen'), { capacidades, detalles, ts:Date.now(), by:((typeof session!=='undefined'&&session&&session.nombre)||'admin') })
-      .then(()=>toast('Capacidades guardadas en la nube ✓','ok'))
+    setDoc(doc(db,'config039','camionesVolumen'), { capacidades, detalles, labSuelto, labCompacto, ts:Date.now(), by:((typeof session!=='undefined'&&session&&session.nombre)||'admin') })
+      .then(()=>toast('Capacidades y peso volumétrico guardados en la nube ✓','ok'))
       .catch(e=>{ console.warn('camionesVolumen→nube:',e?.code||e); toast('Guardado local (sin nube: '+(e?.code||'sin señal')+')','warn'); });
   }catch(e){ console.warn('camionesVolumen→nube:',e); }
   document.getElementById('camionesModal').style.display='none';
@@ -1494,8 +1511,10 @@ window.calcularTonPorVolumen=function(){
   const placa=normPlacas((document.getElementById('f_placas')||{}).value||'');
   if(!placa){ toast('Captura primero las placas del camión','err'); return; }
   const factObj=_factorCalculadoCampo(false);
-  if(!factObj){
-    toast('Aún no hay pesadas de calibración — guarda al menos un viaje CON báscula de una placa con m³ registrados','warn');
+  const factor=_camVol.labSuelto || (factObj&&factObj.factor) || null;
+  const fuente=_camVol.labSuelto ? `laboratorio (suelto ${Math.round(_camVol.labSuelto*1000)} kg/m³)` : `campo (${factObj.n} pesada${factObj.n===1?'':'s'})`;
+  if(!factor){
+    toast('Falta el peso volumétrico de laboratorio (o una pesada de campo) en "🚛 Camiones"','warn');
     abrirConfigCamiones();
     return;
   }
@@ -1507,13 +1526,12 @@ window.calcularTonPorVolumen=function(){
     _camVol.capacidades[placa]=capacidad;
     try{ setDoc(doc(db,'config039','camionesVolumen'), {capacidades:_camVol.capacidades}, {merge:true}).catch(e=>console.warn('capacidad→nube:',e?.code||e)); }catch(e){}
   }
-  const factor=factObj.factor;
   const ton=capacidad*factor;
   const tEl=document.getElementById('f_ton');
   if(tEl){ tEl.value=ton.toFixed(2); calc(); actualizarHintDist(); autoAsignarTon(); checkTonRango(); }
   _ultimoTonCalc={placa, valor:ton.toFixed(2), capacidad, densidad:factor};
   const info=document.getElementById('tonCalcInfo');
-  if(info){ info.style.display='block'; info.textContent=`📐 Calculado sin báscula: ${capacidad} m³ × ${factor} ton/m³ (factor de ${factObj.n} pesada${factObj.n===1?'':'s'} real${factObj.n===1?'':'es'}) = ${ton.toFixed(2)} ton`; }
+  if(info){ info.style.display='block'; info.textContent=`📐 Calculado sin báscula: ${capacidad} m³ × ${factor} ton/m³ (${fuente}) = ${ton.toFixed(2)} ton`; }
   toast('Ton calculada por volumen: '+ton.toFixed(2),'ok');
 };
 // Si el usuario edita el campo de ton a mano después de haber calculado, ya no cuenta como "calculado"
@@ -2140,7 +2158,7 @@ function startConfigCarriles(){
     snap.forEach(d=>{
       const data=d.data()||{};
       if(d.id==='camionesVolumen'){
-        _camVol={ ..._camVol, capacidades:data.capacidades||{}, detalles:data.detalles||{} };
+        _camVol={ ..._camVol, capacidades:data.capacidades||{}, detalles:data.detalles||{}, labSuelto:(data.labSuelto!=null?+data.labSuelto:null), labCompacto:(data.labCompacto!=null?+data.labCompacto:null) };
         return;
       }
       if(!data.carriles) return;
@@ -2909,7 +2927,8 @@ window.guardar = async function() {
   // en campo a un espesor fijo de 3cm (área del concepto principal × 0.03 × densidad calibrada).
   if (esCalculado && area>0){
     const factObj=_factorCalculadoCampo(false);
-    const tonEsperado=factObj?area*0.03*factObj.factor:0;
+    const densidadCruce=_camVol.labCompacto || (factObj&&factObj.factor) || null;
+    const tonEsperado=densidadCruce?area*0.03*densidadCruce:0;
     if(tonEsperado>0){
       const difPct=Math.abs(ton-tonEsperado)/tonEsperado*100;
       if(difPct>15){
