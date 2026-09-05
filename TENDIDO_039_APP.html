@@ -391,8 +391,9 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <div style="font-weight:800;color:var(--gold);font-size:15px">📋 Resumen ejecutivo rápido</div>
         <button onclick="document.getElementById('resumenModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
       </div>
-      <select id="resumenObra" onchange="_poblarConceptosResumen();_renderResumenRapido()" style="width:100%;margin-bottom:8px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)"></select>
+      <select id="resumenObra" onchange="_poblarConceptosResumen();_poblarCarrilesResumen();_renderResumenRapido()" style="width:100%;margin-bottom:8px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)"></select>
       <select id="resumenConcepto" onchange="_renderResumenRapido()" style="width:100%;margin-bottom:8px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)"></select>
+      <select id="resumenCarril" onchange="_renderResumenRapido()" style="width:100%;margin-bottom:8px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)"></select>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
         <div><label style="font-size:10px;color:var(--muted)">Desde</label><input type="date" id="resumenDesde" onchange="_renderResumenRapido()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:12.5px;color:var(--txt)"></div>
         <div><label style="font-size:10px;color:var(--muted)">Hasta</label><input type="date" id="resumenHasta" onchange="_renderResumenRapido()" style="width:100%;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:7px;font-size:12.5px;color:var(--txt)"></div>
@@ -1923,26 +1924,55 @@ window.abrirResumenRapido=function(){
   sel.innerHTML = '<option value="__todas__">Todas las obras</option>' + claves.map(k=>`<option value="${k}">${(OBRAS[k].nombre||k)}</option>`).join('');
   sel.value=obraActiva||'__todas__';
   _poblarConceptosResumen();
+  _poblarCarrilesResumen();
   _renderResumenRapido();
   document.getElementById('resumenModal').style.display='flex';
 };
+// Los conceptos y carriles se sacan de los VIAJES YA GUARDADOS (no del catálogo actual) —
+// así el filtro siempre encuentra coincidencias, incluso si un viaje trae un ID viejo/legacy
+// que ya no está en el catálogo (se marca con ⚠️ para que se note).
 function _poblarConceptosResumen(){
   const obraSel=(document.getElementById('resumenObra')||{}).value||'__todas__';
-  const claves = obraSel==='__todas__' ? Object.keys(OBRAS||{}) : [obraSel];
-  const vistos={}; const opciones=[];
-  claves.forEach(k=>{ (OBRAS[k]&&OBRAS[k].conceptos||[]).forEach(c=>{ if(!vistos[c.id]){ vistos[c.id]=true; opciones.push(c); } }); });
+  const ids={};
+  (recordsAll||[]).forEach(r=>{
+    if(obraSel!=='__todas__' && r.obra!==obraSel) return;
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto}];
+    cs.forEach(c=>{ if(c.id) ids[c.id]=true; });
+  });
+  const lista=Object.keys(ids).sort();
   const sel=document.getElementById('resumenConcepto');
-  sel.innerHTML = '<option value="__todos__">Todos los conceptos</option>' + opciones.map(c=>`<option value="${c.id}">${c.label||c.id}</option>`).join('');
+  const prev=sel.value;
+  sel.innerHTML = '<option value="__todos__">Todos los conceptos</option>' + lista.map(id=>{
+    const cat=getCatItem(id);
+    const label=(cat&&cat.label)?cat.label:id;
+    return `<option value="${id.replace(/"/g,'&quot;')}">${label}${cat?'':' ⚠️ (fuera de catálogo)'}</option>`;
+  }).join('');
+  sel.value = lista.includes(prev) ? prev : '__todos__';
 }
-// Totales (m², m³, ton) filtrados por concepto: suma a nivel CONCEPTO (no viaje completo), porque
-// un viaje puede traer varios conceptos repartidos (ej. carpeta + reniv) y el filtro debe aislar solo el elegido.
-function _resumenTotalesConcepto(recs, conceptoSel){
+function _poblarCarrilesResumen(){
+  const obraSel=(document.getElementById('resumenObra')||{}).value||'__todas__';
+  const set={};
+  (recordsAll||[]).forEach(r=>{
+    if(obraSel!=='__todas__' && r.obra!==obraSel) return;
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{carril:r.carril}];
+    cs.forEach(c=>{ if(c.carril) set[c.carril]=true; });
+  });
+  const lista=Object.keys(set).sort();
+  const sel=document.getElementById('resumenCarril');
+  const prev=sel.value;
+  sel.innerHTML = '<option value="__todos__">Todos los carriles</option>' + lista.map(c=>`<option value="${c.replace(/"/g,'&quot;')}">${c}</option>`).join('');
+  sel.value = lista.includes(prev) ? prev : '__todos__';
+}
+// Totales (m², m³, ton) filtrados por concepto y carril: suma a nivel CONCEPTO (no viaje completo), porque
+// un viaje puede traer varios conceptos repartidos (ej. carpeta + reniv) y el filtro debe aislar solo lo elegido.
+function _resumenTotalesConcepto(recs, conceptoSel, carrilSel){
   let m2=0,m3=0,ton=0,n=0;
   recs.forEach(r=>{
-    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,area:r.area_total,volumen:r.vol_total,ton:r.ton_recibidas}];
+    const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{id:r.concepto,area:r.area_total,volumen:r.vol_total,ton:r.ton_recibidas,carril:r.carril}];
     let usado=false;
     cs.forEach(c=>{
       if(conceptoSel!=='__todos__' && c.id!==conceptoSel) return;
+      if(carrilSel!=='__todos__' && c.carril!==carrilSel) return;
       m2+=(+c.area||0); m3+=(+c.volumen||0); ton+=(+c.ton||0); usado=true;
     });
     if(usado) n++;
@@ -1950,16 +1980,20 @@ function _resumenTotalesConcepto(recs, conceptoSel){
   const espCm=m2>0?(ton/(m2*DEN))*100:0;
   return {m2,m3,ton,espCm,n};
 }
-// Cadenamiento por carril, filtrado por concepto — separa dos cosas distintas:
-// kmFinalProm = promedio de dónde terminó cada carril (su ka más avanzado)
-// mlProm      = promedio de cuánto avanzó cada carril (su propio ka−kde, no la diferencia de promedios)
-function _resumenCadCarriles(recs, conceptoSel){
+// Cadenamiento por carril, filtrado por concepto y carril — separa tres datos:
+// kmFinalProm = promedio de dónde terminó cada carril (siempre se muestra)
+// kmIniProm   = promedio de dónde arrancó cada carril (solo tiene sentido si NO hay filtro de fecha —
+//               es decir, viendo el total de la obra completa; con fecha filtrada, el "inicio" sería
+//               el inicio de ESE rango, no el arranque real de la obra, y confundiría más que ayudar)
+// mlProm      = promedio de cuánto avanzó cada carril (su propio ka−kde, carril por carril)
+function _resumenCadCarriles(recs, conceptoSel, carrilSel){
   const porTramo={};
   recs.forEach(r=>{
     const cs=(r.conceptos&&r.conceptos.length)?r.conceptos:[{kde:r.kde,ka:r.ka,carril:r.carril,id:r.concepto}];
     cs.forEach(c=>{
       if(!c.carril) return;
       if(conceptoSel!=='__todos__' && c.id!==conceptoSel) return;
+      if(carrilSel!=='__todos__' && c.carril!==carrilSel) return;
       const tramo=tramoDeConcepto(c.id);
       if(!porTramo[tramo]) porTramo[tramo]={};
       const pc=porTramo[tramo];
@@ -1972,14 +2006,16 @@ function _resumenCadCarriles(recs, conceptoSel){
   const out={};
   Object.keys(porTramo).forEach(tramo=>{
     const carriles=Object.keys(porTramo[tramo]);
-    const finales=[], longitudes=[];
+    const finales=[], iniciales=[], longitudes=[];
     carriles.forEach(k=>{
       const o=porTramo[tramo][k];
       if(o.max!=null) finales.push(o.max);
+      if(o.min!=null) iniciales.push(o.min);
       if(o.min!=null&&o.max!=null) longitudes.push(o.max-o.min);
     });
     if(finales.length) out[tramo]={
       kmFinalProm: finales.reduce((a,b)=>a+b,0)/finales.length,
+      kmIniProm: iniciales.length?iniciales.reduce((a,b)=>a+b,0)/iniciales.length:null,
       mlProm: longitudes.length?longitudes.reduce((a,b)=>a+b,0)/longitudes.length:null,
       n: carriles.length
     };
@@ -1989,20 +2025,23 @@ function _resumenCadCarriles(recs, conceptoSel){
 function _renderResumenRapido(){
   const obraSel=(document.getElementById('resumenObra')||{}).value||'__todas__';
   const conceptoSel=(document.getElementById('resumenConcepto')||{}).value||'__todos__';
+  const carrilSel=(document.getElementById('resumenCarril')||{}).value||'__todos__';
   const desde=(document.getElementById('resumenDesde')||{}).value||null;
   const hasta=(document.getElementById('resumenHasta')||{}).value||null;
+  const esTotalObra=!desde&&!hasta; // sin filtro de fecha = viendo el total de la obra completa
   const recs=(recordsAll||[]).filter(r=>
     (obraSel==='__todas__'||r.obra===obraSel) &&
     (!desde||(r.fecha&&r.fecha>=desde)) &&
     (!hasta||(r.fecha&&r.fecha<=hasta))
   );
-  const tot=_resumenTotalesConcepto(recs, conceptoSel);
-  const rango=_resumenCadCarriles(recs, conceptoSel);
+  const tot=_resumenTotalesConcepto(recs, conceptoSel, carrilSel);
+  const rango=_resumenCadCarriles(recs, conceptoSel, carrilSel);
   const tramos=Object.keys(rango);
   const rangoHtml = tramos.length ? tramos.map(t=>{
     const o=rango[t];
     return `<div style="padding:6px 0;border-bottom:1px solid var(--bord)">
       <div style="color:var(--muted);font-weight:700;margin-bottom:2px">${t}</div>
+      ${esTotalObra&&o.kmIniProm!=null?`<div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Km inicial promedio</span><span style="font-weight:700">${fmtCad(o.kmIniProm)}</span></div>`:''}
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">Km final promedio</span><span style="font-weight:700">${fmtCad(o.kmFinalProm)}</span></div>
       <div style="display:flex;justify-content:space-between"><span style="color:var(--muted)">ML promedio de carriles</span><span style="font-weight:700">${o.mlProm!=null?_fmtMlOKm(o.mlProm):'—'}</span></div>
     </div>`;
@@ -2014,7 +2053,7 @@ function _renderResumenRapido(){
     const claves=[...new Set(recs.map(r=>r.obra).filter(Boolean))].sort();
     if(claves.length>1){
       const filas=claves.map(k=>{
-        const c=_resumenTotalesConcepto(recs.filter(r=>r.obra===k), conceptoSel);
+        const c=_resumenTotalesConcepto(recs.filter(r=>r.obra===k), conceptoSel, carrilSel);
         const nombre=(OBRAS[k]&&OBRAS[k].nombre)||k;
         return `<tr style="border-bottom:1px solid var(--bord)"><td style="padding:5px 6px">${nombre}</td><td style="padding:5px 6px;text-align:right">${c.m2.toLocaleString('es-MX',{maximumFractionDigits:1})}</td><td style="padding:5px 6px;text-align:right">${c.ton.toLocaleString('es-MX',{maximumFractionDigits:1})}</td><td style="padding:5px 6px;text-align:right">${c.espCm.toFixed(2)} cm</td></tr>`;
       }).join('');
@@ -2026,7 +2065,9 @@ function _renderResumenRapido(){
         </table>`;
     }
   }
-  const conceptoTxt = conceptoSel==='__todos__' ? '' : ' · concepto '+((document.getElementById('resumenConcepto')||{}).selectedOptions||[{textContent:conceptoSel}])[0].textContent;
+  const conceptoOpt=(document.getElementById('resumenConcepto')||{}).selectedOptions;
+  const conceptoTxt = conceptoSel==='__todos__' ? '' : ' · concepto '+(conceptoOpt&&conceptoOpt[0]?conceptoOpt[0].textContent:conceptoSel);
+  const carrilTxt = carrilSel==='__todos__' ? '' : ' · carril '+carrilSel;
   document.getElementById('resumenBody').innerHTML = `
     <div style="font-weight:800;color:var(--gold);font-size:12.5px;margin-bottom:4px">Kilometraje por carril</div>
     ${rangoHtml}
@@ -2036,7 +2077,10 @@ function _renderResumenRapido(){
       <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--muted)">Ton reales totales</div><div style="font-size:16px;font-weight:800">${tot.ton.toLocaleString('es-MX',{maximumFractionDigits:1})}</div></div>
       <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--muted)">Espesor real promedio</div><div style="font-size:16px;font-weight:800">${tot.espCm.toFixed(2)} cm</div></div>
     </div>
-    <div style="font-size:10px;color:var(--muted);margin-top:10px">Espesor real = toneladas ÷ (m² × ${DEN} ton/m³) · ${tot.n} viaje${tot.n===1?'':'s'} incluido${tot.n===1?'':'s'}${(desde||hasta)?' · fechas '+(desde||'…')+' a '+(hasta||'…'):''}${conceptoTxt}.</div>
+    <div style="font-size:10.5px;color:var(--muted);margin-top:10px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:6px 8px">
+      <b>Filtro activo:</b> ${tot.n} viaje${tot.n===1?'':'s'} incluido${tot.n===1?'':'s'} · ${(desde||hasta)?('fechas '+(desde||'…')+' a '+(hasta||'…')):'todas las fechas (total de obra)'}${conceptoTxt}${carrilTxt}
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:6px">Espesor real = toneladas ÷ (m² × ${DEN} ton/m³)</div>
     ${desgloseHtml}
   `;
 }
