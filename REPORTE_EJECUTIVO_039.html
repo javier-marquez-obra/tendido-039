@@ -2330,6 +2330,55 @@ function buildBalanceDias(recsAll){
 // Además compara contra lo que NOSOTROS le cobramos a SICT (catálogo E-7: geométrico + volumen extra),
 // para ver la utilidad por concepto.
 function buildGastos(recs){
+  // ── Producción de mezcla para pagar a ARMAQOP: separa lo pesado en báscula de lo calculado
+  // por volumen de caja × densidad de laboratorio (ton_metodo, viene de la app de campo). Así
+  // Martín ve exactamente cuánto de cada corte salió de cada método — nada se mezcla sin marcar. ──
+  const porFecha={};
+  recs.forEach(r=>{
+    const f=r.fecha||'(sin fecha)';
+    if(!porFecha[f]) porFecha[f]={bascula:0,calculado:0,vjB:0,vjC:0};
+    const m=r.ton_metodo==='calculado'?'calculado':'bascula';
+    porFecha[f][m]+=(+r.ton_recibidas||0);
+    porFecha[f][m==='calculado'?'vjC':'vjB']++;
+  });
+  const fechasProd=Object.keys(porFecha).sort();
+  let tB=0,tC=0,vB=0,vC=0;
+  fechasProd.forEach(f=>{ tB+=porFecha[f].bascula; tC+=porFecha[f].calculado; vB+=porFecha[f].vjB; vC+=porFecha[f].vjC; });
+  const filasProd=fechasProd.map(f=>{
+    const d=porFecha[f], tot=d.bascula+d.calculado;
+    return `<tr style="border-bottom:1px solid var(--border)">
+      <td style="padding:5px 6px">${f}</td>
+      <td style="padding:5px 6px;text-align:right">${d.bascula>0?d.bascula.toFixed(2):'—'} <span style="color:var(--gray);font-size:10px">(${d.vjB})</span></td>
+      <td style="padding:5px 6px;text-align:right">${d.calculado>0?d.calculado.toFixed(2):'—'} <span style="color:var(--gray);font-size:10px">(${d.vjC})</span></td>
+      <td style="padding:5px 6px;text-align:right;font-weight:700">${tot.toFixed(2)}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" style="padding:8px;color:var(--gray)">Sin viajes en este filtro.</td></tr>';
+
+  const prodHtml = `
+  <div class="section-hdr">📦 Producción de mezcla — para pagar a ARMAQOP</div>
+  <div class="card">
+    <div class="card-hdr"><h4>📦 Toneladas por corte, báscula vs calculado por volumen</h4><div class="meta">Fuente: campo (báscula real o capacidad de caja × densidad de laboratorio)</div></div>
+    <div class="card-body">
+      <div style="font-size:11px;color:var(--gray);margin-bottom:10px">"Calculado" son viajes sin acceso a báscula: capacidad de la caja del camión (m³) × peso volumétrico de laboratorio (suelto). Queda marcado por viaje en campo, no es un número puesto a mano aquí.</div>
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <tr style="color:var(--gray);text-align:left;border-bottom:1px solid var(--border)">
+          <td style="padding:4px 6px">Fecha</td>
+          <td style="padding:4px 6px;text-align:right">Ton báscula (viajes)</td>
+          <td style="padding:4px 6px;text-align:right">Ton calculado (viajes)</td>
+          <td style="padding:4px 6px;text-align:right">Total ton</td>
+        </tr>
+        ${filasProd}
+        <tr style="border-top:2px solid var(--border)">
+          <td style="padding:6px;font-weight:800">TOTAL</td>
+          <td style="padding:6px;text-align:right;font-weight:800">${tB.toFixed(2)} <span style="color:var(--gray);font-size:10px">(${vB})</span></td>
+          <td style="padding:6px;text-align:right;font-weight:800">${tC.toFixed(2)} <span style="color:var(--gray);font-size:10px">(${vC})</span></td>
+          <td style="padding:6px;text-align:right;font-weight:800">${(tB+tC).toFixed(2)}</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+  `;
+
   const vol={reniv:0,carp3:0,bach1:0,carp5:0,bach2:0};
   recs.forEach(r=>{ _volRealPorConcepto(r).forEach(x=>{ if(vol[x.key]!=null) vol[x.key]+=x.vol; }); });
   const keys=Object.keys(CAT);
@@ -2357,6 +2406,7 @@ function buildGastos(recs){
   });
 
   return `
+  ${prodHtml}
   <div class="section-hdr">💵 Gastos — ARMAQOP (productor y colocador de mezcla)</div>
   <div class="card">
     <div class="card-hdr"><h4>💵 Costo por volumen real colocado</h4><div class="meta">Vol. real (ton÷densidad), no geométrico</div></div>

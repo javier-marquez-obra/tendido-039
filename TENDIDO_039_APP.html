@@ -298,6 +298,7 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
     <button class="be" id="btnEliminarObra" onclick="eliminarObra()" title="Eliminar la obra activa (solo admin)" style="padding:5px 10px;font-size:12px;white-space:nowrap;border-color:#ef4444;color:#ef4444;display:none">🗑 Eliminar obra</button>
     <button class="be" onclick="abrirConfigCarriles()" title="Definir carriles y ancho sugerido por tramo" style="padding:5px 10px;font-size:12px;white-space:nowrap">🛣️ Carriles</button>
     <button class="be" onclick="abrirConfigCamiones()" title="Densidad del material y capacidad en m³ de cada placa, para calcular toneladas sin báscula" style="padding:5px 10px;font-size:12px;white-space:nowrap">🚛 Camiones</button>
+    <button class="be" onclick="abrirResumenRapido()" title="Kilometraje, m², m³ y toneladas totales ejecutadas — para responder rápido cuando te preguntan" style="padding:5px 10px;font-size:12px;white-space:nowrap">📋 Resumen</button>
     <button class="be" id="btnConfigCatalogo" onclick="abrirConfigCatalogo()" title="Definir conceptos, cantidades y precios de la obra activa" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">📋 Catálogo</button>
     <button class="be" id="btnNormConceptos" onclick="document.getElementById('normConceptosModal').style.display='flex';diagnosticarConceptos()" title="Corregir viajes viejos cuyo concepto no coincide con el catálogo actual" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">🔧 Normalizar</button>
     <button class="be" id="btnToggleMaquinaria" onclick="toggleMaquinariaObra()" title="Prende/apaga el módulo de Maquinaria SOLO en esta obra (en pruebas)" style="padding:5px 10px;font-size:12px;white-space:nowrap;display:none">🚜 Maquinaria</button>
@@ -381,6 +382,17 @@ header{display:flex;align-items:center;justify-content:space-between;padding:10p
         <button onclick="calcularCajaYUsar()" style="flex:1;background:var(--green);border:none;border-radius:8px;color:#0a0a0a;padding:10px;font-size:13px;font-weight:800;cursor:pointer">Calcular y usar</button>
         <button onclick="cerrarCajaCalc()" style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;color:var(--txt);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
       </div>
+    </div>
+  </div>
+
+  <div id="resumenModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;padding:14px">
+    <div style="background:var(--card);border:1px solid var(--bord);border-radius:14px;max-width:480px;width:100%;max-height:88vh;overflow-y:auto;padding:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-weight:800;color:var(--gold);font-size:15px">📋 Resumen ejecutivo rápido</div>
+        <button onclick="document.getElementById('resumenModal').style.display='none'" style="background:none;border:none;color:var(--muted);font-size:20px;cursor:pointer">✕</button>
+      </div>
+      <select id="resumenObra" onchange="_renderResumenRapido()" style="width:100%;margin-bottom:12px;background:var(--bg);border:1px solid var(--bord);border-radius:6px;padding:8px;font-size:13px;color:var(--txt)"></select>
+      <div id="resumenBody"></div>
     </div>
   </div>
 
@@ -1898,7 +1910,44 @@ function _cadPromedioCarriles(){
   });
   return out; // {tramo: {ini,fin,n}, ...} — solo incluye los subtramos que sí tienen cadenamiento capturado
 }
-// ML trabajados y ML faltantes PARA LLEGAR A LA META, por cada carril individual (no promediado
+// ── Resumen ejecutivo rápido: lo que preguntan seguido y hay que andar buscando/calculando ──
+window.abrirResumenRapido=function(){
+  const sel=document.getElementById('resumenObra');
+  const claves=Object.keys(OBRAS||{});
+  sel.innerHTML = '<option value="__todas__">Todas las obras</option>' + claves.map(k=>`<option value="${k}">${(OBRAS[k].nombre||k)}</option>`).join('');
+  sel.value=obraActiva||'__todas__';
+  _renderResumenRapido();
+  document.getElementById('resumenModal').style.display='flex';
+};
+function _renderResumenRapido(){
+  const obraSel=(document.getElementById('resumenObra')||{}).value||'__todas__';
+  const recs=(recordsAll||[]).filter(r=>obraSel==='__todas__'||r.obra===obraSel);
+  const m2=recs.reduce((s,r)=>s+(+r.area_total||0),0);
+  const m3=recs.reduce((s,r)=>s+(+r.vol_total||0),0);
+  const ton=recs.reduce((s,r)=>s+(+r.ton_recibidas||0),0);
+  const espCm = m2>0 ? (ton/(m2*DEN))*100 : 0; // ton÷(área×densidad)=espesor en m → ×100 = cm
+  // Rango de cadenamiento y distancia promedio: reutiliza el mismo cálculo por carril que ya usa la app
+  // (promedia el km de inicio y de fin entre los carriles de cada tramo/subtramo).
+  const recsBak=records; records = recs; // _cadPromedioCarriles() lee de "records"
+  const rango=_cadPromedioCarriles();
+  records = recsBak;
+  const tramos=Object.keys(rango);
+  const rangoHtml = tramos.length ? tramos.map(t=>{
+    const o=rango[t]; const dist=o.fin-o.ini;
+    return `<div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--bord)"><span style="color:var(--muted)">${t}</span><span>${fmtCad(o.ini)} → ${fmtCad(o.fin)} · ${_fmtMlOKm(dist)}</span></div>`;
+  }).join('') : '<div style="color:var(--muted);font-size:12px">Sin cadenamiento capturado en los viajes filtrados.</div>';
+  document.getElementById('resumenBody').innerHTML = `
+    <div style="font-weight:800;color:var(--gold);font-size:12.5px;margin-bottom:4px">Rango de kilometraje (promedio entre carriles)</div>
+    ${rangoHtml}
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:14px">
+      <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--muted)">m² ejecutados</div><div style="font-size:16px;font-weight:800">${m2.toLocaleString('es-MX',{maximumFractionDigits:1})}</div></div>
+      <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--muted)">m³ geométricos</div><div style="font-size:16px;font-weight:800">${m3.toLocaleString('es-MX',{maximumFractionDigits:1})}</div></div>
+      <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--muted)">Ton reales totales</div><div style="font-size:16px;font-weight:800">${ton.toLocaleString('es-MX',{maximumFractionDigits:1})}</div></div>
+      <div style="background:var(--bg);border:1px solid var(--bord);border-radius:8px;padding:10px"><div style="font-size:10px;color:var(--muted)">Espesor real promedio</div><div style="font-size:16px;font-weight:800">${espCm.toFixed(2)} cm</div></div>
+    </div>
+    <div style="font-size:10px;color:var(--muted);margin-top:10px">Espesor real = toneladas ÷ (m² × ${DEN} ton/m³) · ${recs.length} viaje${recs.length===1?'':'s'} incluido${recs.length===1?'':'s'} en este filtro.</div>
+  `;
+}
 // entre carriles como _cadPromedioCarriles) — la meta de cada carril es el largo total del tramo
 // donde vive (RANGO_TRAMO), ya que cada carril debe recorrer esa misma longitud completa.
 // Formato de distancia: en METROS si es menor a 1000, en KILÓMETROS con 2 decimales si es 1000+.
